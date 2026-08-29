@@ -64,6 +64,12 @@ jobs:
     steps:
       - name: Summarise
         run: |
+          # A failed discovery skips the whole matrix, which would otherwise
+          # look identical to "no projects yet" and pass.
+          if [ "${{ needs.discover.result }}" != "success" ]; then
+            echo "project discovery failed"
+            exit 1
+          fi
           if [ "${{ needs.check.result }}" = "failure" ] || [ "${{ needs.check.result }}" = "cancelled" ]; then
             echo "one or more projects failed"
             exit 1
