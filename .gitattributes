@@ -1,0 +1,17 @@
+* text=auto eol=lf
+
+*.png binary
+*.jpg binary
+*.gif binary
+*.ico binary
+*.pdf binary
+*.zip binary
+*.gz binary
+
+# Keep generated lockfiles out of diffs and language stats.
+package-lock.json linguist-generated=true -diff
+pnpm-lock.yaml    linguist-generated=true -diff
+bun.lockb         binary linguist-generated=true
+Cargo.lock        linguist-generated=true -diff
+go.sum            linguist-generated=true -diff
+uv.lock           linguist-generated=true -diff

@@ -1,0 +1,71 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  # Projects are independent, so give each one its own job: a broken
+  # experiment in one language never blocks the others.
+  discover:
+    runs-on: ubuntu-latest
+    outputs:
+      projects: ${{ steps.list.outputs.projects }}
+      any: ${{ steps.list.outputs.any }}
+    steps:
+      - uses: actions/checkout@v4
+      - id: list
+        run: |
+          projects="$(scripts/list-projects.sh --json)"
+          echo "projects=$projects" >> "$GITHUB_OUTPUT"
+          if [ "$projects" = "[]" ]; then
+            echo "any=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "any=true" >> "$GITHUB_OUTPUT"
+          fi
+          echo "discovered: $projects"
+
+  check:
+    needs: discover
+    if: needs.discover.outputs.any == 'true'
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        project: ${{ fromJSON(needs.discover.outputs.projects) }}
+    name: check (${{ matrix.project }})
+    steps:
+      - uses: actions/checkout@v4
+
+      # ubuntu-latest already ships gcc, make, go, rust, node and python, so
+      # most projects need no setup at all. Add a setup step here only if a
+      # project needs a toolchain or version the runner does not provide.
+      - name: Toolchain versions
+        run: |
+          for c in make cc go cargo node npm python3; do
+            printf '%-8s %s\n' "$c" "$(command -v "$c" >/dev/null 2>&1 && "$c" --version 2>&1 | head -1 || echo 'not installed')"
+          done
+
+      - name: make check
+        run: make check P=${{ matrix.project }}
+
+  # A single required status check that stays green when there are no projects
+  # yet, and goes red if any project's check job failed.
+  ci:
+    needs: [discover, check]
+    if: always()
+    runs-on: ubuntu-latest
+    steps:
+      - name: Summarise
+        run: |
+          if [ "${{ needs.check.result }}" = "failure" ] || [ "${{ needs.check.result }}" = "cancelled" ]; then
+            echo "one or more projects failed"
+            exit 1
+          fi
+          echo "all good"

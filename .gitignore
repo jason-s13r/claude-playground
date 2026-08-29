@@ -1,0 +1,63 @@
+# ---- OS / editor ----
+.DS_Store
+Thumbs.db
+*.swp
+*~
+.idea/
+.vscode/*
+!.vscode/extensions.json
+!.vscode/settings.json
+
+# ---- generic build output ----
+bin/
+dist/
+build/
+out/
+target/
+*.o
+*.a
+*.so
+*.dylib
+*.dll
+*.exe
+
+# ---- node ----
+node_modules/
+.npm/
+.pnpm-store/
+*.tsbuildinfo
+npm-debug.log*
+yarn-error.log*
+
+# ---- rust ----
+**/target/
+*.rs.bk
+
+# ---- go ----
+vendor/
+
+# ---- python ----
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+.pytest_cache/
+.ruff_cache/
+.mypy_cache/
+*.egg-info/
+
+# ---- c / c++ / cmake ----
+CMakeFiles/
+CMakeCache.txt
+cmake_install.cmake
+compile_commands.json
+
+# ---- secrets / local env ----
+.env
+.env.*
+!.env.example
+*.local
+
+# ---- scratch ----
+scratch/
+tmp/
