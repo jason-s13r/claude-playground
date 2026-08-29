@@ -1,0 +1,33 @@
+[package]
+name = "foodstuffs-nz-cli"
+version = "0.1.0"
+edition = "2021"
+description = "Unofficial CLI for New World and PAK'nSAVE (Foodstuffs NZ) product search"
+license = "MIT"
+
+[[bin]]
+name = "fsnz"
+path = "src/main.rs"
+
+[dependencies]
+anyhow = "1"
+base64 = "0.22"
+clap = { version = "4", features = ["derive", "env"] }
+comfy-table = "7"
+directories = "6"
+owo-colors = { version = "4", features = ["supports-colors"] }
+keyring = "4"
+rpassword = "7"
+uuid = { version = "1", features = ["v4"] }
+reqwest = { version = "0.12", default-features = false, features = ["json", "rustls-tls", "gzip", "brotli"] }
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+shell-words = "1"
+tokio = { version = "1", features = ["macros", "rt-multi-thread", "process", "fs"] }
+toml = "0.9"
+
+[dev-dependencies]
+assert_cmd = "2"
+predicates = "3"
+tempfile = "3"
+wiremock = "0.6"
