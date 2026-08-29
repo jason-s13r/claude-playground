@@ -46,7 +46,7 @@ runner fans these targets out to all of them (or to one, with `P=<project>`):
 | `fmt-check` | Verify formatting, change nothing                  |
 | `run`       | Run the thing; takes `ARGS="..."`                  |
 | `clean`     | Remove build artifacts                             |
-| `check`     | `fmt-check` + `lint` + `test` — what CI runs        |
+| `check`     | `fmt-check` + `lint` + `build` + `test` — what CI runs |
 
 A project may omit any target it has no use for; the fan-out skips it instead
 of failing. Only `check` really matters, since that is what CI calls.

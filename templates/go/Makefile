@@ -24,4 +24,4 @@ lint:
 clean:
 	rm -rf bin
 
-check: fmt-check lint test
+check: fmt-check lint build test

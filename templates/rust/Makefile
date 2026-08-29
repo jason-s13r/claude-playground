@@ -22,4 +22,4 @@ lint:
 clean:
 	cargo clean
 
-check: fmt-check lint test
+check: fmt-check lint build test

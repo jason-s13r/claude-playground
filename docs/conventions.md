@@ -49,8 +49,10 @@ so it is known to build rather than assumed to.
 
 Implement the targets in the table in the [README](../README.md). Guidance:
 
-- `check` is the CI entry point. It should be `fmt-check lint test`, minus any
-  of those the project does not implement.
+- `check` is the CI entry point. It should be `fmt-check lint build test`, minus
+  any of those the project does not implement. Include `build` even when `test`
+  appears to compile everything: a C test binary links only the units it needs,
+  so without it a `main.c` that does not compile still passes.
 - `run` should accept `ARGS`, so `make run P=x ARGS="--verbose"` works.
 - Prefer failing loudly on real problems, but let an *optional* formatter or
   linter that is not installed print a note and pass. The templates do this for

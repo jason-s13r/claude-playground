@@ -26,4 +26,4 @@ clean:
 	rm -rf .ruff_cache .pytest_cache
 	find . -name __pycache__ -type d -exec rm -rf {} +
 
-check: fmt-check lint test
+check: fmt-check lint build test

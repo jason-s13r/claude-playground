@@ -28,4 +28,4 @@ lint: node_modules
 clean:
 	rm -rf dist node_modules
 
-check: lint test
+check: lint build test

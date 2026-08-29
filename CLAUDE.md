@@ -38,8 +38,9 @@ make check              # every project
   `lint`, `fmt`, `fmt-check`, `run`, `clean`, `check` as apply. That Makefile is
   the only interface the rest of the repo uses. Omitted targets are skipped by
   the fan-out, so do not add empty ones just to fill the table.
-- **`check` is the CI contract.** It should be `fmt-check lint test` minus
-  whatever the project does not implement.
+- **`check` is the CI contract.** It should be `fmt-check lint build test` minus
+  whatever the project does not implement. Keep `build` in there — `test` does
+  not necessarily compile every source file.
 - **Do not touch other projects** when working on one. They are unrelated by
   design.
 - **No list to update.** CI and the root Makefile discover projects by globbing

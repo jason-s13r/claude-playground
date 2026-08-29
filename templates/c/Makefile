@@ -32,4 +32,4 @@ fmt-check:
 clean:
 	rm -rf bin
 
-check: fmt-check test
+check: fmt-check build test
