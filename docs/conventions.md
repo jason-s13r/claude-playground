@@ -77,3 +77,25 @@ explain about itself goes in its own `README.md`.
 
 `scratch/` and `tmp/` are ignored at the root. Use them for throwaway files
 rather than leaving them loose in a project.
+
+## Releasing
+
+Tag `<project>/vX.Y.Z` and push it. The release workflow validates the tag,
+runs `make check`, runs `make dist`, and publishes the contents of the
+project's `release/` directory.
+
+A project that should be releasable implements `dist`:
+
+- Put artifacts in `release/`, not `dist/` — `dist/` is build output for tsc
+  and setuptools, and packing into it would feed artifacts back into the next
+  build.
+- Name them `<project>-<version>-<os>-<arch>` where the project controls
+  naming. `VERSION` is exported by the root Makefile and defaults to
+  `0.0.0-dev` for local builds.
+- `dist` is optional. The fan-out skips a project that has no `dist` target,
+  but a release for such a project fails on the empty artifact directory
+  rather than publishing nothing.
+
+If the language embeds a version from a manifest, leave it that way and let the
+workflow enforce that the tag matches. Do not have `dist` rewrite the manifest:
+it makes local builds mutate tracked files.

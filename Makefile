@@ -22,7 +22,12 @@ else
 SELECTED := $(P)
 endif
 
-FANOUT_TARGETS := build test lint fmt fmt-check clean check
+FANOUT_TARGETS := build test lint fmt fmt-check clean check dist
+
+# Release version, consumed by each project's `dist` target. Exported so it
+# reaches the sub-makes the fan-out script spawns.
+VERSION ?= 0.0.0-dev
+export VERSION
 
 .DEFAULT_GOAL := help
 .PHONY: help list new run $(FANOUT_TARGETS)
@@ -40,9 +45,12 @@ help:
 	@echo "  fmt         format sources in place"
 	@echo "  fmt-check   verify formatting without writing"
 	@echo "  run         run one project; requires P=<project>"
+	@echo "  dist        build release artifacts into <project>/release/"
 	@echo "  clean       remove build artifacts"
 	@echo "  list        list projects and templates"
 	@echo "  new         scaffold a project: make new TEMPLATE=rust NAME=my-tool"
+	@echo
+	@echo "releases: push a tag <project>/vX.Y.Z to build and publish it"
 	@echo
 	@echo "projects:  $(if $(PROJECTS),$(PROJECTS),<none yet>)"
 	@echo "templates: $(TEMPLATES)"

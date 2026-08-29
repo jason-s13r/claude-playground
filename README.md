@@ -45,11 +45,37 @@ runner fans these targets out to all of them (or to one, with `P=<project>`):
 | `fmt`       | Format sources in place                            |
 | `fmt-check` | Verify formatting, change nothing                  |
 | `run`       | Run the thing; takes `ARGS="..."`                  |
+| `dist`      | Build release artifacts into `release/`            |
 | `clean`     | Remove build artifacts                             |
 | `check`     | `fmt-check` + `lint` + `build` + `test` — what CI runs |
 
 A project may omit any target it has no use for; the fan-out skips it instead
 of failing. Only `check` really matters, since that is what CI calls.
+
+## Releases
+
+Projects version independently, so release tags are namespaced by project:
+
+```bash
+git tag my-tool/v0.2.0
+git push origin my-tool/v0.2.0
+```
+
+That runs `make check`, then `make dist`, then publishes a GitHub Release with
+the artifacts and a `SHA256SUMS` file. Release notes list only the commits that
+touched that project since its own previous tag. Versions with a prerelease
+suffix (`v1.0.0-rc.1`) are marked as prereleases automatically.
+
+To rehearse without publishing, run the **Release** workflow manually from the
+Actions tab — its `dry_run` input defaults to true and builds everything
+without creating a release.
+
+Where a project declares its own version (`Cargo.toml`, `package.json`,
+`pyproject.toml`), the tag must match it. Those ecosystems bake the manifest
+version into the artifact, so a mismatch would publish a file labelled `0.1.0`
+under a release claiming `1.0.0`. The workflow refuses instead; bump the
+manifest in a commit, then tag. Projects with no manifest (C, Go) take the
+version from the tag alone.
 
 ## CI
 

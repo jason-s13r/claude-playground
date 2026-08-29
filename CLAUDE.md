@@ -50,5 +50,9 @@ make check              # every project
   language nothing uses yet. When a project needs a language with no template,
   create the directory and its Makefile by hand; promote it to `templates/`
   only once a second project in that language turns up.
+- **Releases are per project**, tagged `<project>/vX.Y.Z`. If a project declares
+  a version in a manifest, bump it in a commit before tagging — the release
+  workflow refuses a tag that disagrees with the manifest. Implement `dist` to
+  put artifacts in `release/`; leave it out for projects not worth releasing.
 - Commit lockfiles. Keep build output in `bin/`, `dist/` or `target/` — already
   gitignored.

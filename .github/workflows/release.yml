@@ -1,0 +1,176 @@
+name: Release
+
+# Releases are per project, so tags are namespaced: <project>/vX.Y.Z
+# e.g. `git tag port-scan/v0.2.0 && git push origin port-scan/v0.2.0`.
+# Projects version independently -- one project's release says nothing about
+# any other's.
+on:
+  push:
+    tags: ["*/v*"]
+  workflow_dispatch:
+    inputs:
+      project:
+        description: Project to release
+        required: true
+      version:
+        description: Version, without the leading v (e.g. 0.2.0)
+        required: true
+      dry_run:
+        description: Build and verify, but do not publish
+        type: boolean
+        default: true
+
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0 # release notes diff against the previous tag
+
+      - name: Resolve project and version
+        id: resolve
+        run: |
+          set -euo pipefail
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            project='${{ inputs.project }}'
+            version='${{ inputs.version }}'
+            tag="$project/v$version"
+            dry_run='${{ inputs.dry_run }}'
+          else
+            tag="${GITHUB_REF_NAME}"
+            project="${tag%%/*}"
+            rest="${tag#*/}"
+            version="${rest#v}"
+            dry_run=false
+          fi
+
+          if [ "$project" = "$tag" ] || [ -z "$project" ] || [ -z "$version" ]; then
+            echo "::error::malformed tag '$tag'; expected <project>/vX.Y.Z"
+            exit 1
+          fi
+
+          # Semver, optionally with a prerelease and/or build suffix.
+          if ! printf '%s' "$version" | grep -qE '^[0-9]+\.[0-9]+\.[0-9]+(-[0-9A-Za-z.-]+)?(\+[0-9A-Za-z.-]+)?$'; then
+            echo "::error::'$version' is not a valid semver version"
+            exit 1
+          fi
+
+          if [ ! -f "projects/$project/Makefile" ]; then
+            echo "::error::no such project: $project"
+            echo "known projects: $(scripts/list-projects.sh | tr '\n' ' ')"
+            exit 1
+          fi
+
+          prerelease=false
+          case "$version" in *-*) prerelease=true ;; esac
+
+          {
+            echo "project=$project"
+            echo "version=$version"
+            echo "tag=$tag"
+            echo "prerelease=$prerelease"
+            echo "dry_run=$dry_run"
+          } >> "$GITHUB_OUTPUT"
+          echo "releasing $project $version (prerelease=$prerelease, dry_run=$dry_run)"
+
+      # Some ecosystems bake the version into the artifact from a manifest
+      # rather than taking it from the tag. Publishing then produces a file
+      # labelled with the manifest's version while the release claims the
+      # tag's. Refuse rather than ship something mislabelled.
+      - name: Check the tag agrees with the project manifest
+        run: |
+          set -uo pipefail
+          project='${{ steps.resolve.outputs.project }}'
+          version='${{ steps.resolve.outputs.version }}'
+
+          declared="$(scripts/project-version.sh "$project")"
+          rc=$?
+
+          if [ "$rc" -eq 3 ]; then
+            echo "$project declares no version manifest; the tag is authoritative"
+            exit 0
+          fi
+          if [ "$rc" -ne 0 ]; then
+            echo "::error::could not read $project's declared version"
+            exit 1
+          fi
+          if [ "$declared" != "$version" ]; then
+            echo "::error::tag says $version but $project's manifest says $declared; bump the manifest and re-tag"
+            exit 1
+          fi
+          echo "manifest agrees: $declared"
+
+      - name: make check
+        run: make check P=${{ steps.resolve.outputs.project }}
+
+      - name: make dist
+        run: make dist P=${{ steps.resolve.outputs.project }} VERSION=${{ steps.resolve.outputs.version }}
+
+      - name: Collect artifacts
+        id: artifacts
+        run: |
+          set -euo pipefail
+          project='${{ steps.resolve.outputs.project }}'
+          dir="projects/$project/release"
+
+          if [ ! -d "$dir" ] || [ -z "$(ls -A "$dir" 2>/dev/null)" ]; then
+            echo "::error::$project's dist target produced no artifacts in $dir"
+            exit 1
+          fi
+
+          ( cd "$dir" && rm -f SHA256SUMS && sha256sum -- * > SHA256SUMS )
+          echo "dir=$dir" >> "$GITHUB_OUTPUT"
+          echo "artifacts:"
+          ls -lh "$dir"
+
+      # Notes cover only commits touching this project since its own previous
+      # tag -- in a monorepo, auto-generated notes would list every other
+      # project's commits too.
+      - name: Build release notes
+        id: notes
+        run: |
+          set -euo pipefail
+          project='${{ steps.resolve.outputs.project }}'
+          tag='${{ steps.resolve.outputs.tag }}'
+
+          prev="$(git tag --list "$project/v*" --sort=-version:refname \
+                  | grep -vFx "$tag" | head -1 || true)"
+
+          {
+            if [ -n "$prev" ]; then
+              echo "Changes to \`projects/$project\` since \`$prev\`:"
+              echo
+              git log --no-merges --pretty='- %s' "$prev..HEAD" -- "projects/$project" || true
+            else
+              echo "First release of \`projects/$project\`."
+            fi
+            echo
+            echo "Verify downloads against \`SHA256SUMS\`."
+          } > /tmp/notes.md
+
+          cat /tmp/notes.md
+
+      - name: Publish
+        if: steps.resolve.outputs.dry_run != 'true'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          gh release create '${{ steps.resolve.outputs.tag }}' \
+            --title '${{ steps.resolve.outputs.project }} ${{ steps.resolve.outputs.version }}' \
+            --notes-file /tmp/notes.md \
+            ${{ steps.resolve.outputs.prerelease == 'true' && '--prerelease' || '' }} \
+            '${{ steps.artifacts.outputs.dir }}'/*
+
+      - name: Dry run summary
+        if: steps.resolve.outputs.dry_run == 'true'
+        run: |
+          echo "dry run: built and verified, nothing published"
