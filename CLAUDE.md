@@ -44,8 +44,10 @@ make check              # every project
   design.
 - **No list to update.** CI and the root Makefile discover projects by globbing
   `projects/*/Makefile`. Adding a directory is enough.
-- If a project needs a language or toolchain without a template, just create the
-  directory and its Makefile by hand; add a template only if it is likely to be
-  reused.
+- **Add languages when they are needed, not before.** Templates exist for `c`,
+  `go`, `node-ts`, `python` and `rust`. Do not pre-build a template for a
+  language nothing uses yet. When a project needs a language with no template,
+  create the directory and its Makefile by hand; promote it to `templates/`
+  only once a second project in that language turns up.
 - Commit lockfiles. Keep build output in `bin/`, `dist/` or `target/` — already
   gitignored.

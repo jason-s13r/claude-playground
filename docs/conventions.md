@@ -28,6 +28,23 @@ placeholders:
 Names are lowercase kebab-case. If no template fits, create the directory by
 hand — all a project needs to join the repo is a `Makefile`.
 
+## Adding a language
+
+Templates are added on demand. There is one each for `c`, `go`, `node-ts`,
+`python` and `rust`; a language outside that set is not blocked, it just has no
+starting point yet.
+
+When a project needs a language with no template, write the project directly in
+`projects/<name>/` with a hand-written `Makefile` implementing the contract
+above. That is enough for the root runner and CI to pick it up. Promote the
+setup to `templates/<lang>/` only when a second project in that language shows
+up and there is something worth copying — a template that has never been used
+twice is a guess, not a convention.
+
+A template is a working hello-world with a test and a Makefile: run
+`make new TEMPLATE=<lang> NAME=tmp && make check P=tmp` before committing one,
+so it is known to build rather than assumed to.
+
 ## Project Makefiles
 
 Implement the targets in the table in the [README](../README.md). Guidance:

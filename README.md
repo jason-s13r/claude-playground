@@ -28,8 +28,9 @@ make test P=my-tool
 make check                        # fmt-check + lint + test, every project
 ```
 
-Available templates: `c`, `go`, `node-ts`, `python`, `rust`.
-Nothing forces you to use one — a project only needs a `Makefile`.
+Available templates: `c`, `go`, `node-ts`, `python`, `rust`. Nothing forces you
+to use one — a project only needs a `Makefile`, so a language without a template
+is not blocked. New templates get added when a project actually needs one.
 
 ## The project contract
 
