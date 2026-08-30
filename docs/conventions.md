@@ -101,8 +101,8 @@ notes under a subject that describes one of them, so prefer splitting it.
 ## Releasing
 
 Tag `<project>/vX.Y.Z` and push it. The release workflow validates the tag,
-runs `make check`, runs `make dist`, and publishes the contents of the
-project's `release/` directory.
+runs `make check` and `make dist` on every platform the project ships for, and
+publishes the collected artifacts with a `SHA256SUMS` covering all of them.
 
 A project that should be releasable implements `dist`:
 
@@ -115,6 +115,26 @@ A project that should be releasable implements `dist`:
 - `dist` is optional. The fan-out skips a project that has no `dist` target,
   but a release for such a project fails on the empty artifact directory
   rather than publishing nothing.
+
+A project shipping binaries for more than one platform declares its runners
+with `release-platforms`, printing one GitHub runner label per line:
+
+```make
+release-platforms:
+	@echo ubuntu-latest
+	@echo macos-14
+```
+
+Each label gets its own build of `check` and `dist`, and the artifacts are
+gathered into one release. There is no cross-compiling: a platform is built on
+its own runner or not at all. Omit the target and the project builds on
+`ubuntu-latest` alone, so nothing changes for projects that ship source, or
+ship nothing.
+
+Because every platform's artifacts land in one directory, `dist` must put the
+platform in the file name -- the `<os>-<arch>` in the naming rule above is what
+keeps two runners from overwriting each other. The workflow fails the release
+rather than letting one win.
 
 If the language embeds a version from a manifest, leave it that way and let the
 workflow enforce that the tag matches. Do not have `dist` rewrite the manifest:

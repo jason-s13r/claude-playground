@@ -24,16 +24,22 @@ concurrency:
   group: release-${{ github.ref }}
   cancel-in-progress: false
 
+# Only the publish job writes anything.
 permissions:
-  contents: write
+  contents: read
 
 jobs:
-  release:
+  resolve:
     runs-on: ubuntu-latest
+    outputs:
+      project: ${{ steps.resolve.outputs.project }}
+      version: ${{ steps.resolve.outputs.version }}
+      tag: ${{ steps.resolve.outputs.tag }}
+      prerelease: ${{ steps.resolve.outputs.prerelease }}
+      dry_run: ${{ steps.resolve.outputs.dry_run }}
+      platforms: ${{ steps.platforms.outputs.platforms }}
     steps:
       - uses: actions/checkout@v5
-        with:
-          fetch-depth: 0 # release notes diff against the previous tag
 
       - name: Resolve project and version
         id: resolve
@@ -108,28 +114,106 @@ jobs:
           fi
           echo "manifest agrees: $declared"
 
+      # Binaries cannot be cross-compiled here, so a project shipping for more
+      # than one platform is built once per platform on its own runner. What
+      # those are is the project's business: it declares them with a
+      # `release-platforms` target, and gets ubuntu-latest if it declares
+      # nothing.
+      - name: Resolve build platforms
+        id: platforms
+        run: |
+          set -euo pipefail
+          platforms="$(scripts/release-platforms.sh '${{ steps.resolve.outputs.project }}' --json)"
+          echo "platforms=$platforms" >> "$GITHUB_OUTPUT"
+          echo "building on: $platforms"
+
+  build:
+    needs: resolve
+    strategy:
+      # A release missing one platform's binary is worse than no release at
+      # all, so one failing leg stops the rest before anything is published.
+      fail-fast: true
+      matrix:
+        platform: ${{ fromJSON(needs.resolve.outputs.platforms) }}
+    runs-on: ${{ matrix.platform }}
+    name: build (${{ matrix.platform }})
+    steps:
+      - uses: actions/checkout@v5
+
+      # Run on every platform being shipped, not just one. A tool that builds
+      # on Linux and fails its tests on macOS should not get as far as a
+      # published macOS binary.
       - name: make check
-        run: make check P=${{ steps.resolve.outputs.project }}
+        run: make check P=${{ needs.resolve.outputs.project }}
 
       - name: make dist
-        run: make dist P=${{ steps.resolve.outputs.project }} VERSION=${{ steps.resolve.outputs.version }}
+        run: make dist P=${{ needs.resolve.outputs.project }} VERSION=${{ needs.resolve.outputs.version }}
 
+      - name: Check this platform produced something
+        run: |
+          set -euo pipefail
+          dir="projects/${{ needs.resolve.outputs.project }}/release"
+          if [ ! -d "$dir" ] || [ -z "$(ls -A "$dir" 2>/dev/null)" ]; then
+            echo "::error::${{ needs.resolve.outputs.project }}'s dist target produced no artifacts in $dir"
+            exit 1
+          fi
+          ls -lh "$dir"
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: release-${{ matrix.platform }}
+          path: projects/${{ needs.resolve.outputs.project }}/release/
+          if-no-files-found: error
+          retention-days: 1
+
+  publish:
+    needs: [resolve, build]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          fetch-depth: 0 # release notes diff against the previous tag
+
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: release-*
+          path: staging
+
+      # One directory holding every platform's artifacts, and one SHA256SUMS
+      # over the lot. Computed here rather than per platform so the file covers
+      # the whole release and is produced by one `sha256sum` implementation.
       - name: Collect artifacts
         id: artifacts
         run: |
           set -euo pipefail
-          project='${{ steps.resolve.outputs.project }}'
-          dir="projects/$project/release"
+          mkdir -p release
 
-          if [ ! -d "$dir" ] || [ -z "$(ls -A "$dir" 2>/dev/null)" ]; then
-            echo "::error::$project's dist target produced no artifacts in $dir"
+          for dir in staging/*/; do
+            for file in "$dir"*; do
+              [ -e "$file" ] || continue
+              base="$(basename "$file")"
+              # Artifacts are named per platform, so a clash means `dist`
+              # ignored the platform it ran on and one binary would silently
+              # overwrite another.
+              if [ -e "release/$base" ]; then
+                echo "::error::two platforms both produced $base; dist must name artifacts per platform"
+                exit 1
+              fi
+              mv "$file" "release/$base"
+            done
+          done
+
+          if [ -z "$(ls -A release 2>/dev/null)" ]; then
+            echo "::error::no artifacts to publish"
             exit 1
           fi
 
-          ( cd "$dir" && rm -f SHA256SUMS && sha256sum -- * > SHA256SUMS )
-          echo "dir=$dir" >> "$GITHUB_OUTPUT"
+          ( cd release && rm -f SHA256SUMS && sha256sum -- * > SHA256SUMS )
           echo "artifacts:"
-          ls -lh "$dir"
+          ls -lh release
+          cat release/SHA256SUMS
 
       # Notes cover only this project's commits since its own previous tag --
       # in a monorepo, auto-generated notes would list every other project's
@@ -145,8 +229,8 @@ jobs:
         id: notes
         run: |
           set -euo pipefail
-          project='${{ steps.resolve.outputs.project }}'
-          tag='${{ steps.resolve.outputs.tag }}'
+          project='${{ needs.resolve.outputs.project }}'
+          tag='${{ needs.resolve.outputs.tag }}'
 
           prev="$(git tag --list "$project/v*" --sort=-version:refname \
                   | grep -vFx "$tag" | head -1 || true)"
@@ -183,24 +267,25 @@ jobs:
               echo "No changes to \`$project\` since \`$prev\`."
             fi
             echo
+            echo "Built on: ${{ join(fromJSON(needs.resolve.outputs.platforms), ', ') }}."
             echo "Verify downloads against \`SHA256SUMS\`."
           } > /tmp/notes.md
 
           cat /tmp/notes.md
 
       - name: Publish
-        if: steps.resolve.outputs.dry_run != 'true'
+        if: needs.resolve.outputs.dry_run != 'true'
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
           set -euo pipefail
-          gh release create '${{ steps.resolve.outputs.tag }}' \
-            --title '${{ steps.resolve.outputs.project }} ${{ steps.resolve.outputs.version }}' \
+          gh release create '${{ needs.resolve.outputs.tag }}' \
+            --title '${{ needs.resolve.outputs.project }} ${{ needs.resolve.outputs.version }}' \
             --notes-file /tmp/notes.md \
-            ${{ steps.resolve.outputs.prerelease == 'true' && '--prerelease' || '' }} \
-            '${{ steps.artifacts.outputs.dir }}'/*
+            ${{ needs.resolve.outputs.prerelease == 'true' && '--prerelease' || '' }} \
+            release/*
 
       - name: Dry run summary
-        if: steps.resolve.outputs.dry_run == 'true'
+        if: needs.resolve.outputs.dry_run == 'true'
         run: |
           echo "dry run: built and verified, nothing published"

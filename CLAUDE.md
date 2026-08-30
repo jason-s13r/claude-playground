@@ -53,6 +53,8 @@ make check              # every project
 - **Releases are per project**, tagged `<project>/vX.Y.Z`. If a project declares
   a version in a manifest, bump it in a commit before tagging — the release
   workflow refuses a tag that disagrees with the manifest. Implement `dist` to
-  put artifacts in `release/`; leave it out for projects not worth releasing.
+  put artifacts in `release/`; leave it out for projects not worth releasing. A
+  project shipping binaries for several platforms lists its runners in a
+  `release-platforms` target; without one it builds on `ubuntu-latest` alone.
 - Commit lockfiles. Keep build output in `bin/`, `dist/` or `target/` — already
   gitignored.
