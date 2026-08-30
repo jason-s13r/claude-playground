@@ -217,14 +217,9 @@ jobs:
 
       # Notes cover only this project's commits since its own previous tag --
       # in a monorepo, auto-generated notes would list every other project's
-      # commits too. Two things make a commit this project's:
-      #
-      #   1. it touched projects/<project>, or
-      #   2. its conventional-commit scope names the project.
-      #
-      # (2) exists because the path filter alone drops changes that are about
-      # a project without living in its directory -- CI, this workflow, a
-      # shared script. `fix(<project>): ...` puts those in the right notes.
+      # commits too. Which commits are the project's, and how they are grouped
+      # under their conventional-commit type, is scripts/release-notes.sh's
+      # business; this step only picks the range and writes the prose around it.
       - name: Build release notes
         id: notes
         run: |
@@ -235,34 +230,18 @@ jobs:
           prev="$(git tag --list "$project/v*" --sort=-version:refname \
                   | grep -vFx "$tag" | head -1 || true)"
 
-          : > /tmp/subjects
+          : > /tmp/changes.md
           if [ -n "$prev" ]; then
-            # Scope separators are spelled out rather than using \b, which
-            # treats `-` as a boundary and would match `foodstuffs-nz` inside
-            # a `foodstuffs-nz-cli` scope. Trailing `!` is a breaking change.
-            scope="^[a-zA-Z]+\(([^)]*[, ])?$project([, ][^)]*)?\)!?:"
-
-            {
-              git log --no-merges --format=%H "$prev..HEAD" -- "projects/$project"
-              git log --no-merges --format=%H --extended-regexp --grep="$scope" "$prev..HEAD"
-            } | sort -u > /tmp/hashes
-
-            # Re-walk the range so the union comes back in commit order.
-            if [ -s /tmp/hashes ]; then
-              git log --no-merges --format='%H%x09%s' "$prev..HEAD" \
-                | grep -Ff /tmp/hashes \
-                | cut -f2 \
-                | sed 's/^/- /' > /tmp/subjects
-            fi
+            scripts/release-notes.sh "$project" "$prev..HEAD" > /tmp/changes.md
           fi
 
           {
             if [ -z "$prev" ]; then
               echo "First release of \`$project\`."
-            elif [ -s /tmp/subjects ]; then
+            elif [ -s /tmp/changes.md ]; then
               echo "Changes to \`$project\` since \`$prev\`:"
               echo
-              cat /tmp/subjects
+              cat /tmp/changes.md
             else
               echo "No changes to \`$project\` since \`$prev\`."
             fi

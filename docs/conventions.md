@@ -98,6 +98,25 @@ Unscoped subjects are fine for repo-wide work, and a scope that names no
 project is simply ignored. A commit touching two projects lands in both sets of
 notes under a subject that describes one of them, so prefer splitting it.
 
+The type is what groups the notes. `scripts/release-notes.sh` sorts the
+selected subjects under a heading per type -- breaking changes first, then
+features and fixes, down to build and CI -- and strips the `type(scope):`
+prefix, since the heading already says it. `ci` joins `build`. **Other
+changes** is the catch-all: housekeeping (`chore`, `style`, `revert`) lands
+there, and so does a subject that is not a conventional commit, kept whole
+rather than guessed at.
+
+A breaking change -- `feat!:` or a `BREAKING CHANGE:` footer -- is listed once,
+under **Breaking changes**, and not repeated under its own type. A scope that
+is not the project being released survives as a bold prefix, so
+`feat(demo, api): ...` reads as **api:** under Features.
+
+Run it against any range to see what a release would say:
+
+```bash
+scripts/release-notes.sh foodstuffs-nz-cli foodstuffs-nz-cli/v0.1.2..HEAD
+```
+
 ## Releasing
 
 Tag `<project>/vX.Y.Z` and push it. The release workflow validates the tag,
