@@ -13,6 +13,7 @@ path = "src/main.rs"
 anyhow = "1"
 base64 = "0.22"
 clap = { version = "4", features = ["derive", "env"] }
+clap_complete = "4"
 comfy-table = "7"
 directories = "6"
 flate2 = "1"

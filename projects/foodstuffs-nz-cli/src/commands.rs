@@ -3,6 +3,7 @@
 mod auth;
 mod cart;
 mod compare;
+pub(crate) mod completions;
 mod doctor;
 mod io;
 mod orders;
@@ -70,6 +71,8 @@ pub async fn dispatch(app: &mut App, banner: Banner, command: &Command) -> Resul
         }
         Command::Auth(cmd) => auth::run(app, cmd).await?,
         Command::Doctor => doctor::run(app).await?,
+        // Handled in main, before there is an App to dispatch with.
+        Command::Completions { .. } => true,
         Command::Update { check } => update::run(app, *check).await?,
     };
 

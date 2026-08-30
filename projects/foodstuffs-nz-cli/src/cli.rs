@@ -1,6 +1,7 @@
 //! Command-line surface.
 
 use clap::{Args, Parser, Subcommand};
+use clap_complete::Shell;
 
 use crate::banner::Banner;
 use crate::domain::order::Source;
@@ -109,6 +110,13 @@ pub enum Command {
 
     /// Check configuration, credentials and connectivity
     Doctor,
+
+    /// Print a shell completion script for fsnz
+    Completions {
+        /// Shell to generate for; inferred from $SHELL when omitted
+        #[arg(value_name = "SHELL")]
+        shell: Option<Shell>,
+    },
 
     /// Check for a newer release of fsnz, and install it
     Update {

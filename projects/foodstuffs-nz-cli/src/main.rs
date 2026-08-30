@@ -24,7 +24,7 @@ use std::process::ExitCode;
 use std::time::Duration;
 
 use app::App;
-use cli::Cli;
+use cli::{Cli, Command};
 use config::{Config, Paths};
 use secrets::Secrets;
 
@@ -48,6 +48,13 @@ async fn run() -> Result<ExitCode> {
         Cli::command().print_long_help()?;
         return Ok(ExitCode::SUCCESS);
     };
+
+    // Completion scripts describe the command surface and nothing else, so
+    // they are generated without config, credentials or a network.
+    if let Command::Completions { shell } = command {
+        commands::completions::run(*shell)?;
+        return Ok(ExitCode::SUCCESS);
+    }
 
     let paths = Paths::resolve()?;
     let config = Config::load(&paths)?;

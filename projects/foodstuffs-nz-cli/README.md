@@ -114,11 +114,38 @@ fsnz --json compare bread | jq -r '.rows[] | select(.cheapest == "paknsave") | .
 | `auth status` | Session, renewal and each banner's token; exits non-zero without one |
 | `auth refresh` | Mint fresh tokens, replacing the cached ones |
 | `doctor` | Check config, token and connectivity; exits non-zero if unhealthy |
+| `completions [shell]` | Print a completion script; the shell defaults to `$SHELL` |
 | `update` | Install the newest release. `--check` reports without installing |
 
 Global flags: `--banner`, `--store`, `--token`, `--json`.
 
 `fsnz -V` names the build; `fsnz --version` gives the whole provenance.
+
+## Shell completions
+
+`fsnz completions` writes a completion script to stdout for `bash`, `zsh`,
+`fish`, `powershell` or `elvish`, inferring the shell from `$SHELL` when you do
+not name one. Try it for a session:
+
+```bash
+source <(fsnz completions bash)
+source <(fsnz completions zsh)    # after compinit has run
+```
+
+In zsh the script calls `compdef`, which does not exist until `compinit` has
+run -- sourcing before that fails with `command not found: compdef`. Any zshrc
+that already sets up completion (oh-my-zsh included) has run it by then.
+
+To keep it, put the script where the shell looks:
+
+```bash
+fsnz completions bash > ~/.local/share/bash-completion/completions/fsnz
+fsnz completions zsh  > "${fpath[1]}/_fsnz"      # any directory on $fpath
+fsnz completions fish > ~/.config/fish/completions/fsnz.fish
+```
+
+The script lists commands and flags only; it does not complete store names or
+SKUs, which would mean a request per keystroke.
 
 ## Updating
 
