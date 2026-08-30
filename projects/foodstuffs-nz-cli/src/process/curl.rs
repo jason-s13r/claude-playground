@@ -103,10 +103,7 @@ fn parse(raw: &str, url: &str) -> Result<Response> {
     let mut status = None;
     let mut headers = Vec::new();
 
-    loop {
-        let Some(split) = find_blank_line(rest) else {
-            break;
-        };
+    while let Some(split) = find_blank_line(rest) {
         let (block, after) = rest.split_at(split.0);
         let mut lines = block.lines();
         let Some(first) = lines.next() else { break };
