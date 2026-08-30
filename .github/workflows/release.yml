@@ -131,9 +131,16 @@ jobs:
           echo "artifacts:"
           ls -lh "$dir"
 
-      # Notes cover only commits touching this project since its own previous
-      # tag -- in a monorepo, auto-generated notes would list every other
-      # project's commits too.
+      # Notes cover only this project's commits since its own previous tag --
+      # in a monorepo, auto-generated notes would list every other project's
+      # commits too. Two things make a commit this project's:
+      #
+      #   1. it touched projects/<project>, or
+      #   2. its conventional-commit scope names the project.
+      #
+      # (2) exists because the path filter alone drops changes that are about
+      # a project without living in its directory -- CI, this workflow, a
+      # shared script. `fix(<project>): ...` puts those in the right notes.
       - name: Build release notes
         id: notes
         run: |
@@ -144,13 +151,36 @@ jobs:
           prev="$(git tag --list "$project/v*" --sort=-version:refname \
                   | grep -vFx "$tag" | head -1 || true)"
 
+          : > /tmp/subjects
+          if [ -n "$prev" ]; then
+            # Scope separators are spelled out rather than using \b, which
+            # treats `-` as a boundary and would match `foodstuffs-nz` inside
+            # a `foodstuffs-nz-cli` scope. Trailing `!` is a breaking change.
+            scope="^[a-zA-Z]+\(([^)]*[, ])?$project([, ][^)]*)?\)!?:"
+
+            {
+              git log --no-merges --format=%H "$prev..HEAD" -- "projects/$project"
+              git log --no-merges --format=%H --extended-regexp --grep="$scope" "$prev..HEAD"
+            } | sort -u > /tmp/hashes
+
+            # Re-walk the range so the union comes back in commit order.
+            if [ -s /tmp/hashes ]; then
+              git log --no-merges --format='%H%x09%s' "$prev..HEAD" \
+                | grep -Ff /tmp/hashes \
+                | cut -f2 \
+                | sed 's/^/- /' > /tmp/subjects
+            fi
+          fi
+
           {
-            if [ -n "$prev" ]; then
-              echo "Changes to \`projects/$project\` since \`$prev\`:"
+            if [ -z "$prev" ]; then
+              echo "First release of \`$project\`."
+            elif [ -s /tmp/subjects ]; then
+              echo "Changes to \`$project\` since \`$prev\`:"
               echo
-              git log --no-merges --pretty='- %s' "$prev..HEAD" -- "projects/$project" || true
+              cat /tmp/subjects
             else
-              echo "First release of \`projects/$project\`."
+              echo "No changes to \`$project\` since \`$prev\`."
             fi
             echo
             echo "Verify downloads against \`SHA256SUMS\`."

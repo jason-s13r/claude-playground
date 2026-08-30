@@ -78,6 +78,26 @@ explain about itself goes in its own `README.md`.
 `scratch/` and `tmp/` are ignored at the root. Use them for throwaway files
 rather than leaving them loose in a project.
 
+## Commit messages
+
+Scope a commit with the project's **directory name** -- the same name that
+appears in its tags:
+
+```
+fix(foodstuffs-nz-cli): stop `check` swallowing lint failures
+```
+
+Release notes are the union of two filters: commits that touched
+`projects/<project>`, and commits whose conventional-commit scope names it.
+The second filter is the only way a change that belongs to a project without
+living in its directory -- CI, the release workflow, a shared script -- reaches
+that project's notes. A binary's name (`fsnz`) is not a scope; nothing matches
+on it.
+
+Unscoped subjects are fine for repo-wide work, and a scope that names no
+project is simply ignored. A commit touching two projects lands in both sets of
+notes under a subject that describes one of them, so prefer splitting it.
+
 ## Releasing
 
 Tag `<project>/vX.Y.Z` and push it. The release workflow validates the tag,
