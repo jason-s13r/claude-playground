@@ -1,6 +1,6 @@
 [package]
 name = "foodstuffs-nz-cli"
-version = "0.1.2"
+version = "0.1.3"
 edition = "2021"
 description = "Unofficial CLI for New World and PAK'nSAVE (Foodstuffs NZ) product search"
 license = "MIT"
