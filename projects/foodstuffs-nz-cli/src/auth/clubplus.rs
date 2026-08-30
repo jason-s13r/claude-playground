@@ -76,6 +76,7 @@ fn base_headers(origin: &str) -> Vec<(&'static str, String)> {
 pub async fn apigee_token() -> Result<String> {
     let url = credentials_url();
     let res = fetch::request("GET", &url, &base_headers(CLUBPLUS_ORIGIN), None).await?;
+    bail_if_challenged("Club Plus", &res)?;
     if !res.is_success() {
         bail!(
             "Club Plus returned {} for {url}: {}",
@@ -101,6 +102,7 @@ pub async fn login(email: &str, password: &str, device_id: &str) -> Result<Sessi
 
     let body = serde_json::json!({ "email": email, "password": password, "source": "WEB" });
     let res = fetch::request("POST", &url, &headers, Some(&body.to_string())).await?;
+    bail_if_challenged("Club Plus", &res)?;
 
     if res.status == 401 || res.status == 400 {
         bail!(
@@ -156,6 +158,7 @@ pub async fn refresh(refresh_token: &str, device_id: &str) -> Result<Session> {
     // both with "excess property and therefore is not allowed".
     let body = serde_json::json!({ "refreshToken": refresh_token });
     let res = fetch::request("POST", &url, &headers, Some(&body.to_string())).await?;
+    bail_if_challenged("Club Plus", &res)?;
 
     if res.status == 401 || res.status == 400 {
         bail!(
@@ -213,6 +216,7 @@ async fn secure_token(banner: Banner, session: &Session, device_id: &str) -> Res
 
     let body = serde_json::json!({ "banner": banner.code(), "source": "WEB" });
     let res = fetch::request("POST", &url, &headers, Some(&body.to_string())).await?;
+    bail_if_challenged(banner.name(), &res)?;
 
     if res.status == 401 {
         bail!(
@@ -265,6 +269,7 @@ async fn exchange_secure_token(
         Some(&body.to_string()),
     )
     .await?;
+    bail_if_challenged(banner.name(), &res)?;
 
     if !res.is_success() {
         bail!(
@@ -321,6 +326,33 @@ fn field_names(body: &str) -> String {
         .unwrap_or_else(|| "no object fields".to_string())
 }
 
+/// Cloudflare's managed challenge, which sits in front of both the storefronts
+/// and the Club Plus API (see `process::curl`). When it fires it answers with
+/// an HTML interstitial in place of the API's own error, so quoting the body
+/// pastes a page of markup that says nothing about the request.
+fn is_challenge(body: &str) -> bool {
+    let head = body.chars().take(2000).collect::<String>().to_lowercase();
+    // Both APIs answer in JSON; a page of HTML is already the tell.
+    if !head.trim_start().starts_with('<') {
+        return false;
+    }
+    head.contains("just a moment")
+        || head.contains("cf-browser-verification")
+        || head.contains("challenge-platform")
+        || head.contains("cf-chl-")
+}
+
+/// Name the bot check rather than blaming the request, when that is what came
+/// back. Deliberately without the status: a challenge is not an expired
+/// session, and `token::is_unauthorised` reads these strings to decide whether
+/// to force a renewal, which a challenge does not need.
+fn bail_if_challenged(who: &str, res: &fetch::Response) -> Result<()> {
+    if is_challenge(&res.body) {
+        bail!("{who} answered with Cloudflare's bot check instead of the API; it usually clears on a retry");
+    }
+    Ok(())
+}
+
 fn clip(s: &str, max: usize) -> String {
     let s = s.trim();
     if s.chars().count() <= max {
@@ -359,6 +391,16 @@ mod tests {
     fn an_empty_token_does_not_count_as_found() {
         let body = serde_json::json!({ "access_token": "   ", "other": 1 }).to_string();
         assert!(token_from(&body).is_err());
+    }
+
+    #[test]
+    fn a_bot_check_is_told_apart_from_an_api_error() {
+        assert!(is_challenge(
+            "<!DOCTYPE html><html lang=\"en-US\"><head><title>Just a moment...</title>"
+        ));
+        assert!(!is_challenge(
+            &serde_json::json!({ "message": "just a moment ago the token expired" }).to_string()
+        ));
     }
 
     #[test]
