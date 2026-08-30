@@ -110,7 +110,7 @@ impl Client {
             let hint = if status == reqwest::StatusCode::UNAUTHORIZED
                 || status == reqwest::StatusCode::FORBIDDEN
             {
-                "\nThe token may be expired or rejected; try `fsnz auth token --refresh`."
+                "\nThe token may be expired or rejected; try `fsnz auth refresh`."
             } else {
                 ""
             };
@@ -448,7 +448,7 @@ fn needs_login(what: &'static str) -> impl Fn(anyhow::Error) -> anyhow::Error {
             return e.context(
                 "this account's cart has no store bound to it. That store is \
                  separate from the one `fsnz store set` prices against, and \
-                 binding it needs a banner-scoped token: check `fsnz auth token` \
+                 binding it needs a banner-scoped token: check `fsnz auth status` \
                  reports MNW or PNS, not NAT.",
             );
         }

@@ -1,6 +1,6 @@
 [package]
 name = "foodstuffs-nz-cli"
-version = "0.1.0"
+version = "0.1.1"
 edition = "2021"
 description = "Unofficial CLI for New World and PAK'nSAVE (Foodstuffs NZ) product search"
 license = "MIT"
@@ -31,3 +31,6 @@ assert_cmd = "2"
 predicates = "3"
 tempfile = "3"
 wiremock = "0.6"
+
+[profile.release]
+strip = true

@@ -62,6 +62,7 @@ async fn run() -> Result<ExitCode> {
         json: cli.json,
         store_flag: cli.store.clone(),
         token_flag: cli.token.clone(),
+        banner_flag: cli.banner,
     };
 
     commands::dispatch(&mut app, banner, command).await

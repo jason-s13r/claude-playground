@@ -126,15 +126,8 @@ pub enum AuthCommand {
     /// Forget the stored login and any cached tokens
     Logout,
 
-    /// Show the token this tool would use
-    Token {
-        /// Mint a new token instead of reusing the cached one
-        #[arg(long)]
-        refresh: bool,
-        /// Print the raw token only, for piping
-        #[arg(long)]
-        raw: bool,
-    },
+    /// Mint a fresh token, replacing the cached one
+    Refresh,
 
     /// Show the Club Plus session and each banner's token state
     Status,

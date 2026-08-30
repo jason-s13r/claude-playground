@@ -12,7 +12,7 @@ use crate::commands::io::{human_duration, print_json, prompt};
 use crate::token::{self, GuestToken};
 
 /// Returns false when the command should exit non-zero.
-pub async fn run(app: &App, banner: Banner, cmd: &AuthCommand) -> Result<bool> {
+pub async fn run(app: &App, cmd: &AuthCommand) -> Result<bool> {
     match cmd {
         AuthCommand::Login {
             email,
@@ -25,11 +25,22 @@ pub async fn run(app: &App, banner: Banner, cmd: &AuthCommand) -> Result<bool> {
             logout(app)?;
             Ok(true)
         }
-        AuthCommand::Token { refresh, raw } => {
-            show_token(app, banner, *refresh, *raw).await?;
+        AuthCommand::Refresh => {
+            refresh(app).await?;
             Ok(true)
         }
         AuthCommand::Status => status(app).await,
+    }
+}
+
+/// The banners an `auth` subcommand acts on.
+///
+/// One account covers both banners, so these commands are only useful across
+/// both by default. `-b`/`FSNZ_BANNER` narrows them to the one named.
+fn targets(app: &App) -> Vec<Banner> {
+    match app.banner_flag {
+        Some(b) => vec![b],
+        None => Banner::ALL.to_vec(),
     }
 }
 
@@ -40,9 +51,9 @@ pub async fn run(app: &App, banner: Banner, cmd: &AuthCommand) -> Result<bool> {
 /// Returns false when there is no session a command could actually use.
 async fn status(app: &App) -> Result<bool> {
     let stored = auth::load(&app.secrets)?;
-    let banners: Vec<(Banner, Option<GuestToken>)> = Banner::ALL
-        .iter()
-        .map(|b| (*b, token::peek_cache(&app.paths, *b)))
+    let banners: Vec<(Banner, Option<GuestToken>)> = targets(app)
+        .into_iter()
+        .map(|b| (b, token::peek_cache(&app.paths, b)))
         .collect();
 
     // Reported because it is the only account-shaped thing the session says
@@ -72,6 +83,10 @@ async fn status(app: &App) -> Result<bool> {
             })),
             "banners": banners.iter().map(|(b, tok)| (b.id().to_string(), serde_json::json!({
                 "cached": tok.is_some(),
+                // The only way to read a token's value out of this tool. Human
+                // output never prints it; this is read by scripts feeding
+                // --token/FSNZ_TOKEN or poking the API directly.
+                "token": tok.as_ref().map(|t| t.token.clone()),
                 "expires_in_seconds": tok.as_ref().and_then(|t| remaining_secs(Some(t.expires_at_ms))),
                 "banner_claim": tok.as_ref().and_then(|t| auth::banner_claim(&t.token)),
                 "linked": linked.iter().any(|l| l == b.code()),
@@ -168,28 +183,59 @@ fn remaining_secs(expires_at_ms: Option<u64>) -> Option<u64> {
     (expires_at_ms > now).then(|| (expires_at_ms - now) / 1000)
 }
 
-async fn show_token(app: &App, banner: Banner, refresh: bool, raw: bool) -> Result<()> {
-    let guest = app.client(banner, refresh, true).await?.1;
-    if raw {
-        println!("{}", guest.token);
-        return Ok(());
+/// Discard the cached token for each banner in scope and mint a replacement.
+///
+/// Reports what it minted rather than the token itself; `auth status --json`
+/// carries the value for anything that needs to read it.
+///
+/// One banner failing does not stop the other: they mint independently, and a
+/// half-refreshed pair is more useful than an aborted one. Erroring only when
+/// every banner failed keeps `auth refresh` honest as an exit-code check.
+async fn refresh(app: &App) -> Result<()> {
+    let mut results = Vec::new();
+    for banner in targets(app) {
+        let outcome = app.client(banner, true, true).await.map(|(_, guest)| guest);
+        results.push((banner, outcome));
     }
+
     if app.json {
         print_json(&serde_json::json!({
-            "banner": banner.id(),
-            "token": guest.token,
-            "source": guest.source.describe(),
-            "expires_at_ms": guest.expires_at_ms,
-            "expires_in_seconds": guest.expires_in().map(|d| d.as_secs()),
+            "banners": results.iter().map(|(b, r)| (b.id().to_string(), serde_json::json!({
+                "ok": r.is_ok(),
+                "source": r.as_ref().ok().map(|g| g.source.describe()),
+                "expires_at_ms": r.as_ref().ok().map(|g| g.expires_at_ms),
+                "expires_in_seconds": r.as_ref().ok().and_then(|g| g.expires_in()).map(|d| d.as_secs()),
+                "error": r.as_ref().err().map(|e| format!("{e:#}")),
+            }))).collect::<serde_json::Map<_, _>>(),
         }));
-        return Ok(());
+    } else {
+        for (banner, result) in &results {
+            match result {
+                Ok(guest) => {
+                    let expiry = match guest.expires_in() {
+                        Some(d) => format!("expires in {}", human_duration(d)),
+                        None => "already expired; the API will reject it".to_string(),
+                    };
+                    println!(
+                        "  {:<10} token {}, {expiry}",
+                        banner.name(),
+                        guest.source.describe()
+                    );
+                }
+                Err(e) => println!("  {:<10} FAILED: {e:#}", banner.name()),
+            }
+        }
     }
-    println!("{}: token {}", banner.name(), guest.source.describe());
-    match guest.expires_in() {
-        Some(d) => println!("expires in {}", human_duration(d)),
-        None => println!("expired; run `fsnz auth token --refresh`"),
+
+    if results.iter().all(|(_, r)| r.is_err()) {
+        // The per-banner reasons are the only diagnosis available, and the
+        // loop above has already printed them only in the human path.
+        let reasons: Vec<String> = results
+            .iter()
+            .filter_map(|(b, r)| r.as_ref().err().map(|e| format!("{}: {e:#}", b.name())))
+            .collect();
+        bail!("no banner could mint a token. {}", reasons.join("; "));
     }
-    println!("{}", guest.token);
     Ok(())
 }
 
@@ -234,7 +280,7 @@ async fn login(app: &App, email: Option<&str>, password_command: Option<&str>) -
     // Prove the session actually mints banner tokens before calling it a
     // success -- a stored login that does not work is worse than none.
     let mut results = Vec::new();
-    for banner in Banner::ALL {
+    for banner in targets(app) {
         let endpoints = banner.endpoints();
         let outcome = auth::banner_token(banner, &endpoints, &session, &device_id).await;
         // Keep what was just proved. Throwing it away would mean the very next
@@ -284,6 +330,9 @@ async fn login(app: &App, email: Option<&str>, password_command: Option<&str>) -
 }
 
 /// Forget the login and every cached token derived from it.
+/// Unlike the rest of `auth`, this ignores `-b`: there is one Club Plus
+/// session behind both banners, so there is no such thing as logging out of
+/// one of them. It clears the session and every cached token.
 fn logout(app: &App) -> Result<()> {
     let had_login = auth::clear(&app.secrets)?;
     let mut cleared = Vec::new();

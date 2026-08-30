@@ -99,7 +99,7 @@ fsnz --json compare bread | jq -r '.rows[] | select(.cheapest == "paknsave") | .
 | `orders previous` | What you have bought before, for buying it again |
 | `auth login` / `auth logout` | Sign in through Club Plus; forget the session |
 | `auth status` | Session, renewal and each banner's token; exits non-zero without one |
-| `auth token [--refresh] [--raw]` | Show the token this tool would use |
+| `auth refresh` | Mint fresh tokens, replacing the cached ones |
 | `doctor` | Check config, token and connectivity; exits non-zero if unhealthy |
 
 Global flags: `--banner`, `--store`, `--token`, `--json`.
@@ -178,6 +178,10 @@ New World
   token        cached, expires in 24m
   scope        MNW; cart available
   linked       yes
+
+PAK'nSAVE
+  token        none cached; minted on next use
+  linked       no
 ```
 
 `scope` is the token's own `banner` claim, and it is the one worth checking: a
@@ -197,8 +201,34 @@ manager to avoid retyping it:
 password_command = "op read op://Personal/Club Plus/password"
 ```
 
-`fsnz auth logout` forgets the session and every cached token. `fsnz doctor` shows
-who is logged in and where the session is kept.
+`fsnz auth refresh` throws the cached tokens away and mints replacements. It
+reports what it minted rather than printing them: no command prints a token in
+human output, so a JWT never lands in scrollback or shell history by accident.
+Scripts that genuinely need the value read it from the JSON:
+
+```bash
+fsnz --json auth status | jq -r '.banners.newworld.token'
+```
+
+That reads the cache without minting, so it is `null` until something has
+warmed it -- `fsnz auth refresh` first if you need a value there and then.
+
+One account covers both banners, so `auth` works across both by default:
+`login` proves the session at each, `refresh` mints for each, and `status`
+reports each. `-b` narrows any of them to the banner it names.
+
+```bash
+fsnz auth refresh              # both banners
+fsnz -b pns auth refresh       # PAK'nSAVE only
+```
+
+`refresh` treats the banners independently: one failing is reported against
+that banner and the other still mints, so it only exits non-zero when every
+banner failed. `auth logout` is the exception to all of this and ignores `-b`
+-- there is a single Club Plus session behind both banners, so there is no
+half of it to drop.
+
+`fsnz doctor` shows who is logged in and where the session is kept.
 
 ### Without logging in
 

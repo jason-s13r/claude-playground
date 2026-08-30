@@ -66,7 +66,7 @@ pub async fn dispatch(app: &mut App, banner: Banner, command: &Command) -> Resul
             orders::run(app, banner, cmd).await?;
             true
         }
-        Command::Auth(cmd) => auth::run(app, banner, cmd).await?,
+        Command::Auth(cmd) => auth::run(app, cmd).await?,
         Command::Doctor => doctor::run(app).await?,
     };
 

@@ -77,11 +77,11 @@ async fn an_expired_session_is_renewed_rather_than_forcing_another_login() {
         String::from_utf8_lossy(&out.stderr)
     );
 
-    // --refresh skips the cache `login` warmed, so the stored session is what
-    // gets used -- and it is already expired.
+    // `auth refresh` skips the cache `login` warmed, so the stored session is
+    // what gets used -- and it is already expired.
     let mut mint = f.cmd_with_stores();
     let out = with_clubplus(&mut mint, &cp.uri())
-        .args(["--json", "auth", "token", "--refresh"])
+        .args(["--json", "auth", "refresh"])
         .output()
         .unwrap();
     assert!(
@@ -185,11 +185,11 @@ async fn a_stored_login_is_what_later_commands_mint_from() {
         .unwrap();
 
     // Minting from the stored session still goes through Club Plus, so the
-    // later command needs those endpoints too. --refresh gets past the cache
-    // `login` warmed, which is what makes this exercise the mint.
+    // later command needs those endpoints too. `auth refresh` gets past the
+    // cache `login` warmed, which is what makes this exercise the mint.
     let mut mint = f.cmd_with_stores();
     let out = with_clubplus(&mut mint, &cp.uri())
-        .args(["--json", "auth", "token", "--refresh"])
+        .args(["--json", "-b", "newworld", "auth", "refresh"])
         .output()
         .unwrap();
     assert!(
@@ -198,7 +198,7 @@ async fn a_stored_login_is_what_later_commands_mint_from() {
         String::from_utf8_lossy(&out.stderr)
     );
     assert_eq!(
-        stdout_json(&out)["source"],
+        stdout_json(&out)["banners"]["newworld"]["source"],
         "minted from the stored Club Plus login"
     );
 
@@ -373,4 +373,56 @@ async fn login_will_not_hang_waiting_for_a_prompt_in_a_script() {
 
     assert!(!out.status.success());
     assert!(String::from_utf8_lossy(&out.stderr).contains("no terminal"));
+}
+
+#[tokio::test]
+async fn auth_covers_both_banners_until_one_is_named() {
+    let f = Fixture::start().await;
+
+    let out = f
+        .cmd_with_stores()
+        .args(["--json", "auth", "refresh"])
+        .output()
+        .unwrap();
+    assert!(
+        out.status.success(),
+        "{}",
+        String::from_utf8_lossy(&out.stderr)
+    );
+    let json = stdout_json(&out);
+    assert_eq!(json["banners"]["newworld"]["ok"], true);
+    assert_eq!(json["banners"]["paknsave"]["ok"], true);
+
+    // -b narrows it: the banner not named is left entirely alone, rather than
+    // reported as skipped.
+    let out = f
+        .cmd_with_stores()
+        .args(["--json", "-b", "paknsave", "auth", "refresh"])
+        .output()
+        .unwrap();
+    let json = stdout_json(&out);
+    assert_eq!(json["banners"]["paknsave"]["ok"], true);
+    assert!(
+        json["banners"]["newworld"].is_null(),
+        "got: {}",
+        json["banners"]
+    );
+}
+
+#[tokio::test]
+async fn status_reports_only_the_named_banner() {
+    let f = Fixture::start().await;
+    f.cmd_with_stores()
+        .args(["auth", "refresh"])
+        .output()
+        .unwrap();
+
+    let out = f
+        .cmd_with_stores()
+        .args(["--json", "-b", "newworld", "auth", "status"])
+        .output()
+        .unwrap();
+    let json = stdout_json(&out);
+    assert_eq!(json["banners"]["newworld"]["cached"], true);
+    assert!(json["banners"]["paknsave"].is_null());
 }

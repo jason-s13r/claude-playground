@@ -27,7 +27,7 @@ async fn a_rejected_token_suggests_refreshing_it() {
     assert!(!out.status.success());
     let stderr = String::from_utf8_lossy(&out.stderr);
     assert!(stderr.contains("401"), "got: {stderr}");
-    assert!(stderr.contains("token --refresh"), "got: {stderr}");
+    assert!(stderr.contains("auth refresh"), "got: {stderr}");
 }
 
 #[tokio::test]
@@ -120,17 +120,23 @@ async fn the_guest_token_is_minted_once_and_then_cached() {
 async fn token_refresh_goes_back_to_the_storefront() {
     let f = Fixture::start().await;
 
+    // An ordinary command mints once and caches the result; `auth refresh`
+    // then has to ignore that cache for the storefront to be hit twice.
+    mount_search(&f.newworld, search_response(vec![])).await;
     f.cmd_with_stores()
-        .args(["auth", "token"])
+        .args(["search", "milk"])
         .output()
         .unwrap();
     let out = f
         .cmd_with_stores()
-        .args(["--json", "auth", "token", "--refresh"])
+        .args(["--json", "auth", "refresh"])
         .output()
         .unwrap();
     assert!(out.status.success());
-    assert_eq!(stdout_json(&out)["source"], "minted from the storefront");
+    assert_eq!(
+        stdout_json(&out)["banners"]["newworld"]["source"],
+        "minted from the storefront"
+    );
 
     let mints = f
         .newworld

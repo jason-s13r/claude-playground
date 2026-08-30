@@ -17,6 +17,12 @@ pub struct App {
     pub json: bool,
     pub store_flag: Option<String>,
     pub token_flag: Option<String>,
+    /// The banner `-b`/`FSNZ_BANNER` named, or None when neither did.
+    ///
+    /// Distinct from the banner commands are dispatched with, which always
+    /// resolves to something: `auth` fans out across every banner unless this
+    /// says the user picked one.
+    pub banner_flag: Option<Banner>,
 }
 
 impl App {

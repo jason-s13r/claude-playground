@@ -10,6 +10,10 @@ concurrency:
   group: ci-${{ github.ref }}
   cancel-in-progress: true
 
+# Nothing here writes to the repository: the jobs check out and run `make`.
+permissions:
+  contents: read
+
 jobs:
   # Projects are independent, so give each one its own job: a broken
   # experiment in one language never blocks the others.
@@ -19,7 +23,7 @@ jobs:
       projects: ${{ steps.list.outputs.projects }}
       any: ${{ steps.list.outputs.any }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
       - id: list
         run: |
           projects="$(scripts/list-projects.sh --json)"
@@ -41,7 +45,7 @@ jobs:
         project: ${{ fromJSON(needs.discover.outputs.projects) }}
     name: check (${{ matrix.project }})
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
 
       # ubuntu-latest already ships gcc, make, go, rust, node and python, so
       # most projects need no setup at all. Add a setup step here only if a
