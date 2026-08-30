@@ -35,8 +35,9 @@ fsnz update --check     # is there a newer one?
 fsnz update             # download it and swap it in
 ```
 
-Releases currently publish a `linux-x86_64` binary only. On anything else
-`fsnz update` says so and leaves the binary alone; build from source instead.
+Releases publish `linux-x86_64` and `darwin-arm64` binaries. On anything else
+`fsnz update` says what the release does have and leaves the binary alone;
+build from source instead.
 
 ## Quick start
 
@@ -139,8 +140,16 @@ the way `doctor` does. Prereleases are skipped.
 Installing downloads the tarball built for this machine, checks it against the
 release's `SHA256SUMS` and refuses to go on if it does not match, then replaces
 the running binary in place. That needs write access to the directory the
-binary lives in -- a `/usr/local/bin` install wants `sudo`; `~/.cargo/bin` does
-not. Nothing else on the machine is touched.
+binary lives in -- a `/usr/local/bin` install wants `sudo`; `~/.local/bin` and
+`~/.cargo/bin` do not, which is also what to use on an immutable distro like
+Bazzite or Silverblue. Nothing else on the machine is touched.
+
+The Linux binary is built on Ubuntu 24.04 and links glibc dynamically, so it
+runs on any distro with glibc 2.39 or newer -- current Fedora, Arch, Debian 13,
+and the Fedora-derived immutable desktops. Older distros should build from
+source. The macOS binary is unsigned; `fsnz update` is unaffected, but a copy
+downloaded through a browser needs `xattr -d com.apple.quarantine fsnz` before
+it will run.
 
 Afterwards `fsnz --version` says where the binary came from:
 
