@@ -6,6 +6,7 @@ use std::time::Duration;
 use crate::app::App;
 use crate::auth;
 use crate::banner::Banner;
+use crate::build;
 use crate::commands::io::{human_duration, print_json};
 use crate::output;
 
@@ -87,6 +88,7 @@ pub async fn run(app: &App) -> Result<bool> {
             .collect();
         print_json(&serde_json::json!({
             "version": env!("CARGO_PKG_VERSION"),
+            "build": build::json(),
             "config_file": config_file,
             "config_present": config_present,
             "state_dir": app.paths.state_dir,
@@ -99,7 +101,7 @@ pub async fn run(app: &App) -> Result<bool> {
         return Ok(healthy);
     }
 
-    println!("fsnz {}", env!("CARGO_PKG_VERSION"));
+    println!("fsnz {}", build::short_version());
     println!(
         "config file  {} ({})",
         config_file.display(),

@@ -7,6 +7,7 @@ mod api;
 mod app;
 mod auth;
 mod banner;
+mod build;
 mod cli;
 mod commands;
 mod config;
@@ -15,6 +16,7 @@ mod output;
 mod process;
 mod secrets;
 mod token;
+mod update;
 
 use anyhow::Result;
 use clap::{CommandFactory, Parser};

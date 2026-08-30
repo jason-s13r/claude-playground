@@ -8,7 +8,8 @@ use crate::domain::order::Source;
 #[derive(Parser, Debug)]
 #[command(
     name = "fsnz",
-    version,
+    version = crate::build::short_version(),
+    long_version = crate::build::long_version(),
     about = "Unofficial CLI for New World and PAK'nSAVE (Foodstuffs NZ)",
     long_about = "Search products, specials and stores at New World and PAK'nSAVE.\n\n\
 Prices and stock are per store. Select a store before searching.\n\n  \
@@ -108,6 +109,14 @@ pub enum Command {
 
     /// Check configuration, credentials and connectivity
     Doctor,
+
+    /// Check for a newer release of fsnz, and install it
+    Update {
+        /// Report what is available without installing anything. Exits
+        /// non-zero when there is a newer release, so it can gate a script.
+        #[arg(long)]
+        check: bool,
+    },
 }
 
 #[derive(Subcommand, Debug)]

@@ -8,6 +8,7 @@ mod io;
 mod orders;
 mod products;
 mod stores;
+mod update;
 
 use anyhow::Result;
 use std::process::ExitCode;
@@ -18,8 +19,9 @@ use crate::cli::Command;
 
 /// Run one command.
 ///
-/// `auth status` and `doctor` report on a state rather than changing one, so a
-/// bad state is not an error: they print their report and exit non-zero.
+/// `auth status`, `doctor` and `update --check` report on a state rather than
+/// changing one, so a bad state is not an error: they print their report and
+/// exit non-zero.
 pub async fn dispatch(app: &mut App, banner: Banner, command: &Command) -> Result<ExitCode> {
     let healthy = match command {
         Command::Search {
@@ -68,6 +70,7 @@ pub async fn dispatch(app: &mut App, banner: Banner, command: &Command) -> Resul
         }
         Command::Auth(cmd) => auth::run(app, cmd).await?,
         Command::Doctor => doctor::run(app).await?,
+        Command::Update { check } => update::run(app, *check).await?,
     };
 
     Ok(if healthy {

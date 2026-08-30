@@ -26,6 +26,18 @@ make build P=foodstuffs-nz-cli     # from the repo root
 cargo install --path .             # or install the `fsnz` binary
 ```
 
+Or take a published build from
+[releases](https://github.com/jason-s13r/claude-playground/releases), which are
+tagged `foodstuffs-nz-cli/vX.Y.Z`. Once you have a binary it can replace itself:
+
+```bash
+fsnz update --check     # is there a newer one?
+fsnz update             # download it and swap it in
+```
+
+Releases currently publish a `linux-x86_64` binary only. On anything else
+`fsnz update` says so and leaves the binary alone; build from source instead.
+
 ## Quick start
 
 Prices, specials and stock are per store. Pick one first.
@@ -101,8 +113,52 @@ fsnz --json compare bread | jq -r '.rows[] | select(.cheapest == "paknsave") | .
 | `auth status` | Session, renewal and each banner's token; exits non-zero without one |
 | `auth refresh` | Mint fresh tokens, replacing the cached ones |
 | `doctor` | Check config, token and connectivity; exits non-zero if unhealthy |
+| `update` | Install the newest release. `--check` reports without installing |
 
 Global flags: `--banner`, `--store`, `--token`, `--json`.
+
+`fsnz -V` names the build; `fsnz --version` gives the whole provenance.
+
+## Updating
+
+`fsnz update` looks for the newest `foodstuffs-nz-cli/vX.Y.Z` tag in the
+releases of the monorepo this lives in. It cannot use GitHub's own
+`releases/latest`, which answers with the newest release of *any* project in
+the repository.
+
+```console
+$ fsnz update --check
+fsnz 0.1.1 -> 0.2.0 available
+  https://github.com/jason-s13r/claude-playground/releases/tag/foodstuffs-nz-cli/v0.2.0
+  run `fsnz update` to install foodstuffs-nz-cli-0.2.0-linux-x86_64.tar.gz
+```
+
+`--check` exits non-zero when there is something newer, so it can gate a script
+the way `doctor` does. Prereleases are skipped.
+
+Installing downloads the tarball built for this machine, checks it against the
+release's `SHA256SUMS` and refuses to go on if it does not match, then replaces
+the running binary in place. That needs write access to the directory the
+binary lives in -- a `/usr/local/bin` install wants `sudo`; `~/.cargo/bin` does
+not. Nothing else on the machine is touched.
+
+Afterwards `fsnz --version` says where the binary came from:
+
+```console
+$ fsnz --version
+fsnz 0.2.0
+commit     9f2c1ab34 (2026-08-30)
+source     jason-s13r/claude-playground, release tag foodstuffs-nz-cli/v0.2.0
+built by   GitHub Actions, from the release workflow
+build      release, x86_64-unknown-linux-gnu, rustc 1.94.0
+binary     /home/you/.local/bin/fsnz
+installed  by `fsnz update` from foodstuffs-nz-cli/v0.2.0 on 2026-08-30
+```
+
+A binary built from a working tree says so instead, down to whether the tree
+had uncommitted changes in it. The install record is a small file at
+`~/.local/state/foodstuffs-nz-cli/install.json`; deleting it only removes the
+last line.
 
 ## Configuration
 
@@ -136,6 +192,8 @@ Environment overrides, all optional:
 | `FSNZ_NEWWORLD_ORIGIN`, `FSNZ_PAKNSAVE_ORIGIN` | Move the storefront URL |
 | `FSNZ_CLUBPLUS_API`, `FSNZ_CLUBPLUS_LOGIN` | Move the Club Plus endpoints |
 | `FSNZ_CONFIG_DIR`, `FSNZ_STATE_DIR` | Relocate config and state |
+| `FSNZ_UPDATE_API` | Move the GitHub API base used by `fsnz update` |
+| `GITHUB_TOKEN`, `GH_TOKEN` | Raise the rate limit on `fsnz update`; sent to github.com only |
 
 ## Logging in
 

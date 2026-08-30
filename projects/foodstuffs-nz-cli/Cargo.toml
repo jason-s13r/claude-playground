@@ -15,14 +15,18 @@ base64 = "0.22"
 clap = { version = "4", features = ["derive", "env"] }
 comfy-table = "7"
 directories = "6"
+flate2 = "1"
 owo-colors = { version = "4", features = ["supports-colors"] }
 keyring = "4"
 rpassword = "7"
 uuid = { version = "1", features = ["v4"] }
 reqwest = { version = "0.12", default-features = false, features = ["json", "rustls-tls", "gzip", "brotli"] }
+semver = "1"
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
+sha2 = "0.10"
 shell-words = "1"
+tar = "0.4"
 tokio = { version = "1", features = ["macros", "rt-multi-thread", "process", "fs"] }
 toml = "0.9"
 
