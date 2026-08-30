@@ -70,12 +70,7 @@ async fn orders_list_numbers_the_history() {
     mount_orders(
         &f.newworld,
         vec![
-            order_row(
-                INSTORE_ID,
-                1486,
-                "2026-08-01T16:00:00+12:00",
-                "IN_STORE",
-            ),
+            order_row(INSTORE_ID, 1486, "2026-08-01T16:00:00+12:00", "IN_STORE"),
             order_row("9f1c", 4200, "2026-07-01T16:00:00+12:00", "ONLINE"),
         ],
     )
@@ -172,7 +167,13 @@ async fn orders_show_takes_a_position_from_the_listing() {
         &f.newworld,
         INSTORE_ID,
         vec![
-            instore_product("5011234-EA-000", "Creamy Milk Chocolate Block", "Whittaker's", 2, 774),
+            instore_product(
+                "5011234-EA-000",
+                "Creamy Milk Chocolate Block",
+                "Whittaker's",
+                2,
+                774,
+            ),
             instore_product("5019876-EA-000", "Wholegrain Toast Bread", "Pams", 2, 712),
         ],
     )
@@ -190,10 +191,7 @@ async fn orders_show_takes_a_position_from_the_listing() {
     );
     let stdout = String::from_utf8_lossy(&out.stdout);
 
-    assert!(
-        stdout.contains("Whittaker's Creamy Milk"),
-        "got: {stdout}"
-    );
+    assert!(stdout.contains("Whittaker's Creamy Milk"), "got: {stdout}");
     assert!(stdout.contains("5019876-EA-000"), "got: {stdout}");
     assert!(stdout.contains("$7.74"), "got: {stdout}");
     assert!(stdout.contains("Total"), "got: {stdout}");

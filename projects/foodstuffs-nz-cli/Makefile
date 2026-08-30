@@ -19,11 +19,15 @@ test:
 fmt:
 	cargo fmt
 
+# `A && B || C` would report a real failure in B as "not installed" and exit 0,
+# which quietly hollows out `check`. Probe, then run.
 fmt-check:
-	@cargo fmt --version >/dev/null 2>&1 && cargo fmt --check || echo "rustfmt not installed, skipping"
+	@if cargo fmt --version >/dev/null 2>&1; then cargo fmt --check; \
+	else echo "rustfmt not installed, skipping"; fi
 
 lint:
-	@cargo clippy --version >/dev/null 2>&1 && cargo clippy --all-targets -- -D warnings || echo "clippy not installed, skipping"
+	@if cargo clippy --version >/dev/null 2>&1; then cargo clippy --all-targets -- -D warnings; \
+	else echo "clippy not installed, skipping"; fi
 
 # Release artifact. The binary's own version comes from Cargo.toml; the release
 # workflow checks that it agrees with the tag before getting here.
