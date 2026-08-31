@@ -1,5 +1,19 @@
 # Changelog
 
+## foodstuffs-nz-cli/v0.2.0-rc.2 (2026-08-31)
+
+### Fixes
+
+- drop the dirty marker from the build stamp
+  A release build rewrites Cargo.lock as it runs, so whether `git status` saw the
+  tree clean depended on whether it ran before or after cargo got there. Two
+  releases off the same pipeline disagreed, and 0.2.0-rc.1 shipped branding
+  itself as built from edited source.
+
+  `built by` already separates a released binary from a hand-built one, which is
+  the distinction that carries weight.
+
+
 ## foodstuffs-nz-cli/v0.2.0-rc.1 (2026-08-31)
 
 ### Fixes
