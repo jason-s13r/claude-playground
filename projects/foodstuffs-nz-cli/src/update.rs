@@ -443,7 +443,7 @@ mod tests {
             version_from_tag("foodstuffs-nz-cli/v1.2.3"),
             Some(Version::new(1, 2, 3))
         );
-        assert!(version_from_tag("port-scan/v1.2.3").is_none());
+        assert!(version_from_tag("other-project/v1.2.3").is_none());
         assert!(version_from_tag("v1.2.3").is_none());
         // The namespace has to match in full, not just as a prefix.
         assert!(version_from_tag("foodstuffs-nz/v1.2.3").is_none());

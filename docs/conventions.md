@@ -20,14 +20,14 @@ changed, and releases them.
 ## Adding a project
 
 ```bash
-scripts/new-project.sh go port-scan
+scripts/new-project.sh go my-tool
 ```
 
-This copies `templates/go/` to `projects/port-scan/`, substituting two
+This copies `templates/go/` to `projects/my-tool/`, substituting two
 placeholders:
 
-- `__NAME__` → the project name as given (`port-scan`)
-- `__IDENT__` → a language-safe identifier (`port_scan`), also substituted in
+- `__NAME__` → the project name as given (`my-tool`)
+- `__IDENT__` → a language-safe identifier (`my_tool`), also substituted in
   file and directory names
 
 Names are lowercase kebab-case. If no template fits, create the directory by

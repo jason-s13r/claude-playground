@@ -3,20 +3,14 @@
 #
 # Usage: scripts/release-matrix.sh
 #
-# dispat plans the release and runs each package's stages, but it runs them on
-# one machine. A project shipping binaries for several platforms needs one
-# runner per platform, and that is the one thing the release workflow still has
-# to arrange itself. This turns "what is releasing" into "what has to be built,
-# and where".
-#
-# A project declares its runners in its own dispat.json, under `custom` -- data
-# dispat carries but does not interpret:
+# dispat runs a package's stages on one machine, so a project shipping binaries
+# for several platforms needs one runner each. It declares them in its own
+# dispat.json under `custom`, which dispat carries but does not read:
 #
 #   "custom": { "releasePlatforms": ["ubuntu-latest", "macos-14"] }
 #
-# A project that declares nothing builds on ubuntu-latest alone. Output is the
-# JSON GitHub Actions wants for `strategy.matrix` -- an object with an
-# `include` list -- and an empty object when the run would release nothing.
+# Declaring nothing means ubuntu-latest alone. Output is a `strategy.matrix`
+# object, or `{}` when the run would release nothing.
 set -euo pipefail
 
 repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
@@ -31,7 +25,7 @@ for line in sys.stdin:
         rec = json.loads(line)
     except ValueError:
         continue
-    # A releasing package carries the bump it earned; an unchanged one does not.
+    # A releasing package carries a bump; an unchanged one does not.
     name = rec.get("package")
     if not name or not rec.get("bump") or rec.get("bump") == "none":
         continue

@@ -6,8 +6,8 @@
 #   scripts/new-project.sh --list
 #
 # Templates are ordinary project trees with two placeholders substituted on
-# copy: __NAME__ (the project name as given, e.g. "port-scan") and __IDENT__
-# (a language-safe identifier, e.g. "port_scan"). __IDENT__ is also
+# copy: __NAME__ (the project name as given, e.g. "my-tool") and __IDENT__
+# (a language-safe identifier, e.g. "my_tool"). __IDENT__ is also
 # substituted in file and directory names.
 set -euo pipefail
 
