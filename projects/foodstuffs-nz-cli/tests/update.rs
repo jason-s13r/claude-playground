@@ -10,7 +10,7 @@ mod support;
 use serde_json::json;
 use support::*;
 
-const CURRENT: &str = env!("CARGO_PKG_VERSION");
+const CURRENT: &str = env!("FSNZ_VERSION");
 const NEWER: &str = "9.9.0";
 
 /// A release of `NEWER` with a binary for this host and a matching SHA256SUMS,
@@ -52,7 +52,7 @@ async fn check_finds_the_newest_release_of_this_project_alone() {
     gh.releases(json!([
         // Another project in the monorepo, released far ahead of this one.
         // GitHub's own `releases/latest` would hand back exactly this.
-        gh.release("port-scan/v42.0.0", &[]),
+        gh.release("other-project/v42.0.0", &[]),
         gh.release("foodstuffs-nz-cli/v0.0.9", &[]),
         gh.release(&format!("foodstuffs-nz-cli/v{NEWER}"), &assets),
         // Flagged prerelease, and a semver prerelease too.
@@ -85,7 +85,8 @@ async fn check_is_happy_when_the_newest_release_is_the_one_running() {
     let gh = Github::start().await;
     gh.releases(json!([
         gh.release(&format!("foodstuffs-nz-cli/v{CURRENT}"), &[]),
-        gh.release("port-scan/v42.0.0", &[]),
+        gh.release("foodstuffs-nz-cli/v0.0.1", &[]),
+        gh.release("other-project/v42.0.0", &[]),
     ]))
     .await;
 
@@ -109,7 +110,7 @@ async fn check_is_happy_when_the_newest_release_is_the_one_running() {
 async fn a_project_with_no_releases_is_not_an_error() {
     let f = Fixture::start().await;
     let gh = Github::start().await;
-    gh.releases(json!([gh.release("port-scan/v42.0.0", &[])]))
+    gh.releases(json!([gh.release("other-project/v42.0.0", &[])]))
         .await;
 
     let out = f

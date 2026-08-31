@@ -11,7 +11,8 @@ use std::time::{SystemTime, UNIX_EPOCH};
 
 use crate::config::Paths;
 
-pub const VERSION: &str = env!("CARGO_PKG_VERSION");
+/// Stamped by `build.rs`: a release is compiled before the manifest bump.
+pub const VERSION: &str = env!("FSNZ_VERSION");
 
 /// Empty when the build had no git to ask -- a source tarball, or a machine
 /// without git installed.

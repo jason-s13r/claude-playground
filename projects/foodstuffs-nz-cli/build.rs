@@ -26,9 +26,18 @@ fn main() {
     println!("cargo:rerun-if-env-changed=GITHUB_ACTIONS");
     println!("cargo:rerun-if-changed=src");
     println!("cargo:rerun-if-changed=Cargo.toml");
+    // Release identity comes from dispat, not the tree.
+    println!("cargo:rerun-if-env-changed=DISPAT_NEW_VERSION");
+    println!("cargo:rerun-if-env-changed=DISPAT_TAG");
     for path in git_watch_paths(&dir) {
         println!("cargo:rerun-if-changed={}", path.display());
     }
+
+    // A release is built before the commit that bumps the manifest, so
+    // CARGO_PKG_VERSION is still the previous release there.
+    let version = env_var("DISPAT_NEW_VERSION")
+        .or_else(|| std::env::var("CARGO_PKG_VERSION").ok())
+        .unwrap_or_default();
 
     let commit = git(&dir, &["rev-parse", "--short=9", "HEAD"]);
     let commit_date = git(&dir, &["log", "-1", "--format=%cd", "--date=short"]);
@@ -39,18 +48,20 @@ fn main() {
         .map(|s| !s.is_empty())
         .unwrap_or(false);
 
-    // Releases are tagged `<project>/vX.Y.Z`, so an exact match here means this
-    // is a build of a published release rather than of some commit near one.
-    let tag = git(
-        &dir,
-        &[
-            "describe",
-            "--tags",
-            "--exact-match",
-            "--match",
-            "foodstuffs-nz-cli/v*",
-        ],
-    );
+    // Releases are tagged `<project>/vX.Y.Z`. The tag lands on the release
+    // commit after this runs, so `describe` is empty during a release.
+    let tag = env_var("DISPAT_TAG").or_else(|| {
+        git(
+            &dir,
+            &[
+                "describe",
+                "--tags",
+                "--exact-match",
+                "--match",
+                "foodstuffs-nz-cli/v*",
+            ],
+        )
+    });
 
     // Which repository this came out of. GitHub Actions says so outright;
     // otherwise the origin remote is the best answer available, which is how a
@@ -80,6 +91,7 @@ fn main() {
         // anyone reads.
         .and_then(|v| v.split_whitespace().nth(1).map(str::to_string));
 
+    emit("FSNZ_VERSION", Some(version.as_str()));
     emit("FSNZ_COMMIT", commit.as_deref());
     emit("FSNZ_COMMIT_DATE", commit_date.as_deref());
     emit("FSNZ_TAG", tag.as_deref());
@@ -89,6 +101,11 @@ fn main() {
     emit("FSNZ_RUSTC", rustc.as_deref());
     emit("FSNZ_TARGET", std::env::var("TARGET").ok().as_deref());
     emit("FSNZ_PROFILE", std::env::var("PROFILE").ok().as_deref());
+}
+
+/// A non-empty environment variable. CI passes unset ones through as `""`.
+fn env_var(key: &str) -> Option<String> {
+    std::env::var(key).ok().filter(|v| !v.is_empty())
 }
 
 /// `owner/name` out of a git remote, in either of the two spellings git uses:

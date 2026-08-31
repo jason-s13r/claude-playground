@@ -87,7 +87,7 @@ pub async fn run(app: &App) -> Result<bool> {
             .map(|(b, e)| (b.id().to_string(), serde_json::Value::Object(e.clone())))
             .collect();
         print_json(&serde_json::json!({
-            "version": env!("CARGO_PKG_VERSION"),
+            "version": crate::build::VERSION,
             "build": build::json(),
             "config_file": config_file,
             "config_present": config_present,
