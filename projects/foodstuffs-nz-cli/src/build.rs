@@ -20,7 +20,6 @@ const COMMIT: &str = env!("FSNZ_COMMIT");
 const COMMIT_DATE: &str = env!("FSNZ_COMMIT_DATE");
 /// The release tag HEAD sat exactly on, when it sat on one.
 const TAG: &str = env!("FSNZ_TAG");
-const DIRTY: &str = env!("FSNZ_DIRTY");
 /// The repository the build came out of: `GITHUB_REPOSITORY` in CI, the origin
 /// remote otherwise. Empty when neither could be read.
 const REPO: &str = env!("FSNZ_REPO");
@@ -34,20 +33,6 @@ fn some(s: &'static str) -> Option<&'static str> {
     (!s.is_empty()).then_some(s)
 }
 
-fn dirty() -> bool {
-    DIRTY == "true"
-}
-
-/// The commit, marked when the tree it was built from had edits in it.
-fn commit_label() -> Option<String> {
-    let commit = some(COMMIT)?;
-    Some(if dirty() {
-        format!("{commit}-dirty")
-    } else {
-        commit.to_string()
-    })
-}
-
 /// `-V`: one line, enough to tell two builds of the same version apart.
 pub fn short_version() -> &'static str {
     static CELL: OnceLock<String> = OnceLock::new();
@@ -59,11 +44,14 @@ pub fn short_version() -> &'static str {
         if let Some(tag) = some(TAG) {
             parts.push(tag.to_string());
         }
-        let commit = [commit_label(), some(COMMIT_DATE).map(str::to_string)]
-            .into_iter()
-            .flatten()
-            .collect::<Vec<_>>()
-            .join(" ");
+        let commit = [
+            some(COMMIT).map(str::to_string),
+            some(COMMIT_DATE).map(str::to_string),
+        ]
+        .into_iter()
+        .flatten()
+        .collect::<Vec<_>>()
+        .join(" ");
         if !commit.is_empty() {
             parts.push(commit);
         }
@@ -88,7 +76,7 @@ pub fn long_version() -> &'static str {
             out.push_str(&format!("\n{label:<11}{value}"));
         };
 
-        if let Some(commit) = commit_label() {
+        if let Some(commit) = some(COMMIT).map(str::to_string) {
             line(
                 "commit",
                 match some(COMMIT_DATE) {
@@ -105,9 +93,6 @@ pub fn long_version() -> &'static str {
             Some(tag) => format!("release tag {tag}"),
             None => "no release tag".to_string(),
         });
-        if dirty() {
-            source.push("with uncommitted changes".into());
-        }
         line("source", source.join(", "));
         line(
             "built by",
@@ -165,7 +150,6 @@ pub fn json() -> serde_json::Value {
         "tag": field(TAG),
         "repo": field(REPO),
         "builder": field(BUILDER),
-        "dirty": dirty(),
         "profile": field(PROFILE),
         "target": field(TARGET),
         "rustc": field(RUSTC),

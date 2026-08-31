@@ -17,8 +17,7 @@ fn main() {
 
     // Naming any rerun-if-changed replaces cargo's default "rerun when a file
     // in the package changes", so the sources have to be re-declared alongside
-    // the git files. Without the git ones a commit would leave a stale sha;
-    // without the source ones an edit would leave a stale dirty flag.
+    // the git files. Without the git ones a commit would leave a stale sha.
     println!("cargo:rerun-if-changed=build.rs");
     // A release build is stamped from the workflow's environment, so a change
     // of repository or of CI has to re-stamp.
@@ -41,12 +40,6 @@ fn main() {
 
     let commit = git(&dir, &["rev-parse", "--short=9", "HEAD"]);
     let commit_date = git(&dir, &["log", "-1", "--format=%cd", "--date=short"]);
-
-    // Scoped to this project's directory. In a monorepo an unrelated project's
-    // uncommitted edits say nothing about how this binary was built.
-    let dirty = git(&dir, &["status", "--porcelain", "--", "."])
-        .map(|s| !s.is_empty())
-        .unwrap_or(false);
 
     // Releases are tagged `<project>/vX.Y.Z`. The tag lands on the release
     // commit after this runs, so `describe` is empty during a release.
@@ -97,7 +90,6 @@ fn main() {
     emit("FSNZ_TAG", tag.as_deref());
     emit("FSNZ_REPO", repo.as_deref());
     emit("FSNZ_BUILDER", builder);
-    emit("FSNZ_DIRTY", Some(if dirty { "true" } else { "false" }));
     emit("FSNZ_RUSTC", rustc.as_deref());
     emit("FSNZ_TARGET", std::env::var("TARGET").ok().as_deref());
     emit("FSNZ_PROFILE", std::env::var("PROFILE").ok().as_deref());
@@ -139,13 +131,13 @@ fn git(dir: &Path, args: &[&str]) -> Option<String> {
     (!text.is_empty()).then_some(text)
 }
 
-/// The git files whose contents move when HEAD moves: the HEAD pointer, the
-/// branch ref it names, and the index (which is what `status` compares).
+/// The git files whose contents move when HEAD moves: the HEAD pointer and the
+/// branch ref it names.
 fn git_watch_paths(dir: &Path) -> Vec<PathBuf> {
     let Some(git_dir) = git(dir, &["rev-parse", "--absolute-git-dir"]).map(PathBuf::from) else {
         return Vec::new();
     };
-    let mut paths = vec![git_dir.join("HEAD"), git_dir.join("index")];
+    let mut paths = vec![git_dir.join("HEAD")];
     if let Some(head) = std::fs::read_to_string(git_dir.join("HEAD"))
         .ok()
         .and_then(|h| h.strip_prefix("ref: ").map(|r| r.trim().to_string()))
