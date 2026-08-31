@@ -10,42 +10,24 @@ concurrency:
   group: ci-${{ github.ref }}
   cancel-in-progress: true
 
-# Nothing here writes to the repository: the jobs check out and run `make`.
+# Nothing here writes to the repository: the job checks out and runs dispat.
 permissions:
   contents: read
 
 jobs:
-  # Projects are independent, so give each one its own job: a broken
-  # experiment in one language never blocks the others.
-  discover:
-    runs-on: ubuntu-latest
-    outputs:
-      projects: ${{ steps.list.outputs.projects }}
-      any: ${{ steps.list.outputs.any }}
-    steps:
-      - uses: actions/checkout@v5
-      - id: list
-        run: |
-          projects="$(scripts/list-projects.sh --json)"
-          echo "projects=$projects" >> "$GITHUB_OUTPUT"
-          if [ "$projects" = "[]" ]; then
-            echo "any=false" >> "$GITHUB_OUTPUT"
-          else
-            echo "any=true" >> "$GITHUB_OUTPUT"
-          fi
-          echo "discovered: $projects"
-
+  # dispat discovers the projects itself, so there is no list to keep and no
+  # matrix to build. `--since all` widens the selection past the release
+  # window to every package, because CI checks the whole repo rather than only
+  # what a release would touch. A package that defines no `check` script is
+  # skipped, and one failing does not stop the others.
   check:
-    needs: discover
-    if: needs.discover.outputs.any == 'true'
     runs-on: ubuntu-latest
-    strategy:
-      fail-fast: false
-      matrix:
-        project: ${{ fromJSON(needs.discover.outputs.projects) }}
-    name: check (${{ matrix.project }})
     steps:
       - uses: actions/checkout@v5
+        with:
+          fetch-depth: 0 # dispat plans from tags and commit history
+
+      - uses: yohimik/dispat@v1
 
       # ubuntu-latest already ships gcc, make, go, rust, node and python, so
       # most projects need no setup at all. Add a setup step here only if a
@@ -56,26 +38,5 @@ jobs:
             printf '%-8s %s\n' "$c" "$(command -v "$c" >/dev/null 2>&1 && "$c" --version 2>&1 | head -1 || echo 'not installed')"
           done
 
-      - name: make check
-        run: make check P=${{ matrix.project }}
-
-  # A single required status check that stays green when there are no projects
-  # yet, and goes red if any project's check job failed.
-  ci:
-    needs: [discover, check]
-    if: always()
-    runs-on: ubuntu-latest
-    steps:
-      - name: Summarise
-        run: |
-          # A failed discovery skips the whole matrix, which would otherwise
-          # look identical to "no projects yet" and pass.
-          if [ "${{ needs.discover.result }}" != "success" ]; then
-            echo "project discovery failed"
-            exit 1
-          fi
-          if [ "${{ needs.check.result }}" = "failure" ] || [ "${{ needs.check.result }}" = "cancelled" ]; then
-            echo "one or more projects failed"
-            exit 1
-          fi
-          echo "all good"
+      - name: dispat run check
+        run: dispat run check --since all

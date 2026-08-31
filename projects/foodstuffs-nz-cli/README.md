@@ -22,7 +22,7 @@ half shares the endpoint's shape but no online order was there to try it on.
 ## Install
 
 ```bash
-make build P=foodstuffs-nz-cli     # from the repo root
+cargo build                        # from this directory
 cargo install --path .             # or install the `fsnz` binary
 ```
 
@@ -470,9 +470,9 @@ from "store not selected".
 ## Development
 
 ```bash
-make check P=foodstuffs-nz-cli    # fmt, clippy, build, test
-make test  P=foodstuffs-nz-cli
-make run   P=foodstuffs-nz-cli ARGS="search milk"
+dispat run check --since all -p foodstuffs-nz-cli   # fmt, clippy, build, test
+cargo test
+cargo run --quiet -- search milk
 ```
 
 The tests run the real binary against a mock Foodstuffs (`wiremock`) with

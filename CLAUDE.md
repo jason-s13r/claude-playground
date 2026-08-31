@@ -4,11 +4,16 @@ A polyglot playground monorepo. Projects here are experiments, one-off tools,
 and clones of existing tools adapted to work against something else. Any
 language is fair game.
 
+[dispat](https://dispat.dev) is the monorepo tool: it discovers the projects,
+runs their scripts, and releases them from the commit history.
+
 ## Structure
 
-- `projects/<name>/` — self-contained projects, one directory each
+- `projects/<name>/` — self-contained projects, one directory each, each with
+  its own `dispat.json`
 - `templates/<lang>/` — scaffolding for new projects
-- `scripts/` — discovery (`list-projects.sh`), fan-out (`fanout.sh`), scaffolding (`new-project.sh`)
+- `scripts/` — scaffolding (`new-project.sh`), release matrix (`release-matrix.sh`)
+- `dispat.json` — root config: where projects live, how they are tagged
 - `docs/conventions.md` — the full conventions
 
 ## Working here
@@ -16,45 +21,49 @@ language is fair game.
 Start a new project with the scaffolder rather than by hand:
 
 ```bash
-make new TEMPLATE=<c|go|node-ts|python|rust> NAME=<kebab-case-name>
+scripts/new-project.sh <c|go|node-ts|python|rust> <kebab-case-name>
 ```
 
-Then work inside `projects/<name>/`. Run things through the root Makefile:
+Then work inside `projects/<name>/`:
 
 ```bash
-make test P=<name>
-make run  P=<name> ARGS="..."
-make check P=<name>     # what CI runs; run this before committing
-make check              # every project
+dispat run check --since all              # what CI runs, every project
+dispat run test  --since all -p <name>    # one project
+dispat status                             # what a release would do
+dispat preview                            # the notes it would write
 ```
+
+**`--since all` matters.** Without it, `dispat run` only covers packages the
+release window selects — those with commits since their last tag. At a keyboard
+you almost always want `--since all`.
 
 ## Rules that matter
 
 - **Keep projects self-contained.** A project owns its own dependencies, build
-  files and lockfiles. Do not hoist anything to the repo root — no root
-  `package.json`, no cargo workspace, no shared `go.mod`. Deleting a project
-  directory must fully remove it.
-- **Every project needs a `Makefile`** implementing as many of `build`, `test`,
-  `lint`, `fmt`, `fmt-check`, `run`, `clean`, `check` as apply. That Makefile is
-  the only interface the rest of the repo uses. Omitted targets are skipped by
-  the fan-out, so do not add empty ones just to fill the table.
+  files, lockfiles and `dispat.json`. Do not hoist anything to the repo root —
+  no root `package.json`, no cargo workspace, no shared `go.mod`, and no build
+  scripts in the root config. Deleting a project directory must fully remove it.
+- **Every project needs a `dispat.json`** defining as many of `build`, `test`,
+  `lint`, `fmt`, `fmt-check`, `run`, `check` and `release-build` as apply. That
+  file is the only interface the rest of the repo uses. Omitted scripts are
+  skipped, so do not add empty ones just to fill the table.
+- **Use the project's own tooling.** A Rust project calls cargo directly; a C
+  project calls `make` because it needs real build rules. There is no repo-wide
+  build tool to satisfy, so do not add a layer of indirection for symmetry.
 - **`check` is the CI contract.** It should be `fmt-check lint build test` minus
   whatever the project does not implement. Keep `build` in there — `test` does
   not necessarily compile every source file.
 - **Do not touch other projects** when working on one. They are unrelated by
-  design.
-- **No list to update.** CI and the root Makefile discover projects by globbing
-  `projects/*/Makefile`. Adding a directory is enough.
-- **Add languages when they are needed, not before.** Templates exist for `c`,
-  `go`, `node-ts`, `python` and `rust`. Do not pre-build a template for a
-  language nothing uses yet. When a project needs a language with no template,
-  create the directory and its Makefile by hand; promote it to `templates/`
-  only once a second project in that language turns up.
-- **Releases are per project**, tagged `<project>/vX.Y.Z`. If a project declares
-  a version in a manifest, bump it in a commit before tagging — the release
-  workflow refuses a tag that disagrees with the manifest. Implement `dist` to
-  put artifacts in `release/`; leave it out for projects not worth releasing. A
-  project shipping binaries for several platforms lists its runners in a
-  `release-platforms` target; without one it builds on `ubuntu-latest` alone.
-- Commit lockfiles. Keep build output in `bin/`, `dist/` or `target/` — already
-  gitignored.
+  design — unless one genuinely depends on another, in which case say so in the
+  root `dispat.json` under `dependencies` and let dispat order the builds and
+  propagate the version bumps.
+- **No list to update.** dispat discovers projects by their directory under
+  `projects/`. Adding a directory is enough.
+- **Releases come from commits, not tags.** A `feat(<project>): ...` or
+  `fix(<project>): ...` on `main` releases that project; the scope is the
+  project's directory name. Do not bump versions by hand and do not push
+  release tags — dispat writes the manifest version, the tag and the GitHub
+  release. A project that ships binaries implements `release-build` and
+  declares its runners under `custom.releasePlatforms`.
+- Commit lockfiles. Keep build output in `bin/`, `dist/`, `release/` or
+  `target/` — already gitignored.

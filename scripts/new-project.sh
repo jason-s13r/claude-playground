@@ -77,5 +77,8 @@ done < <(find "$dest" -type f -print0)
 echo "created projects/$name from the '$template' template"
 echo
 echo "next:"
-echo "  make test P=$name"
-echo "  make run  P=$name"
+echo "  dispat run test -p $name"
+echo "  dispat run check -p $name"
+echo
+echo "note: dispat only runs a package the release window selects, so add"
+echo "      --since all until $name has a commit of its own."

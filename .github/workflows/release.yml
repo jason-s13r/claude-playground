@@ -1,270 +1,149 @@
 name: Release
 
-# Releases are per project, so tags are namespaced: <project>/vX.Y.Z
-# e.g. `git tag port-scan/v0.2.0 && git push origin port-scan/v0.2.0`.
-# Projects version independently -- one project's release says nothing about
-# any other's.
+# Releases are driven by conventional commits, not by pushing a tag. dispat
+# reads the commits since each project's last tag, works out which projects
+# changed and what their next versions are, and releases only those. A push
+# that changes nothing releasable is a no-op.
 on:
   push:
-    tags: ["*/v*"]
+    branches: [main]
   workflow_dispatch:
-    inputs:
-      project:
-        description: Project to release
-        required: true
-      version:
-        description: Version, without the leading v (e.g. 0.2.0)
-        required: true
-      dry_run:
-        description: Build and verify, but do not publish
-        type: boolean
-        default: true
 
+# A second release while one is running would race it for tags. dispat takes
+# its own lock as well, and refuses rather than races.
 concurrency:
-  group: release-${{ github.ref }}
+  group: release
   cancel-in-progress: false
 
-# Only the publish job writes anything.
 permissions:
   contents: read
 
 jobs:
-  resolve:
+  # What is releasing, and which runners have to build it. dispat answers the
+  # first half; scripts/release-matrix.sh pairs it with each project's declared
+  # platforms, because dispat runs a package's stages on one machine and a
+  # project shipping several binaries needs one runner each.
+  plan:
     runs-on: ubuntu-latest
     outputs:
-      project: ${{ steps.resolve.outputs.project }}
-      version: ${{ steps.resolve.outputs.version }}
-      tag: ${{ steps.resolve.outputs.tag }}
-      prerelease: ${{ steps.resolve.outputs.prerelease }}
-      dry_run: ${{ steps.resolve.outputs.dry_run }}
-      platforms: ${{ steps.platforms.outputs.platforms }}
+      matrix: ${{ steps.plan.outputs.matrix }}
+      any: ${{ steps.plan.outputs.any }}
     steps:
       - uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
 
-      - name: Resolve project and version
-        id: resolve
+      - uses: yohimik/dispat@v1
+
+      - id: plan
         run: |
           set -euo pipefail
-          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
-            project='${{ inputs.project }}'
-            version='${{ inputs.version }}'
-            tag="$project/v$version"
-            dry_run='${{ inputs.dry_run }}'
+          matrix="$(scripts/release-matrix.sh)"
+          echo "matrix=$matrix" >> "$GITHUB_OUTPUT"
+          if [ "$matrix" = "{}" ]; then
+            echo "any=false" >> "$GITHUB_OUTPUT"
+            echo "nothing to release"
           else
-            tag="${GITHUB_REF_NAME}"
-            project="${tag%%/*}"
-            rest="${tag#*/}"
-            version="${rest#v}"
-            dry_run=false
+            echo "any=true" >> "$GITHUB_OUTPUT"
           fi
+          dispat status
 
-          if [ "$project" = "$tag" ] || [ -z "$project" ] || [ -z "$version" ]; then
-            echo "::error::malformed tag '$tag'; expected <project>/vX.Y.Z"
-            exit 1
-          fi
-
-          # Semver, optionally with a prerelease and/or build suffix.
-          if ! printf '%s' "$version" | grep -qE '^[0-9]+\.[0-9]+\.[0-9]+(-[0-9A-Za-z.-]+)?(\+[0-9A-Za-z.-]+)?$'; then
-            echo "::error::'$version' is not a valid semver version"
-            exit 1
-          fi
-
-          if [ ! -f "projects/$project/Makefile" ]; then
-            echo "::error::no such project: $project"
-            echo "known projects: $(scripts/list-projects.sh | tr '\n' ' ')"
-            exit 1
-          fi
-
-          prerelease=false
-          case "$version" in *-*) prerelease=true ;; esac
-
-          {
-            echo "project=$project"
-            echo "version=$version"
-            echo "tag=$tag"
-            echo "prerelease=$prerelease"
-            echo "dry_run=$dry_run"
-          } >> "$GITHUB_OUTPUT"
-          echo "releasing $project $version (prerelease=$prerelease, dry_run=$dry_run)"
-
-      # Some ecosystems bake the version into the artifact from a manifest
-      # rather than taking it from the tag. Publishing then produces a file
-      # labelled with the manifest's version while the release claims the
-      # tag's. Refuse rather than ship something mislabelled.
-      - name: Check the tag agrees with the project manifest
-        run: |
-          set -uo pipefail
-          project='${{ steps.resolve.outputs.project }}'
-          version='${{ steps.resolve.outputs.version }}'
-
-          declared="$(scripts/project-version.sh "$project")"
-          rc=$?
-
-          if [ "$rc" -eq 3 ]; then
-            echo "$project declares no version manifest; the tag is authoritative"
-            exit 0
-          fi
-          if [ "$rc" -ne 0 ]; then
-            echo "::error::could not read $project's declared version"
-            exit 1
-          fi
-          if [ "$declared" != "$version" ]; then
-            echo "::error::tag says $version but $project's manifest says $declared; bump the manifest and re-tag"
-            exit 1
-          fi
-          echo "manifest agrees: $declared"
-
-      # Binaries cannot be cross-compiled here, so a project shipping for more
-      # than one platform is built once per platform on its own runner. What
-      # those are is the project's business: it declares them with a
-      # `release-platforms` target, and gets ubuntu-latest if it declares
-      # nothing.
-      - name: Resolve build platforms
-        id: platforms
-        run: |
-          set -euo pipefail
-          platforms="$(scripts/release-platforms.sh '${{ steps.resolve.outputs.project }}' --json)"
-          echo "platforms=$platforms" >> "$GITHUB_OUTPUT"
-          echo "building on: $platforms"
-
+  # One job per project per platform. There is no cross-compiling: a platform
+  # is built on its own runner or not at all.
   build:
-    needs: resolve
+    needs: plan
+    if: needs.plan.outputs.any == 'true'
     strategy:
-      # A release missing one platform's binary is worse than no release at
-      # all, so one failing leg stops the rest before anything is published.
+      # A release missing one platform's binary is worse than no release, so
+      # one failing leg stops the rest before anything is published.
       fail-fast: true
-      matrix:
-        platform: ${{ fromJSON(needs.resolve.outputs.platforms) }}
+      matrix: ${{ fromJSON(needs.plan.outputs.matrix) }}
     runs-on: ${{ matrix.platform }}
-    name: build (${{ matrix.platform }})
+    name: build (${{ matrix.package }} on ${{ matrix.platform }})
     steps:
       - uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+
+      - uses: yohimik/dispat@v1
 
       # Run on every platform being shipped, not just one. A tool that builds
       # on Linux and fails its tests on macOS should not get as far as a
-      # published macOS binary.
-      - name: make check
-        run: make check P=${{ needs.resolve.outputs.project }}
+      # published macOS binary. No --since here: the release window is exactly
+      # the packages being released, so the version stamped into the artifact
+      # is the one being released rather than the one already out.
+      - name: dispat run check
+        run: dispat run check -p '${{ matrix.package }}'
 
-      - name: make dist
-        run: make dist P=${{ needs.resolve.outputs.project }} VERSION=${{ needs.resolve.outputs.version }}
+      - name: dispat run release-build
+        run: dispat run release-build -p '${{ matrix.package }}'
 
-      - name: Check this platform produced something
-        run: |
-          set -euo pipefail
-          dir="projects/${{ needs.resolve.outputs.project }}/release"
-          if [ ! -d "$dir" ] || [ -z "$(ls -A "$dir" 2>/dev/null)" ]; then
-            echo "::error::${{ needs.resolve.outputs.project }}'s dist target produced no artifacts in $dir"
-            exit 1
-          fi
-          ls -lh "$dir"
-
+      # SHA256SUMS is written once, in the release job, over every platform's
+      # files at once. This leg contributes only its own binaries.
       - uses: actions/upload-artifact@v4
         with:
-          name: release-${{ matrix.platform }}
-          path: projects/${{ needs.resolve.outputs.project }}/release/
+          name: release--${{ matrix.package }}--${{ matrix.platform }}
+          path: |
+            projects/${{ matrix.package }}/release/*
+            !projects/${{ matrix.package }}/release/SHA256SUMS
           if-no-files-found: error
           retention-days: 1
 
-  publish:
-    needs: [resolve, build]
+  release:
+    needs: [plan, build]
+    if: needs.plan.outputs.any == 'true'
     runs-on: ubuntu-latest
     permissions:
       contents: write
     steps:
       - uses: actions/checkout@v5
         with:
-          fetch-depth: 0 # release notes diff against the previous tag
+          fetch-depth: 0
+
+      - uses: yohimik/dispat@v1
 
       - uses: actions/download-artifact@v4
         with:
-          pattern: release-*
-          path: staging
+          pattern: release--*
+          path: downloaded
 
-      # One directory holding every platform's artifacts, and one SHA256SUMS
-      # over the lot. Computed here rather than per platform so the file covers
-      # the whole release and is produced by one `sha256sum` implementation.
-      - name: Collect artifacts
-        id: artifacts
+      # dispat's build stage expects one directory per package. Artifact names
+      # carry the package, so the platform legs fold back together here.
+      - name: Arrange staging
         run: |
           set -euo pipefail
-          mkdir -p release
-
-          for dir in staging/*/; do
+          mkdir -p staging
+          for dir in downloaded/*/; do
+            name="$(basename "$dir")"
+            package="${name#release--}"
+            package="${package%%--*}"
+            mkdir -p "staging/$package"
             for file in "$dir"*; do
               [ -e "$file" ] || continue
               base="$(basename "$file")"
-              # Artifacts are named per platform, so a clash means `dist`
-              # ignored the platform it ran on and one binary would silently
-              # overwrite another.
-              if [ -e "release/$base" ]; then
-                echo "::error::two platforms both produced $base; dist must name artifacts per platform"
+              if [ -e "staging/$package/$base" ]; then
+                echo "::error::two runners both produced $base for $package"
                 exit 1
               fi
-              mv "$file" "release/$base"
+              mv "$file" "staging/$package/$base"
             done
           done
+          find staging -type f | sort
 
-          if [ -z "$(ls -A release 2>/dev/null)" ]; then
-            echo "::error::no artifacts to publish"
-            exit 1
-          fi
-
-          ( cd release && rm -f SHA256SUMS && sha256sum -- * > SHA256SUMS )
-          echo "artifacts:"
-          ls -lh release
-          cat release/SHA256SUMS
-
-      # Notes cover only this project's commits since its own previous tag --
-      # in a monorepo, auto-generated notes would list every other project's
-      # commits too. Which commits are the project's, and how they are grouped
-      # under their conventional-commit type, is scripts/release-notes.sh's
-      # business; this step only picks the range and writes the prose around it.
-      - name: Build release notes
-        id: notes
+      # The release commit autoVersion writes needs an author.
+      - name: Configure git
         run: |
-          set -euo pipefail
-          project='${{ needs.resolve.outputs.project }}'
-          tag='${{ needs.resolve.outputs.tag }}'
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
 
-          prev="$(git tag --list "$project/v*" --sort=-version:refname \
-                  | grep -vFx "$tag" | head -1 || true)"
-
-          : > /tmp/changes.md
-          if [ -n "$prev" ]; then
-            scripts/release-notes.sh "$project" "$prev..HEAD" > /tmp/changes.md
-          fi
-
-          {
-            if [ -z "$prev" ]; then
-              echo "First release of \`$project\`."
-            elif [ -s /tmp/changes.md ]; then
-              echo "Changes to \`$project\` since \`$prev\`:"
-              echo
-              cat /tmp/changes.md
-            else
-              echo "No changes to \`$project\` since \`$prev\`."
-            fi
-            echo
-            echo "Built on: ${{ join(fromJSON(needs.resolve.outputs.platforms), ', ') }}."
-            echo "Verify downloads against \`SHA256SUMS\`."
-          } > /tmp/notes.md
-
-          cat /tmp/notes.md
-
-      - name: Publish
-        if: needs.resolve.outputs.dry_run != 'true'
+      # Versions the manifests, collects the staged artifacts, writes the
+      # changelogs, makes the release commit, tags it, pushes both, and creates
+      # the GitHub releases with the binaries and their checksums attached.
+      # The push is dispat's own (commit.push), not a step here: it tags the
+      # release commit rather than the one before it.
+      - name: dispat release
         env:
-          GH_TOKEN: ${{ github.token }}
-        run: |
-          set -euo pipefail
-          gh release create '${{ needs.resolve.outputs.tag }}' \
-            --title '${{ needs.resolve.outputs.project }} ${{ needs.resolve.outputs.version }}' \
-            --notes-file /tmp/notes.md \
-            ${{ needs.resolve.outputs.prerelease == 'true' && '--prerelease' || '' }} \
-            release/*
+          GITHUB_TOKEN: ${{ github.token }}
+          STAGING_ROOT: ${{ github.workspace }}/staging
+        run: dispat --log-format json
 
-      - name: Dry run summary
-        if: needs.resolve.outputs.dry_run == 'true'
-        run: |
-          echo "dry run: built and verified, nothing published"
