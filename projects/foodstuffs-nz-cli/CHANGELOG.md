@@ -1,5 +1,26 @@
 # Changelog
 
+## foodstuffs-nz-cli/v0.2.0-rc.0 (2026-08-31)
+
+### Features
+
+- follow the release channel the running build is on
+  `fsnz update` skipped every prerelease, so a preview build was stranded: it
+  could not reach the next preview, and would not move until a stable release
+  passed it.
+
+  The channel now follows from the running version and is not stored. A stable
+  build still only sees stable releases. A preview build takes a newer stable
+  when one exists, and otherwise walks on through the previews, so it rejoins the
+  stable channel by itself.
+
+  `--pre-release` takes the newest release of either channel. A version argument
+  installs exactly that release, downgrades included, with the leading `v`
+  optional; it pins nothing, so the next plain update follows the rules above.
+  `--check` mentions a preview without counting it, so it cannot flip the exit
+  code a script gates on.
+
+
 ## foodstuffs-nz-cli/v0.1.4-rc.1 (2026-08-31)
 
 ### Fixes
