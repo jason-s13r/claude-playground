@@ -1,5 +1,12 @@
 # Changelog
 
+## foodstuffs-nz-cli/v0.2.0-rc.1 (2026-08-31)
+
+### Fixes
+
+- cut a candidate to exercise self-update
+
+
 ## foodstuffs-nz-cli/v0.2.0-rc.0 (2026-08-31)
 
 ### Features
