@@ -1,5 +1,21 @@
 # Changelog
 
+## foodstuffs-nz-cli/v0.2.0-rc.3 (2026-08-31)
+
+### Fixes
+
+- keep Cargo.lock in step with the released version
+  The release job never runs cargo -- its build stage collects what the matrix
+  runners already built -- so nothing rewrote the lock after the version stage
+  bumped the manifest, and the release commit had no lock change to carry. main
+  drifted a release further each time.
+
+  autoVersion.syncLock runs between the version and build stages, which is where
+  that regeneration belongs. `cargo metadata` rewrites the package's own version
+  and nothing else. Offline first, since a warm cache makes it free; a fresh
+  runner has no registry to read and falls back to the network.
+
+
 ## foodstuffs-nz-cli/v0.2.0-rc.2 (2026-08-31)
 
 ### Fixes
