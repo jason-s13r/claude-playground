@@ -48,6 +48,7 @@ pub struct Release {
     pub tag: String,
     pub url: String,
     pub assets: Vec<Asset>,
+    pub prerelease: bool,
 }
 
 pub struct Asset {
@@ -122,12 +123,11 @@ pub fn host_platforms() -> Vec<String> {
         .collect()
 }
 
-/// The newest published release of this project, or `None` when it has never
-/// been released.
+/// Every published release of this project, newest first.
 ///
-/// Prereleases and drafts are skipped: `fsnz update` should not walk somebody
-/// onto a release candidate.
-pub async fn latest(http: &reqwest::Client) -> Result<Option<Release>> {
+/// Prereleases are included; which of them a given binary may move to is
+/// [`pick`]'s decision, not this one's.
+pub async fn releases(http: &reqwest::Client) -> Result<Vec<Release>> {
     // One page. A hundred releases back is far past the point where the newest
     // one would have fallen off the end.
     let url = format!("{}/repos/{REPO}/releases?per_page=100", api_base());
@@ -164,18 +164,16 @@ pub async fn latest(http: &reqwest::Client) -> Result<Option<Release>> {
         bail!("GET {url} returned {status}: {}", excerpt(&body));
     }
 
-    let releases: Vec<WireRelease> = res.json().await.context("reading the release list")?;
-    Ok(releases
+    let wire: Vec<WireRelease> = res.json().await.context("reading the release list")?;
+    let mut out: Vec<Release> = wire
         .into_iter()
-        .filter(|r| !r.draft && !r.prerelease)
+        .filter(|r| !r.draft)
         .filter_map(|r| {
             let version = version_from_tag(&r.tag_name)?;
-            // A tag carrying a semver prerelease is a prerelease whatever the
-            // release was flagged as.
-            if !version.pre.is_empty() {
-                return None;
-            }
             Some(Release {
+                // A tag carrying a semver prerelease is a prerelease whatever
+                // the release was flagged as.
+                prerelease: r.prerelease || !version.pre.is_empty(),
                 version,
                 tag: r.tag_name,
                 url: r.html_url,
@@ -189,7 +187,47 @@ pub async fn latest(http: &reqwest::Client) -> Result<Option<Release>> {
                     .collect(),
             })
         })
-        .max_by(|a, b| a.version.cmp(&b.version)))
+        .collect();
+    out.sort_by(|a, b| b.version.cmp(&a.version));
+    Ok(out)
+}
+
+/// The release `fsnz update` should move to, or `None` when there is none.
+///
+/// A stable build only ever sees stable releases. A prerelease build is on its
+/// way back to the stable channel: it takes a newer stable when one exists,
+/// and otherwise carries on through the previews. `pre` opts in to previews
+/// from either channel, which is what `--pre-release` asks for.
+pub fn pick<'a>(releases: &'a [Release], current: &Version, pre: bool) -> Option<&'a Release> {
+    let newer = || releases.iter().filter(|r| r.version > *current);
+    if pre {
+        return newer().next();
+    }
+    let stable = newer().find(|r| !r.prerelease);
+    if stable.is_some() || current.pre.is_empty() {
+        return stable;
+    }
+    newer().next()
+}
+
+/// The newest preview ahead of `current`, for `--check` to mention. `None`
+/// when the newest thing available is already what [`pick`] would take.
+pub fn newest_preview<'a>(releases: &'a [Release], current: &Version) -> Option<&'a Release> {
+    releases
+        .iter()
+        .find(|r| r.prerelease && r.version > *current)
+}
+
+/// A release by exact version, for `fsnz update <version>`.
+pub fn find<'a>(releases: &'a [Release], want: &Version) -> Option<&'a Release> {
+    releases.iter().find(|r| r.version == *want)
+}
+
+/// `0.1.4-rc.2` or `v0.1.4-rc.2`; the `v` matches the tag and is optional.
+pub fn parse_version(text: &str) -> Result<Version> {
+    let text = text.trim();
+    let bare = text.strip_prefix('v').unwrap_or(text);
+    Version::parse(bare).with_context(|| format!("`{text}` is not a version"))
 }
 
 /// This project's tags only: `<project>/vX.Y.Z`. Every other project's tags in
@@ -437,6 +475,83 @@ fn excerpt(body: &str) -> String {
 mod tests {
     use super::*;
 
+    /// Newest first, as `releases` returns them.
+    fn catalogue(versions: &[&str]) -> Vec<Release> {
+        let mut out: Vec<Release> = versions
+            .iter()
+            .map(|v| {
+                let version = Version::parse(v).unwrap();
+                Release {
+                    prerelease: !version.pre.is_empty(),
+                    tag: format!("{PROJECT}/v{version}"),
+                    url: String::new(),
+                    assets: Vec::new(),
+                    version,
+                }
+            })
+            .collect();
+        out.sort_by(|a, b| b.version.cmp(&a.version));
+        out
+    }
+
+    fn picked(versions: &[&str], current: &str, pre: bool) -> Option<String> {
+        let all = catalogue(versions);
+        let current = Version::parse(current).unwrap();
+        pick(&all, &current, pre).map(|r| r.version.to_string())
+    }
+
+    #[test]
+    fn a_stable_build_is_never_offered_a_preview() {
+        let all = ["0.1.3", "0.1.4-rc.1", "0.2.0-rc.1"];
+        assert_eq!(picked(&all, "0.1.3", false), None);
+        assert_eq!(
+            picked(&["0.1.3", "0.1.4", "0.2.0-rc.1"], "0.1.3", false),
+            Some("0.1.4".into())
+        );
+    }
+
+    #[test]
+    fn a_preview_build_takes_a_newer_stable_over_a_newer_preview() {
+        // The way back to the stable channel: 0.1.4 wins even though
+        // 0.1.5-rc.1 is higher.
+        assert_eq!(
+            picked(&["0.1.3", "0.1.4", "0.1.5-rc.1"], "0.1.4-rc.2", false),
+            Some("0.1.4".into())
+        );
+    }
+
+    #[test]
+    fn a_preview_build_carries_on_through_previews_until_a_stable_appears() {
+        // Nothing stable is ahead of rc.0, so the preview line continues.
+        assert_eq!(
+            picked(&["0.1.3", "0.1.4-rc.1", "0.1.4-rc.2"], "0.1.4-rc.0", false),
+            Some("0.1.4-rc.2".into())
+        );
+        assert_eq!(picked(&["0.1.3", "0.1.4-rc.0"], "0.1.4-rc.0", false), None);
+    }
+
+    #[test]
+    fn opting_in_takes_the_newest_of_either_channel() {
+        assert_eq!(
+            picked(&["0.1.3", "0.1.4-rc.1"], "0.1.3", true),
+            Some("0.1.4-rc.1".into())
+        );
+        // A stable release that outranks every preview still wins.
+        assert_eq!(
+            picked(&["0.1.4", "0.1.4-rc.1"], "0.1.3", true),
+            Some("0.1.4".into())
+        );
+    }
+
+    #[test]
+    fn a_version_is_accepted_with_or_without_its_leading_v() {
+        assert_eq!(
+            parse_version("0.1.4-rc.2").unwrap(),
+            parse_version("v0.1.4-rc.2").unwrap()
+        );
+        assert!(parse_version("nonsense").is_err());
+    }
+
     #[test]
     fn only_this_projects_tags_are_recognised() {
         assert_eq!(
@@ -477,6 +592,7 @@ mod tests {
     fn release_with(assets: &[&str]) -> Release {
         Release {
             version: Version::new(1, 0, 0),
+            prerelease: false,
             tag: "foodstuffs-nz-cli/v1.0.0".into(),
             url: String::new(),
             assets: assets

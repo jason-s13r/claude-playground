@@ -120,10 +120,16 @@ pub enum Command {
 
     /// Check for a newer release of fsnz, and install it
     Update {
+        /// Version to install, e.g. `0.1.4-rc.2`; a leading `v` is optional.
+        /// Installs exactly that release, downgrades included.
+        version: Option<String>,
         /// Report what is available without installing anything. Exits
         /// non-zero when there is a newer release, so it can gate a script.
         #[arg(long)]
         check: bool,
+        /// Take the newest release even when it is a preview.
+        #[arg(long)]
+        pre_release: bool,
     },
 }
 

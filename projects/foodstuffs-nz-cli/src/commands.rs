@@ -73,7 +73,11 @@ pub async fn dispatch(app: &mut App, banner: Banner, command: &Command) -> Resul
         Command::Doctor => doctor::run(app).await?,
         // Handled in main, before there is an App to dispatch with.
         Command::Completions { .. } => true,
-        Command::Update { check } => update::run(app, *check).await?,
+        Command::Update {
+            version,
+            check,
+            pre_release,
+        } => update::run(app, version.as_deref(), *check, *pre_release).await?,
     };
 
     Ok(if healthy {

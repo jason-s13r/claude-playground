@@ -9,37 +9,79 @@ use crate::update::{self, Release};
 
 /// Returns false when a newer release exists and was not installed, so
 /// `fsnz update --check` can gate a script the way `doctor` does.
-pub async fn run(app: &App, check: bool) -> Result<bool> {
+pub async fn run(app: &App, want: Option<&str>, check: bool, pre: bool) -> Result<bool> {
     let current = update::current()?;
-    let Some(release) = update::latest(&app.http).await? else {
+    let releases = update::releases(&app.http).await?;
+
+    let target = match want {
+        Some(text) => {
+            let version = update::parse_version(text)?;
+            let Some(found) = update::find(&releases, &version) else {
+                bail!("no release {version} was published; `fsnz update --check` says what is");
+            };
+            Some(found)
+        }
+        None => update::pick(&releases, &current, pre),
+    };
+
+    // Only worth saying when it is not already where this is heading.
+    let preview = update::newest_preview(&releases, &current)
+        .filter(|p| target.map(|t| t.version != p.version).unwrap_or(true));
+    let preview_line = |p: Option<&Release>| {
+        if let Some(p) = p {
+            println!(
+                "  preview {} available: `fsnz update --pre-release`",
+                p.version
+            );
+        }
+    };
+
+    let Some(release) = target else {
         if app.json {
             print_json(&serde_json::json!({
                 "current": current.to_string(),
                 "latest": null,
+                "preview": preview.map(|p| p.version.to_string()),
                 "update_available": false,
                 "installed": false,
             }));
+        } else if releases.is_empty() {
+            println!("{current} has no published releases yet");
         } else {
-            println!("{} has no published releases yet", build::VERSION);
+            println!("fsnz {current} is the latest release");
+            preview_line(preview);
         }
         return Ok(true);
     };
 
-    let available = release.version > current;
+    // An explicit version is a move to make even when it goes backwards.
+    let available = release.version != current;
     let asset = release.asset_for_host();
 
     if check || !available {
         if app.json {
-            print_json(&report(&current, &release, available, false));
+            print_json(&report(&current, release, available, false, preview));
         } else if available {
-            println!("fsnz {current} -> {} available", release.version);
+            let how = if release.version < current {
+                " (downgrade)"
+            } else {
+                " available"
+            };
+            println!("fsnz {current} -> {}{how}", release.version);
             println!("  {}", release.url);
+            let cmd = match want {
+                Some(_) => format!("fsnz update {}", release.version),
+                None if pre => "fsnz update --pre-release".to_string(),
+                None => "fsnz update".to_string(),
+            };
             match asset {
-                Some(a) => println!("  run `fsnz update` to install {}", a.name),
-                None => println!("  {}", no_asset_for_host(&release)),
+                Some(a) => println!("  run `{cmd}` to install {}", a.name),
+                None => println!("  {}", no_asset_for_host(release)),
             }
+            preview_line(preview);
         } else {
-            println!("fsnz {current} is the latest release");
+            println!("fsnz {current} is already installed");
+            preview_line(preview);
         }
         return Ok(!available);
     }
@@ -48,7 +90,7 @@ pub async fn run(app: &App, check: bool) -> Result<bool> {
         bail!(
             "fsnz {} is available, but {}\n  {}",
             release.version,
-            no_asset_for_host(&release),
+            no_asset_for_host(release),
             release.url
         );
     };
@@ -68,10 +110,10 @@ pub async fn run(app: &App, check: bool) -> Result<bool> {
     } else {
         &|step: &str| println!("{step}")
     };
-    let path = update::install(&app.http, &release, asset, &app.paths, report_step).await?;
+    let path = update::install(&app.http, release, asset, &app.paths, report_step).await?;
 
     if app.json {
-        print_json(&report(&current, &release, true, true));
+        print_json(&report(&current, release, true, true, preview));
     } else {
         println!("installed fsnz {} to {}", release.version, path.display());
         println!("release notes: {}", release.url);
@@ -104,10 +146,12 @@ fn report(
     release: &Release,
     available: bool,
     installed: bool,
+    preview: Option<&Release>,
 ) -> serde_json::Value {
     serde_json::json!({
         "current": current.to_string(),
         "latest": release.version.to_string(),
+        "preview": preview.map(|p| p.version.to_string()),
         "tag": release.tag,
         "url": release.url,
         "update_available": available,

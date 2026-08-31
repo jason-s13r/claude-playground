@@ -162,7 +162,28 @@ fsnz 0.1.1 -> 0.2.0 available
 ```
 
 `--check` exits non-zero when there is something newer, so it can gate a script
-the way `doctor` does. Prereleases are skipped.
+the way `doctor` does. A preview is only ever mentioned, never counted, so it
+cannot flip that exit code.
+
+Which releases are on offer follows from the running version, and nothing is
+remembered between runs:
+
+| Running | `fsnz update` moves to |
+| ------- | ---------------------- |
+| a stable release | the newest stable release |
+| a prerelease | the newest stable, if one is ahead; otherwise the next preview |
+
+So a preview build walks forward through the previews and rejoins the stable
+channel as soon as a stable release passes it.
+
+```console
+$ fsnz update --pre-release      # newest release of either channel
+$ fsnz update 0.1.4-rc.2         # exactly that one; `v` optional
+$ fsnz update 0.1.3              # explicit downgrade
+```
+
+Naming a version does not pin anything: the next plain `fsnz update` follows
+the table above from wherever that left the binary.
 
 Installing downloads the tarball built for this machine, checks it against the
 release's `SHA256SUMS` and refuses to go on if it does not match, then replaces
