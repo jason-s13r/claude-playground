@@ -13,6 +13,16 @@ completely.
 the projects, runs their scripts, works out which ones changed from the commit
 history, and releases them.
 
+## What is here
+
+| Project | What it is |
+| ------- | ---------- |
+| [`foodstuffs-nz-cli`](projects/foodstuffs-nz-cli) | `fsnz` — search New World and PAK'nSAVE from the terminal, and price one query at both |
+| [`woolworths-nz-cli`](projects/woolworths-nz-cli) | `wwnz` — the same for Woolworths NZ, against their GraphQL API |
+
+That table is for people. dispat and CI discover the projects themselves, so
+adding one means adding a directory and nothing else.
+
 ## Layout
 
 ```

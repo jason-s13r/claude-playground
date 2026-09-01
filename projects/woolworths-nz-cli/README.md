@@ -51,9 +51,11 @@ inconsistency being watched for.
 Akamai's JavaScript sensor never runs. The bot-manager cookies are issued on an
 ordinary page load once the handshake looks right, so no browser is needed.
 
-Note the sibling `foodstuffs-nz-cli` solves the same *class* of problem by
-shelling out to `curl`, because Cloudflare accepts OpenSSL handshakes. Do not
-copy that here — the two vendors score differently.
+Note that the sibling `foodstuffs-nz-cli` solves the same *class* of problem
+[the opposite way](../foodstuffs-nz-cli/README.md#getting-past-cloudflare),
+shelling out to `curl` because Cloudflare accepts OpenSSL handshakes. Do not
+copy that here — the two vendors score differently, and `curl` is the worse
+client against this one.
 
 ## Install
 
