@@ -1,0 +1,46 @@
+[package]
+name = "woolworths-nz-cli"
+version = "0.1.0"
+edition = "2021"
+description = "Unofficial CLI for Woolworths NZ product search, cart and orders"
+license = "MIT"
+
+[[bin]]
+name = "wwnz"
+path = "src/main.rs"
+
+[dependencies]
+anyhow = "1"
+base64 = "0.22"
+clap = { version = "4", features = ["derive", "env"] }
+clap_complete = "4"
+comfy-table = "7"
+directories = "6"
+flate2 = "1"
+owo-colors = { version = "4", features = ["supports-colors"] }
+keyring = "4"
+rpassword = "7"
+# Not `reqwest`. Akamai fingerprints the TLS handshake in front of
+# woolworths.co.nz, and rustls is scored as a bot: the login is answered with a
+# bare 400 and the storefront withholds the bot-manager cookies. `wreq` is
+# `reqwest` with a browser handshake, which is answered normally. See
+# `src/main.rs`.
+wreq = { version = "0.15", features = ["json", "cookies", "gzip", "brotli"] }
+wreq-util = "0.1"
+semver = "1"
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+sha2 = "0.10"
+tar = "0.4"
+tokio = { version = "1", features = ["macros", "rt-multi-thread", "process", "fs"] }
+toml = "0.9"
+url = "2"
+
+[dev-dependencies]
+assert_cmd = "2"
+predicates = "3"
+tempfile = "3"
+wiremock = "0.6"
+
+[profile.release]
+strip = true
