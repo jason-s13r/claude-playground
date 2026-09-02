@@ -73,10 +73,7 @@ impl Jar {
                 continue;
             };
             jar.inner
-                .add(
-                    format!("{}={}; Path=/", cookie.name, cookie.value),
-                    &uri,
-                );
+                .add(format!("{}={}; Path=/", cookie.name, cookie.value), &uri);
             kept.insert((cookie.host.clone(), cookie.name.clone()), cookie);
         }
         if let Ok(mut guard) = jar.kept.write() {
