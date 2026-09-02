@@ -79,6 +79,9 @@ pub struct Request<'a> {
     pub endpoints: &'a Endpoints,
     pub paths: &'a Paths,
     pub cfg: &'a BannerConfig,
+    /// The configured `password_command`, for renewing a session that can no
+    /// longer be refreshed. See [`auth::active_session`].
+    pub password_command: Option<&'a str>,
     pub secrets: &'a Secrets,
     /// `--token` or a per-banner environment variable.
     pub explicit: Option<&'a str>,
@@ -159,10 +162,18 @@ pub async fn acquire(req: Request<'_>) -> Result<GuestToken> {
 ///
 /// The Club Plus access token expires on the same half-hour clock as the banner
 /// tokens it mints, so without the renewal in `active_session` a login would be
-/// good for one sitting and no longer.
+/// good for one sitting and no longer. That renewal falls back to a stored
+/// password once the refresh token is gone.
 async fn account_token(req: &Request<'_>) -> Result<String> {
     let device_id = auth::device_id(req.paths)?;
-    let active = auth::active_session(req.http, req.secrets, req.paths, false).await?;
+    let active = auth::active_session(
+        req.http,
+        req.secrets,
+        req.paths,
+        req.password_command,
+        false,
+    )
+    .await?;
 
     match auth::banner_token(
         req.http,
@@ -178,7 +189,9 @@ async fn account_token(req: &Request<'_>) -> Result<String> {
         // clock that disagrees with theirs, or a session ended elsewhere. One
         // forced renewal tells that apart from a login that is really gone.
         Err(e) if !active.renewed && is_unauthorised(&e) => {
-            let renewed = auth::active_session(req.http, req.secrets, req.paths, true).await?;
+            let renewed =
+                auth::active_session(req.http, req.secrets, req.paths, req.password_command, true)
+                    .await?;
             auth::banner_token(
                 req.http,
                 req.banner,

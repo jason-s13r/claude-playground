@@ -144,6 +144,14 @@ pub enum AuthCommand {
         /// password_command in the config file.
         #[arg(long, value_name = "COMMAND")]
         password_command: Option<String>,
+        /// Do not keep the password in the credential store
+        ///
+        /// It is kept by default so a session that can no longer be refreshed
+        /// renews itself without a prompt. Without it, an unattended run stops
+        /// working once the refresh token lapses. A configured
+        /// password_command is used instead and never copied.
+        #[arg(long)]
+        no_store_password: bool,
     },
 
     /// Forget the stored login and any cached tokens

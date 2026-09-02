@@ -92,6 +92,47 @@ impl Fixture {
         self.mount_login_lasting(server, 0).await
     }
 
+    /// An expired session whose refresh token no longer works, and a second
+    /// `/user/login` that does. This is the state an unattended run reaches
+    /// once the rotated refresh token has been spent, and the only way past it
+    /// is the stored password.
+    pub async fn mount_login_with_dead_refresh(&self, server: &MockServer) {
+        Mock::given(method("GET"))
+            .and(path("/api/apigee-credentials"))
+            .respond_with(ResponseTemplate::new(200).set_body_json(
+                json!({ "access_token": "apigee-public-token", "expires_in": "3599" }),
+            ))
+            .mount(server)
+            .await;
+        // The first login hands out something already past its expiry; the
+        // second -- the one the stored password buys -- is good.
+        Mock::given(method("POST"))
+            .and(path("/user/login"))
+            .respond_with(ResponseTemplate::new(200).set_body_json(json!({
+                "access_token": clubplus_jwt(0),
+                "refresh_token": "clubplus-refresh",
+                "isEmailVerified": true,
+            })))
+            .up_to_n_times(1)
+            .mount(server)
+            .await;
+        Mock::given(method("POST"))
+            .and(path("/user/login"))
+            .respond_with(ResponseTemplate::new(200).set_body_json(json!({
+                "access_token": clubplus_jwt(1800),
+                "refresh_token": "clubplus-refresh-2",
+                "isEmailVerified": true,
+            })))
+            .mount(server)
+            .await;
+        Mock::given(method("POST"))
+            .and(path("/user/login/refresh"))
+            .respond_with(ResponseTemplate::new(401).set_body_string("refresh token spent"))
+            .mount(server)
+            .await;
+        self.mount_token_exchange(server).await;
+    }
+
     async fn mount_login_lasting(&self, server: &MockServer, session_secs: u64) {
         Mock::given(method("GET"))
             .and(path("/api/apigee-credentials"))

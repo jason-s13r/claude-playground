@@ -495,3 +495,144 @@ async fn status_reports_only_the_named_banner() {
     assert_eq!(json["banners"]["newworld"]["cached"], true);
     assert!(json["banners"]["paknsave"].is_null());
 }
+
+/// The refresh token is rotated and single-use, so an unattended run that
+/// spends one and dies is left with nothing to renew from. The stored password
+/// is what gets it back in without a person.
+#[tokio::test]
+async fn a_session_past_renewal_signs_itself_in_again_from_the_stored_password() {
+    let f = Fixture::start().await;
+    let cp = MockServer::start().await;
+    f.mount_login_with_dead_refresh(&cp).await;
+
+    let mut cmd = f.cmd_with_stores();
+    let out = with_clubplus(&mut cmd, &cp.uri())
+        .args([
+            "auth",
+            "login",
+            "--email",
+            "shopper@example.test",
+            "--password-command",
+            "echo hunter2",
+        ])
+        .output()
+        .unwrap();
+    assert!(
+        out.status.success(),
+        "{}",
+        String::from_utf8_lossy(&out.stderr)
+    );
+
+    // `auth refresh` skips the cache the login warmed, so the expired session
+    // is what gets used -- and its refresh token is refused.
+    let mut mint = f.cmd_with_stores();
+    let out = with_clubplus(&mut mint, &cp.uri())
+        .args(["--json", "auth", "refresh"])
+        .output()
+        .unwrap();
+    assert!(
+        out.status.success(),
+        "the stored password should have signed in again: {}",
+        String::from_utf8_lossy(&out.stderr)
+    );
+
+    let logins = cp
+        .received_requests()
+        .await
+        .unwrap()
+        .iter()
+        .filter(|r| r.url.path() == "/user/login")
+        .count();
+    assert_eq!(logins, 2, "the refusal should have forced a second login");
+
+    // The session that bought is the one kept, or the next command starts over.
+    let mut status = f.cmd_with_stores();
+    let out = with_clubplus(&mut status, &cp.uri())
+        .args(["--json", "auth", "status"])
+        .output()
+        .unwrap();
+    let json = stdout_json(&out);
+    assert_eq!(json["session"]["fresh"], true);
+    assert_eq!(
+        json["unattended_renewal"], "the stored password",
+        "status should say a lapsed session can come back on its own"
+    );
+}
+
+/// Without a stored password there is nothing behind the refresh token, and
+/// saying so is more use than a bare 401.
+#[tokio::test]
+async fn no_stored_password_leaves_a_dead_refresh_token_reported_as_itself() {
+    let f = Fixture::start().await;
+    let cp = MockServer::start().await;
+    f.mount_login_with_dead_refresh(&cp).await;
+
+    let mut cmd = f.cmd_with_stores();
+    with_clubplus(&mut cmd, &cp.uri())
+        .args([
+            "auth",
+            "login",
+            "--no-store-password",
+            "--email",
+            "shopper@example.test",
+            "--password-command",
+            "echo hunter2",
+        ])
+        .output()
+        .unwrap();
+
+    let mut mint = f.cmd_with_stores();
+    let out = with_clubplus(&mut mint, &cp.uri())
+        .args(["auth", "refresh"])
+        .output()
+        .unwrap();
+    assert!(!out.status.success());
+    let stderr = String::from_utf8_lossy(&out.stderr);
+    assert!(
+        stderr.contains("would not renew the session"),
+        "got: {stderr}"
+    );
+
+    let logins = cp
+        .received_requests()
+        .await
+        .unwrap()
+        .iter()
+        .filter(|r| r.url.path() == "/user/login")
+        .count();
+    assert_eq!(logins, 1, "nothing stored means nothing to sign in with");
+}
+
+/// Logging out has to take the password with it: a credential that outlived
+/// the session it was stored for would be the worst of both.
+#[tokio::test]
+async fn logout_forgets_the_stored_password_too() {
+    let f = Fixture::start().await;
+    let cp = MockServer::start().await;
+    f.mount_login(&cp).await;
+
+    let mut cmd = f.cmd_with_stores();
+    let out = with_clubplus(&mut cmd, &cp.uri())
+        .args([
+            "--json",
+            "auth",
+            "login",
+            "--email",
+            "shopper@example.test",
+            "--password-command",
+            "echo hunter2",
+        ])
+        .output()
+        .unwrap();
+    assert_eq!(stdout_json(&out)["password_stored"], true);
+
+    let out = f.cmd().args(["--json", "auth", "logout"]).output().unwrap();
+    assert_eq!(stdout_json(&out)["had_password"], true);
+
+    let out = f.cmd().args(["--json", "auth", "logout"]).output().unwrap();
+    assert_eq!(
+        stdout_json(&out)["had_password"],
+        false,
+        "the password must not survive a logout"
+    );
+}

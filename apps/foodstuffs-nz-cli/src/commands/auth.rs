@@ -17,8 +17,15 @@ pub async fn run(app: &App, cmd: &AuthCommand) -> Result<bool> {
         AuthCommand::Login {
             email,
             password_command,
+            no_store_password,
         } => {
-            login(app, email.as_deref(), password_command.as_deref()).await?;
+            login(
+                app,
+                email.as_deref(),
+                password_command.as_deref(),
+                !no_store_password,
+            )
+            .await?;
             Ok(true)
         }
         AuthCommand::Logout => {
@@ -63,9 +70,14 @@ async fn status(app: &App) -> Result<bool> {
         .as_ref()
         .map(|s| auth::linked_banners(&s.access_token))
         .unwrap_or_default();
+    // A password in the store (or a command that prints one) outlives the
+    // refresh token, so it is what says whether a lapsed session can come back
+    // without someone at the keyboard.
+    let renewal =
+        auth::password::Source::resolve(app.config.password_command.as_deref(), &app.secrets)?;
     let usable = stored
         .as_ref()
-        .is_some_and(|s| s.is_fresh() || s.can_renew());
+        .is_some_and(|s| s.is_fresh() || s.can_renew() || renewal.is_some());
 
     if app.json {
         print_json(&serde_json::json!({
@@ -73,10 +85,11 @@ async fn status(app: &App) -> Result<bool> {
             "usable": usable,
             "email": stored.as_ref().map(|s| s.email.clone()),
             "credential_store": app.secrets.backend().describe(),
+            "unattended_renewal": renewal.as_ref().map(|r| r.describe()),
             "session": stored.as_ref().map(|s| serde_json::json!({
                 "expires_in_seconds": remaining_secs(s.expires_at_ms()),
                 "fresh": s.is_fresh(),
-                "can_renew": s.can_renew(),
+                "can_renew": s.can_renew() || renewal.is_some(),
                 "banner_claim": auth::banner_claim(&s.access_token),
                 "linked_banners": linked,
                 "last_renewed_ms_ago": s.refreshed_at_ms.map(|t| token::now_ms().saturating_sub(t)),
@@ -111,10 +124,13 @@ async fn status(app: &App) -> Result<bool> {
             }
             println!(
                 "  renewal      {}",
-                if s.can_renew() {
-                    "automatic, from the stored refresh token"
-                } else {
-                    "unavailable; log in again when the session expires"
+                match (s.can_renew(), &renewal) {
+                    (true, Some(r)) =>
+                        format!("automatic, from the refresh token then {}", r.describe()),
+                    (true, None) => "automatic, from the stored refresh token".to_string(),
+                    (false, Some(r)) => format!("automatic, from {}", r.describe()),
+                    (false, None) =>
+                        "unavailable; log in again when the session expires".to_string(),
                 }
             );
             if let Some(ago) = s.refreshed_at_ms.map(|t| token::now_ms().saturating_sub(t)) {
@@ -240,7 +256,12 @@ async fn refresh(app: &App) -> Result<()> {
 }
 
 /// Log in through Club Plus and confirm the session works at both banners.
-async fn login(app: &App, email: Option<&str>, password_command: Option<&str>) -> Result<()> {
+async fn login(
+    app: &App,
+    email: Option<&str>,
+    password_command: Option<&str>,
+    store_password: bool,
+) -> Result<()> {
     let email = match email.map(str::trim).filter(|e| !e.is_empty()) {
         Some(e) => e.to_string(),
         None => match auth::load(&app.secrets)?.map(|s| s.email) {
@@ -258,12 +279,17 @@ async fn login(app: &App, email: Option<&str>, password_command: Option<&str>) -
         .filter(|c| !c.trim().is_empty());
     let password = match &command {
         Some(cmd) => crate::process::run::capturing(cmd).await?,
-        None => rpassword::prompt_password("Club Plus password (not stored): ")
-            .context("reading the password")?,
+        None => {
+            rpassword::prompt_password("Club Plus password: ").context("reading the password")?
+        }
     };
     if password.trim().is_empty() {
         bail!("no password given");
     }
+    // Not conditional on where the password came from: `--password-command` is
+    // the only way to log in without a terminal, so refusing to store what it
+    // printed would mean a headless box could never set this up.
+    let store_password = store_password && app.config.store_password.unwrap_or(true);
 
     let device_id = auth::device_id(&app.paths)?;
     let session = match auth::login(&app.http, &email, &password, &device_id).await? {
@@ -289,6 +315,13 @@ async fn login(app: &App, email: Option<&str>, password_command: Option<&str>) -
             refreshed_at_ms: Some(token::now_ms()),
         },
     )?;
+    // Kept so `active_session` can sign in again once the refresh token is
+    // spent, which is what lets an unattended run outlive one session.
+    if store_password {
+        auth::password::save(&app.secrets, &password)?;
+    } else {
+        auth::password::clear(&app.secrets)?;
+    }
 
     // Prove the session actually mints banner tokens before calling it a
     // success -- a stored login that does not work is worse than none.
@@ -308,6 +341,7 @@ async fn login(app: &App, email: Option<&str>, password_command: Option<&str>) -
         print_json(&serde_json::json!({
             "email": email,
             "stored_in": app.secrets.backend().describe(),
+            "password_stored": store_password,
             "banners": results.iter().map(|(b, r)| serde_json::json!({
                 "banner": b.id(),
                 "ok": r.is_ok(),
@@ -325,7 +359,20 @@ async fn login(app: &App, email: Option<&str>, password_command: Option<&str>) -
                 Err(e) => println!("  {:<10} FAILED: {e:#}", banner.name()),
             }
         }
-        println!("Password not stored. Set password_command to skip the prompt.");
+        if store_password {
+            println!(
+                "Password kept in {} as well, so the session signs itself in again\n\
+                 once the refresh token runs out. `--no-store-password` skips that.",
+                app.secrets.backend().describe()
+            );
+        } else if command.is_some() {
+            println!("Password not stored; password_command renews the session instead.");
+        } else {
+            println!(
+                "Password not stored; renewal stops once the refresh token lapses.\n\
+                 Set password_command, or log in without --no-store-password."
+            );
+        }
     }
 
     if results.iter().all(|(_, r)| r.is_err()) {
@@ -348,6 +395,7 @@ async fn login(app: &App, email: Option<&str>, password_command: Option<&str>) -
 /// one of them. It clears the session and every cached token.
 fn logout(app: &App) -> Result<()> {
     let had_login = auth::clear(&app.secrets)?;
+    let had_password = auth::password::clear(&app.secrets)?;
     // The kept cookies include `fs-user-token` and `refresh_token`.
     let _ = crate::cookies::Jar::clear(&app.secrets);
     let mut cleared = Vec::new();
@@ -360,6 +408,7 @@ fn logout(app: &App) -> Result<()> {
     if app.json {
         print_json(&serde_json::json!({
             "had_login": had_login,
+            "had_password": had_password,
             "cleared_token_caches": cleared,
         }));
     } else if had_login {

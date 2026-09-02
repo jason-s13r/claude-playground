@@ -3,6 +3,7 @@
 
 pub mod clubplus;
 pub mod jwt;
+pub mod password;
 pub mod session;
 
 pub use clubplus::{banner_token, complete_challenge, login, Login};

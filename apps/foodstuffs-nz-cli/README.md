@@ -247,7 +247,8 @@ last line.
 
 ```toml
 banner = "paknsave"          # default banner when --banner is not given
-password_command = "..."     # prints the Club Plus password; never stored here
+password_command = "..."     # prints the Club Plus password; never written here
+store_password = true        # keep the password in the credential store (default)
 
 [newworld]
 store_id = "..."
@@ -298,10 +299,15 @@ aged out, via `POST {clubplus api}/user/login/refresh`.
 
 That endpoint **rotates** the refresh token: the reply carries a replacement and
 the one just sent stops working. `fsnz` writes the replacement to the credential
-store before using the session, because losing it means a password prompt. It
-also means a refresh token used elsewhere invalidates the stored one -- the
-symptom is `Club Plus would not renew the session (401)`, and the fix is
-`fsnz auth login`.
+store before using the session, because losing it is what ends a session. It
+also means a refresh token used elsewhere invalidates the stored one.
+
+Once that happens the refresh token is no help, so `fsnz` signs in again from a
+password instead -- `password_command` if one is configured, otherwise the copy
+`auth login` kept in the credential store. This is what lets a cron job or a
+long-running script keep working: a spent refresh token costs one extra login
+rather than a prompt. It cannot answer a device verification code, so a login
+Club Plus decides to challenge still needs `fsnz auth login` at a keyboard.
 
 `fsnz auth status` shows where things stand without making a request:
 
@@ -310,7 +316,7 @@ Club Plus
   account      you@example.com
   stored in    the system credential store
   session      valid for 24m
-  renewal      automatic, from the stored refresh token
+  renewal      automatic, from the refresh token then the stored password
   linked to    MNW
 
 New World
@@ -333,12 +339,25 @@ The session is kept in the operating system's credential store (Keychain,
 Credential Manager, Secret Service). Where there is none it falls back to a
 0600 file and says so.
 
-**The password is never stored.** Point `password_command` at a password
-manager to avoid retyping it:
+**The password is stored too**, alongside the session, so a login that can no
+longer be refreshed renews itself unattended. It is a plaintext password in the
+credential store, which is a heavier thing to hold than a half-hour session --
+`fsnz auth logout` removes it with everything else, and either of these keeps it
+out of the store entirely:
+
+```bash
+fsnz auth login --email you@example.com --no-store-password
+```
 
 ```toml
-password_command = "op read op://Personal/Club Plus/password"
+store_password = false                                          # every login
+password_command = "op read op://Personal/Club Plus/password"   # renew from a manager instead
 ```
+
+`password_command` is used in preference to the stored copy wherever it is set,
+so a password manager stays the source of truth. It is also the only way to log
+in with no terminal to prompt on -- and `--no-store-password` is what stops that
+one-off from leaving a copy behind.
 
 `fsnz auth refresh` throws the cached tokens away and mints replacements. It
 reports what it minted rather than printing them: no command prints a token in

@@ -70,6 +70,7 @@ impl App {
             endpoints: &endpoints,
             paths: &self.paths,
             cfg: self.config.for_banner(banner),
+            password_command: self.config.password_command.as_deref(),
             secrets: &self.secrets,
             explicit: self.explicit_token(banner, single_banner).as_deref(),
             force_refresh,
