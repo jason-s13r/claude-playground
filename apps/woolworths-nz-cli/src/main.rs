@@ -12,6 +12,7 @@ mod commands;
 mod config;
 mod domain;
 mod output;
+mod password;
 mod secrets;
 mod session;
 mod update;

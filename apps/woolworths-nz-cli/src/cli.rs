@@ -145,6 +145,14 @@ pub enum AuthCommand {
         /// password_command in the config file.
         #[arg(long, value_name = "COMMAND")]
         password_command: Option<String>,
+        /// Do not keep the password in the credential store
+        ///
+        /// It is kept by default because a Woolworths session cannot be
+        /// refreshed -- signing in again is the only renewal there is, and
+        /// that needs a password. Without one, a lapsed session stops every
+        /// account command until someone signs in by hand.
+        #[arg(long)]
+        no_store_password: bool,
     },
 
     /// Take the session from cookies exported from a browser

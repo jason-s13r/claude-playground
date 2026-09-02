@@ -3,8 +3,9 @@
 
 use anyhow::{Context, Result};
 
-use crate::api::{Client, Endpoints};
+use crate::api::{Client, Endpoints, Reauth};
 use crate::config::{Config, Paths};
+use crate::password;
 use crate::secrets::Secrets;
 use crate::session::{self, Session, StoredSession};
 
@@ -26,7 +27,7 @@ impl App {
     /// and it keeps the cart's store and the search's store in step.
     pub async fn client(&self) -> Result<Client> {
         match self.stored_session()? {
-            Some(session) => Ok(self.client_with(session)),
+            Some(session) => self.account_client_with(session),
             None => Ok(self.client_with(self.guest_session().await?)),
         }
     }
@@ -37,7 +38,7 @@ impl App {
             "this needs an account. Sign in first:\n  \
              wwnz auth login --email you@example.com",
         )?;
-        Ok(self.client_with(session))
+        self.account_client_with(session)
     }
 
     /// A client holding a guest token only, whatever is stored.
@@ -47,6 +48,34 @@ impl App {
 
     fn client_with(&self, session: Session) -> Client {
         Client::new(self.http.clone(), self.endpoints.clone(), session)
+    }
+
+    /// As [`App::client_with`], for a session that can be replaced when the
+    /// site refuses it.
+    fn account_client_with(&self, session: Session) -> Result<Client> {
+        Ok(self.client_with(session).with_reauth(self.reauth()?))
+    }
+
+    /// What an expired session can be replaced with, if anything.
+    ///
+    /// Both halves have to be there: the password to sign in with, and the
+    /// email to sign in as, which is only known from a session already stored.
+    /// `WWNZ_SESSION` opts out -- a session handed in from outside is not this
+    /// tool's to replace.
+    fn reauth(&self) -> Result<Option<Reauth>> {
+        if env_session().is_some() {
+            return Ok(None);
+        }
+        let Some(email) = StoredSession::load(&self.secrets)?.and_then(|s| s.email) else {
+            return Ok(None);
+        };
+        let source =
+            password::Source::resolve(self.config.password_command.as_deref(), &self.secrets)?;
+        Ok(source.map(|password| Reauth {
+            email,
+            password,
+            secrets: self.secrets.clone(),
+        }))
     }
 
     async fn guest_session(&self) -> Result<Session> {
@@ -59,12 +88,16 @@ impl App {
     /// the escape hatch for a session obtained some other way, and what the
     /// tests use.
     pub fn stored_session(&self) -> Result<Option<Session>> {
-        if let Ok(raw) = std::env::var("WWNZ_SESSION") {
-            if !raw.trim().is_empty() {
-                let cookies = crate::auth::parse_cookie_header(&raw);
-                return Ok(Some(Session::from_cookies(cookies)));
-            }
+        if let Some(raw) = env_session() {
+            let cookies = crate::auth::parse_cookie_header(&raw);
+            return Ok(Some(Session::from_cookies(cookies)));
         }
         Ok(StoredSession::load(&self.secrets)?.map(|s| s.session()))
     }
+}
+
+fn env_session() -> Option<String> {
+    std::env::var("WWNZ_SESSION")
+        .ok()
+        .filter(|raw| !raw.trim().is_empty())
 }

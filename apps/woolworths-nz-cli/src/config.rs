@@ -68,9 +68,15 @@ pub struct Config {
     pub store_name: Option<String>,
     /// Optional shell command printing the account password on stdout, so a
     /// session that has lapsed can be renewed without a prompt. The password
-    /// itself is never stored here.
+    /// itself is never written to this file, and this is preferred over the
+    /// copy `auth login` keeps in the credential store.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub password_command: Option<String>,
+    /// Whether `auth login` keeps the password in the credential store, so a
+    /// lapsed session signs itself in again. Defaults to true; set false to
+    /// have every login behave as `--no-store-password`.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub store_password: Option<bool>,
 }
 
 impl Config {
@@ -129,6 +135,7 @@ mod tests {
             store_id: Some("9195".into()),
             store_name: Some("Whangarei Woolworths".into()),
             password_command: None,
+            store_password: None,
         };
         let text = toml::to_string_pretty(&c).unwrap();
         let back: Config = toml::from_str(&text).unwrap();

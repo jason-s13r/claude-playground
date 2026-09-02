@@ -316,3 +316,183 @@ async fn the_session_env_var_overrides_anything_stored() {
         .success()
         .stdout(predicate::str::contains("WWNZ_SESSION"));
 }
+
+/// A Woolworths session cannot be refreshed -- the cookie is encrypted and
+/// only the site can mint one -- so the stored password is the whole of what
+/// keeps an unattended run going once the session lapses.
+#[tokio::test]
+async fn a_lapsed_session_signs_itself_in_again_from_the_stored_password() {
+    let f = Fixture::start().await;
+    mount_login(&f.server, "hunter2").await;
+    // The first account call is refused; the one made with the session bought
+    // by signing in again is answered.
+    Mock::given(method("POST"))
+        .and(path("/api/graphql"))
+        .and(wiremock::matchers::query_param("op-name", "Orders"))
+        .respond_with(ResponseTemplate::new(200).set_body_json(json!({
+            "errors": [{
+                "message": "The current user is not authorized to access this resource.",
+                "extensions": { "code": "AUTH_NOT_AUTHENTICATED" },
+            }],
+        })))
+        .up_to_n_times(1)
+        .mount(&f.server)
+        .await;
+    f.mount_op(
+        "Orders",
+        json!({ "orders": { "results": [], "totalCount": 0, "totalPages": 0 } }),
+    )
+    .await;
+
+    f.cmd()
+        .args([
+            "auth",
+            "login",
+            "--email",
+            "shopper@example.test",
+            "--password-command",
+            "printf hunter2",
+        ])
+        .assert()
+        .success();
+
+    f.cmd()
+        .args(["orders", "list"])
+        .assert()
+        .success()
+        .stdout(predicate::str::contains("No orders"));
+
+    let logins = f
+        .server
+        .received_requests()
+        .await
+        .unwrap()
+        .iter()
+        .filter(|r| r.url.path() == "/u/login/password")
+        .count();
+    assert_eq!(
+        logins, 2,
+        "the refusal should have driven the login flow a second time"
+    );
+}
+
+/// Without a stored password there is nothing to sign in with, so the refusal
+/// is reported rather than papered over.
+#[tokio::test]
+async fn no_stored_password_leaves_a_lapsed_session_reported_as_itself() {
+    let f = Fixture::start().await;
+    mount_login(&f.server, "hunter2").await;
+    f.mount_op_error(
+        "Orders",
+        "The current user is not authorized to access this resource.",
+        "AUTH_NOT_AUTHENTICATED",
+    )
+    .await;
+
+    f.cmd()
+        .args([
+            "auth",
+            "login",
+            "--no-store-password",
+            "--email",
+            "shopper@example.test",
+            "--password-command",
+            "printf hunter2",
+        ])
+        .assert()
+        .success();
+
+    f.cmd()
+        .args(["orders", "list"])
+        .assert()
+        .failure()
+        .stderr(predicate::str::contains("not signed in"));
+
+    let logins = f
+        .server
+        .received_requests()
+        .await
+        .unwrap()
+        .iter()
+        .filter(|r| r.url.path() == "/u/login/password")
+        .count();
+    assert_eq!(logins, 1, "nothing stored means nothing to sign in with");
+}
+
+/// `auth status` reports the session as it stands rather than replacing it,
+/// but a session that will come back on its own is not a failure to script on.
+#[tokio::test]
+async fn status_says_a_lapsed_session_will_sign_itself_in_again() {
+    let f = Fixture::start().await;
+    mount_login(&f.server, "hunter2").await;
+    f.mount_op_error(
+        "Orders",
+        "The current user is not authorized to access this resource.",
+        "AUTH_NOT_AUTHENTICATED",
+    )
+    .await;
+
+    f.cmd()
+        .args([
+            "auth",
+            "login",
+            "--email",
+            "shopper@example.test",
+            "--password-command",
+            "printf hunter2",
+        ])
+        .assert()
+        .success();
+
+    let out = f
+        .cmd()
+        .args(["auth", "status", "--json"])
+        .output()
+        .expect("run");
+    assert!(out.status.success(), "a renewable session should exit zero");
+    let json = stdout_json(&out);
+    assert_eq!(json["working"], json!(false));
+    assert_eq!(json["usable"], json!(true));
+    assert_eq!(json["unattended_renewal"], json!("the stored password"));
+}
+
+/// Logging out has to take the password with it: a credential that outlived
+/// the session it was stored for would be the worst of both.
+#[tokio::test]
+async fn logging_out_forgets_the_stored_password_too() {
+    let f = Fixture::start().await;
+    mount_login(&f.server, "hunter2").await;
+
+    let out = f
+        .cmd()
+        .args([
+            "auth",
+            "login",
+            "--json",
+            "--email",
+            "shopper@example.test",
+            "--password-command",
+            "printf hunter2",
+        ])
+        .output()
+        .expect("run");
+    assert_eq!(stdout_json(&out)["password_stored"], json!(true));
+
+    let out = f
+        .cmd()
+        .args(["auth", "logout", "--json"])
+        .output()
+        .expect("run");
+    assert_eq!(stdout_json(&out)["had_password"], json!(true));
+
+    let out = f
+        .cmd()
+        .args(["auth", "logout", "--json"])
+        .output()
+        .expect("run");
+    assert_eq!(
+        stdout_json(&out)["had_password"],
+        json!(false),
+        "the password must not survive a logout"
+    );
+}

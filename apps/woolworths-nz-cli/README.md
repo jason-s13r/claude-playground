@@ -128,6 +128,37 @@ by cookie, and there are two kinds:
   credential and goes to the system keychain (or a 0600 file where there is no
   keychain).
 
+### Staying signed in
+
+An encrypted session cookie has no readable expiry and nothing to refresh it
+with, so walking the login flow again is the only renewal there is -- and that
+needs a password. `wwnz auth login` therefore keeps the password in the keychain
+alongside the session, and when an account call comes back
+`AUTH_NOT_AUTHENTICATED` the client signs in again and retries it once. That is
+what lets a cron job or a long-running script survive a lapsed session instead
+of stopping until someone signs in by hand.
+
+Two things do not renew: a session from `wwnz auth import` or `WWNZ_SESSION`,
+neither of which names an account to sign back in as, and a sign-in Woolworths
+decides to challenge for a verification code.
+
+Keeping a plaintext password is a heavier thing than keeping a session, so
+either of these stops it:
+
+```bash
+wwnz auth login --email you@example.com --no-store-password
+```
+
+```toml
+store_password = false                          # every login
+password_command = "pass show woolworths"       # sign in again from a manager instead
+```
+
+`password_command` is used in preference to the stored copy wherever it is set,
+so a password manager stays the source of truth. `wwnz auth logout` removes the
+password along with the session, and `wwnz auth status` says which of the two a
+lapsed session would come back from.
+
 Two things about this API shape the tool:
 
 **The store is a property of the cart, not a search parameter.** Selecting a
@@ -155,8 +186,9 @@ It will. These are undocumented endpoints behind Akamai bot management.
   you can follow without waiting for a release.
 - **The storefront serves a bot check** instead of a guest token: `doctor` says
   so outright. `WWNZ_GUEST_TOKEN` takes one lifted from a browser.
-- **The session lapses** — `session_expired` on any account command. Re-export
-  the cookies and `wwnz auth import` again. `WWNZ_SESSION` takes a `Cookie`
+- **The session lapses** — `session_expired` on any account command. With a
+  stored password this fixes itself; without one, `wwnz auth login` again, or
+  re-export the cookies and `wwnz auth import`. `WWNZ_SESSION` takes a `Cookie`
   header value directly, for a one-off.
 - **`auth login` returns 400** at the email step. Akamai is refusing the
   client again; `WWNZ_DEBUG_AUTH=1` shows where it stops. Try a different
@@ -184,8 +216,11 @@ It will. These are undocumented endpoints behind Akamai bot management.
 ```toml
 store_id = "9048"
 store_name = "Regent Woolworths"
-# Optional: keeps the password out of this file and out of shell history.
+# Optional: prints the password, so it is never written to this file. Preferred
+# over the copy `auth login` keeps in the keychain.
 password_command = "pass show woolworths"
+# Optional: false makes every login behave as --no-store-password.
+store_password = true
 ```
 
 ## Development

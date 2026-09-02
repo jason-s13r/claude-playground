@@ -18,7 +18,9 @@ use crate::domain::cart::{Cart, Change};
 use crate::domain::category::Category;
 use crate::domain::order::{Filter, OrderPage};
 use crate::domain::{Product, Store};
-use crate::session::Session;
+use crate::password;
+use crate::secrets::Secrets;
+use crate::session::{self, Session, StoredSession};
 
 /// The site's own default ordering.
 pub const DEFAULT_SORT: &str = "RELEVANCE";
@@ -131,10 +133,25 @@ impl Endpoints {
     }
 }
 
+/// What a client needs to sign itself in again when its session lapses.
+///
+/// A Woolworths session cannot be refreshed -- the cookie is encrypted and only
+/// the site can mint one -- so the only renewal there is walks the whole login
+/// flow again, which takes a password. See [`crate::password`].
+#[derive(Clone)]
+pub struct Reauth {
+    pub email: String,
+    pub password: password::Source,
+    pub secrets: Secrets,
+}
+
 pub struct Client {
     http: wreq::Client,
     endpoints: Endpoints,
-    session: Session,
+    /// Replaced in place by [`Client::renew`], so one command's later calls use
+    /// the session its earlier ones bought.
+    session: std::sync::Mutex<Session>,
+    reauth: Option<Reauth>,
 }
 
 impl Client {
@@ -142,8 +159,20 @@ impl Client {
         Client {
             http,
             endpoints,
-            session,
+            session: std::sync::Mutex::new(session),
+            reauth: None,
         }
+    }
+
+    /// Let this client sign in again by itself when the session it holds is
+    /// refused. Without it a lapsed session is reported and the command stops.
+    pub fn with_reauth(mut self, reauth: Option<Reauth>) -> Client {
+        self.reauth = reauth;
+        self
+    }
+
+    fn session(&self) -> Session {
+        self.session.lock().expect("session lock").clone()
     }
 
     /// Run one operation and hand back its `data`.
@@ -154,6 +183,43 @@ impl Client {
         &self,
         operation: &str,
         variables: serde_json::Value,
+    ) -> Result<serde_json::Value> {
+        let first = self.call_with(operation, &variables, self.session()).await;
+        match first {
+            // Everything account-scoped fails this way once the session
+            // lapses, and there is nothing to refresh -- so the retry is a
+            // whole sign-in, and only ever one.
+            Err(e) if lapsed(&e) && self.reauth.is_some() => {
+                let session = self.renew().await.with_context(|| {
+                    format!("{operation} needed a new session, and signing in again failed")
+                })?;
+                self.call_with(operation, &variables, session).await
+            }
+            first => first,
+        }
+    }
+
+    /// Walk the login flow again and keep what it produces, so the next command
+    /// does not have to repeat it.
+    async fn renew(&self) -> Result<Session> {
+        let reauth = self.reauth.as_ref().expect("checked by the caller");
+        let password = reauth.password.password()?;
+        let session = crate::auth::login(&self.endpoints, &reauth.email, &password).await?;
+        StoredSession {
+            email: Some(reauth.email.clone()),
+            cookies: session.cookies(),
+            obtained_at: session::now(),
+        }
+        .save(&reauth.secrets)?;
+        *self.session.lock().expect("session lock") = session.clone();
+        Ok(session)
+    }
+
+    async fn call_with(
+        &self,
+        operation: &str,
+        variables: &serde_json::Value,
+        session: Session,
     ) -> Result<serde_json::Value> {
         let url = format!("{}?op-name={operation}", self.endpoints.graphql());
         let body = json!({
@@ -177,7 +243,7 @@ impl Client {
             // client this endpoint expects.
             .header("wnzx-operation-name", operation);
 
-        if let Some(cookies) = self.session.header() {
+        if let Some(cookies) = session.header() {
             if let Ok(mut value) = wreq::header::HeaderValue::from_str(&cookies) {
                 value.set_sensitive(true);
                 req = req.header(wreq::header::COOKIE, value);
@@ -511,6 +577,17 @@ fn graphql_error(operation: &str, errors: &[serde_json::Value]) -> anyhow::Error
         return e.context("not signed in");
     }
     e
+}
+
+/// Whether an error means the session is no longer accepted.
+///
+/// Two shapes say it: the 401 the storefront answers with, and the
+/// `AUTH_NOT_AUTHENTICATED` extension it returns on a 200 instead. Both are
+/// already marked with these words by the code that raises them, which is what
+/// `needs_login` matches on too.
+fn lapsed(e: &anyhow::Error) -> bool {
+    let text = format!("{e:#}");
+    text.contains("has expired") || text.contains("not signed in")
 }
 
 /// Say the useful thing when an account-scoped call is made without an account.

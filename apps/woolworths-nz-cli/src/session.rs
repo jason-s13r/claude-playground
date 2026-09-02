@@ -72,6 +72,11 @@ impl Session {
         Session { cookies, account }
     }
 
+    /// The cookies themselves, for storing a session that was just obtained.
+    pub fn cookies(&self) -> BTreeMap<String, String> {
+        self.cookies.clone()
+    }
+
     /// The `Cookie` header value, or `None` when there is nothing to send.
     pub fn header(&self) -> Option<String> {
         if self.cookies.is_empty() {

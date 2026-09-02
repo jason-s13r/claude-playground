@@ -29,6 +29,9 @@ impl Backend {
     }
 }
 
+/// Clone-able so an API client can carry one and write back a session it
+/// renewed mid-command.
+#[derive(Clone)]
 pub struct Secrets {
     backend: Backend,
     dir: PathBuf,
