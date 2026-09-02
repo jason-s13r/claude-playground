@@ -30,10 +30,6 @@ cargo build                        # from this directory
 cargo install --path .             # or install the `fsnz` binary
 ```
 
-`curl` has to be on `PATH` at runtime -- see
-[Getting past Cloudflare](#getting-past-cloudflare). macOS, Windows 10 and
-later, and most Linux distributions ship it.
-
 Or take a published build from
 [releases](https://github.com/jason-s13r/claude-playground/releases), which are
 tagged `foodstuffs-nz-cli/vX.Y.Z`. Once you have a binary it can replace itself:
@@ -46,25 +42,6 @@ fsnz update             # download it and swap it in
 Releases publish `linux-x86_64` and `darwin-arm64` binaries. On anything else
 `fsnz update` says what the release does have and leaves the binary alone;
 build from source instead.
-
-## Getting past Cloudflare
-
-Foodstuffs put Cloudflare bot management in front of the storefronts and the
-Club Plus API, and it fingerprints the **connection**, not the headers. Two
-things are rejected outright: HTTP/2 from anyone, and the TLS handshakes of
-both rustls and macOS SecureTransport -- which is every backend `reqwest` can
-be built with. OpenSSL and LibreSSL handshakes are accepted, which is to say
-`curl` is accepted, so [`src/process/curl.rs`](src/process/curl.rs) shells out
-to it for the requests that touch those hosts: the storefront token mint and
-the Club Plus login. Bodies go in over stdin, never the command line, since the
-login body holds a password and arguments are visible to `ps`.
-
-Everything else uses `reqwest` normally.
-
-The sibling [`woolworths-nz-cli`](../woolworths-nz-cli) hits the same class of
-problem and solves it the opposite way, because Woolworths use Akamai and
-Akamai scores `curl` *worse* than rustls. Do not copy this approach there, or
-that one here.
 
 ## Quick start
 

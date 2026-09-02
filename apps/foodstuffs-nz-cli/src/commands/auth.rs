@@ -266,7 +266,7 @@ async fn login(app: &App, email: Option<&str>, password_command: Option<&str>) -
     }
 
     let device_id = auth::device_id(&app.paths)?;
-    let session = auth::login(&email, &password, &device_id).await?;
+    let session = auth::login(&app.http, &email, &password, &device_id).await?;
     auth::save(
         &app.secrets,
         &auth::StoredLogin {
@@ -282,7 +282,7 @@ async fn login(app: &App, email: Option<&str>, password_command: Option<&str>) -
     let mut results = Vec::new();
     for banner in targets(app) {
         let endpoints = banner.endpoints();
-        let outcome = auth::banner_token(banner, &endpoints, &session, &device_id).await;
+        let outcome = auth::banner_token(&app.http, banner, &endpoints, &session, &device_id).await;
         // Keep what was just proved. Throwing it away would mean the very next
         // command mints a second token for no reason.
         if let Ok(minted) = &outcome {
@@ -335,6 +335,8 @@ async fn login(app: &App, email: Option<&str>, password_command: Option<&str>) -
 /// one of them. It clears the session and every cached token.
 fn logout(app: &App) -> Result<()> {
     let had_login = auth::clear(&app.secrets)?;
+    // The kept cookies include `fs-user-token` and `refresh_token`.
+    let _ = crate::cookies::Jar::clear(&app.secrets);
     let mut cleared = Vec::new();
     for banner in Banner::ALL {
         let file = app.paths.token_file(banner);

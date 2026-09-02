@@ -85,6 +85,7 @@ pub struct ActiveSession {
 /// that write were skipped and the process then died, the token just spent
 /// would be gone and the only way back would be a password.
 pub async fn active_session(
+    http: &wreq::Client,
     secrets: &Secrets,
     paths: &Paths,
     force: bool,
@@ -105,7 +106,7 @@ pub async fn active_session(
         );
     };
 
-    let session = refresh(refresh_token, &device_id(paths)?).await?;
+    let session = refresh(http, refresh_token, &device_id(paths)?).await?;
     save(
         secrets,
         &StoredLogin {

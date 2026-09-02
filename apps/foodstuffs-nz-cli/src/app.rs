@@ -13,7 +13,7 @@ pub struct App {
     pub secrets: Secrets,
     pub paths: Paths,
     pub config: Config,
-    pub http: reqwest::Client,
+    pub http: wreq::Client,
     pub json: bool,
     pub store_flag: Option<String>,
     pub token_flag: Option<String>,
@@ -70,6 +70,7 @@ impl App {
     ) -> Result<(Client, GuestToken)> {
         let endpoints = banner.endpoints();
         let guest = token::acquire(token::Request {
+            http: &self.http,
             banner,
             endpoints: &endpoints,
             paths: &self.paths,

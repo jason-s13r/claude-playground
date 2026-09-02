@@ -22,8 +22,6 @@ use serde::Deserialize;
 use std::env;
 
 use crate::banner::{Banner, Endpoints};
-use crate::process::curl as fetch;
-use crate::token::USER_AGENT;
 
 fn credentials_url() -> String {
     env::var("FSNZ_CLUBPLUS_LOGIN")
@@ -61,21 +59,44 @@ struct LoginResponse {
 
 const CLUBPLUS_ORIGIN: &str = "https://login.clubplus.co.nz";
 
-fn base_headers(origin: &str) -> Vec<(&'static str, String)> {
-    vec![
-        ("User-Agent", USER_AGENT.to_string()),
-        ("Accept", "application/json, text/plain, */*".to_string()),
-        ("Content-Type", "application/json".to_string()),
-        ("Origin", origin.to_string()),
-        ("Referer", format!("{origin}/")),
-    ]
+/// A response with its body read: a challenge is only recognisable from the
+/// body, so status and body are always needed together.
+struct Reply {
+    status: u16,
+    body: String,
+}
+
+impl Reply {
+    fn is_success(&self) -> bool {
+        (200..300).contains(&self.status)
+    }
+}
+
+/// What a browser's `fetch()` adds over the emulation's defaults. No
+/// `User-Agent`: `crate::http` owns it.
+fn xhr(req: wreq::RequestBuilder, origin: &str) -> wreq::RequestBuilder {
+    req.header("Accept", "application/json, text/plain, */*")
+        .header("Content-Type", "application/json")
+        .header("Origin", origin)
+        .header("Referer", format!("{origin}/"))
+}
+
+async fn send(req: wreq::RequestBuilder, url: &str) -> Result<Reply> {
+    let res = req
+        .send()
+        .await
+        .with_context(|| format!("requesting {url}"))?;
+    Ok(Reply {
+        status: res.status().as_u16(),
+        body: res.text().await.unwrap_or_default(),
+    })
 }
 
 /// The public bearer token that authorises the login API. No account involved --
 /// the login page fetches this before anyone has typed anything.
-pub async fn apigee_token() -> Result<String> {
+pub async fn apigee_token(http: &wreq::Client) -> Result<String> {
     let url = credentials_url();
-    let res = fetch::request("GET", &url, &base_headers(CLUBPLUS_ORIGIN), None).await?;
+    let res = send(xhr(http.get(&url), CLUBPLUS_ORIGIN), &url).await?;
     bail_if_challenged("Club Plus", &res)?;
     if !res.is_success() {
         bail!(
@@ -92,22 +113,31 @@ pub async fn apigee_token() -> Result<String> {
 }
 
 /// Exchange an email and password for a Club Plus session.
-pub async fn login(email: &str, password: &str, device_id: &str) -> Result<Session> {
-    let apigee = apigee_token().await?;
+pub async fn login(
+    http: &wreq::Client,
+    email: &str,
+    password: &str,
+    device_id: &str,
+) -> Result<Session> {
+    let apigee = apigee_token(http).await?;
     let url = format!("{}/user/login", clubplus_api());
-    let mut headers = base_headers(CLUBPLUS_ORIGIN);
-    headers.push(("Authorization", format!("Bearer {apigee}")));
-    // Without this the API answers "Missing required header: x-device-id".
-    headers.push(("x-device-id", device_id.to_string()));
-
     let body = serde_json::json!({ "email": email, "password": password, "source": "WEB" });
-    let res = fetch::request("POST", &url, &headers, Some(&body.to_string())).await?;
+    let res = send(
+        xhr(http.post(&url), CLUBPLUS_ORIGIN)
+            .header("Authorization", format!("Bearer {apigee}"))
+            // Without this the API answers "Missing required header: x-device-id".
+            .header("x-device-id", device_id)
+            .body(body.to_string()),
+        &url,
+    )
+    .await?;
     bail_if_challenged("Club Plus", &res)?;
 
     if res.status == 401 || res.status == 400 {
         bail!(
-            "Club Plus rejected that email and password ({}).",
-            res.status
+            "Club Plus rejected that email and password ({}): {}",
+            res.status,
+            clip(&res.body, 300)
         );
     }
     if !res.is_success() {
@@ -128,6 +158,7 @@ pub async fn login(email: &str, password: &str, device_id: &str) -> Result<Sessi
         .access_token
         .filter(|t| !t.trim().is_empty())
         .context("Club Plus login succeeded but returned no access_token")?;
+
     if parsed.is_email_verified == Some(false) {
         bail!("that Club Plus account's email address is not verified");
     }
@@ -146,18 +177,22 @@ pub async fn login(email: &str, password: &str, device_id: &str) -> Result<Sessi
 /// one just sent stops working. Dropping that replacement means logging in
 /// again, so callers persist it before doing anything else -- see
 /// [`refreshed_session`].
-pub async fn refresh(refresh_token: &str, device_id: &str) -> Result<Session> {
-    let apigee = apigee_token().await?;
+pub async fn refresh(http: &wreq::Client, refresh_token: &str, device_id: &str) -> Result<Session> {
+    let apigee = apigee_token(http).await?;
     let url = format!("{}/user/login/refresh", clubplus_api());
-    let mut headers = base_headers(CLUBPLUS_ORIGIN);
-    headers.push(("Authorization", format!("Bearer {apigee}")));
-    headers.push(("x-device-id", device_id.to_string()));
 
     // `refreshToken` and nothing else. The storefront's own server-side code
     // sends `banner` and `sourceApplication` too, but this endpoint rejects
     // both with "excess property and therefore is not allowed".
     let body = serde_json::json!({ "refreshToken": refresh_token });
-    let res = fetch::request("POST", &url, &headers, Some(&body.to_string())).await?;
+    let res = send(
+        xhr(http.post(&url), CLUBPLUS_ORIGIN)
+            .header("Authorization", format!("Bearer {apigee}"))
+            .header("x-device-id", device_id)
+            .body(body.to_string()),
+        &url,
+    )
+    .await?;
     bail_if_challenged("Club Plus", &res)?;
 
     if res.status == 401 || res.status == 400 {
@@ -197,31 +232,46 @@ pub async fn refresh(refresh_token: &str, device_id: &str) -> Result<Session> {
 /// `/user/token/secure` issues a single-use `secure_token` (a UUID), and the
 /// banner's own `/api/user/login/sso` swaps that for the JWT the API wants.
 pub async fn banner_token(
+    http: &wreq::Client,
     banner: Banner,
     endpoints: &Endpoints,
     session: &Session,
     device_id: &str,
 ) -> Result<String> {
-    let secure = secure_token(banner, session, device_id).await?;
-    exchange_secure_token(banner, endpoints, &secure).await
+    let secure = secure_token(http, banner, session, device_id).await?;
+    exchange_secure_token(http, banner, endpoints, &secure).await
 }
 
 /// Step one: a single-use code tying the Club Plus session to one banner.
-async fn secure_token(banner: Banner, session: &Session, device_id: &str) -> Result<String> {
+async fn secure_token(
+    http: &wreq::Client,
+    banner: Banner,
+    session: &Session,
+    device_id: &str,
+) -> Result<String> {
     // Club Plus, not the banner API: see the note at the top of this module.
     let url = format!("{}/user/token/secure", clubplus_api());
-    let mut headers = base_headers(CLUBPLUS_ORIGIN);
-    headers.push(("Authorization", format!("Bearer {}", session.access_token)));
-    headers.push(("x-device-id", device_id.to_string()));
-
     let body = serde_json::json!({ "banner": banner.code(), "source": "WEB" });
-    let res = fetch::request("POST", &url, &headers, Some(&body.to_string())).await?;
+    let res = send(
+        xhr(http.post(&url), CLUBPLUS_ORIGIN)
+            .header("Authorization", format!("Bearer {}", session.access_token))
+            .header("x-device-id", device_id)
+            .body(body.to_string()),
+        &url,
+    )
+    .await?;
     bail_if_challenged(banner.name(), &res)?;
 
+    // Quote what Club Plus said rather than assuming it is a stale session. A
+    // login from an unfamiliar device is held here too, and that reads as a 401
+    // with a different message -- one that logging in again will not clear.
     if res.status == 401 {
         bail!(
-            "{} rejected the Club Plus session (401). Run `fsnz auth login` again.",
-            banner.name()
+            "{} rejected the Club Plus session (401): {}\nIf that names an email \
+             verification, sign in on the Club Plus website once to clear it. \
+             Otherwise run `fsnz auth login` again.",
+            banner.name(),
+            clip(&res.body, 300)
         );
     }
     if !res.is_success() {
@@ -252,6 +302,7 @@ async fn secure_token(banner: Banner, session: &Session, device_id: &str) -> Res
 
 /// Step two: swap the code for the token, at the storefront rather than the API.
 async fn exchange_secure_token(
+    http: &wreq::Client,
     banner: Banner,
     endpoints: &Endpoints,
     secure: &str,
@@ -260,13 +311,14 @@ async fn exchange_secure_token(
     let body = serde_json::json!({
         "key": secure,
         "forceNewSession": false,
-        "fingerprintGuest": USER_AGENT,
+        // Echoed in the body rather than sent as a header, so it is the one
+        // place the agent string is named -- and it has to be the one the
+        // handshake implies.
+        "fingerprintGuest": crate::http::user_agent(http),
     });
-    let res = fetch::request(
-        "POST",
+    let res = send(
+        xhr(http.post(&url), &endpoints.origin).body(body.to_string()),
         &url,
-        &base_headers(&endpoints.origin),
-        Some(&body.to_string()),
     )
     .await?;
     bail_if_challenged(banner.name(), &res)?;
@@ -326,10 +378,8 @@ fn field_names(body: &str) -> String {
         .unwrap_or_else(|| "no object fields".to_string())
 }
 
-/// Cloudflare's managed challenge, which sits in front of both the storefronts
-/// and the Club Plus API (see `process::curl`). When it fires it answers with
-/// an HTML interstitial in place of the API's own error, so quoting the body
-/// pastes a page of markup that says nothing about the request.
+/// Cloudflare's challenge answers with an HTML interstitial in place of the
+/// API's error, so quoting the body would paste a page of markup.
 fn is_challenge(body: &str) -> bool {
     let head = body.chars().take(2000).collect::<String>().to_lowercase();
     // Both APIs answer in JSON; a page of HTML is already the tell.
@@ -342,11 +392,9 @@ fn is_challenge(body: &str) -> bool {
         || head.contains("cf-chl-")
 }
 
-/// Name the bot check rather than blaming the request, when that is what came
-/// back. Deliberately without the status: a challenge is not an expired
-/// session, and `token::is_unauthorised` reads these strings to decide whether
-/// to force a renewal, which a challenge does not need.
-fn bail_if_challenged(who: &str, res: &fetch::Response) -> Result<()> {
+/// Without the status: `token::is_unauthorised` reads these strings to decide
+/// on a renewal, which a challenge does not need.
+fn bail_if_challenged(who: &str, res: &Reply) -> Result<()> {
     if is_challenge(&res.body) {
         bail!("{who} answered with Cloudflare's bot check instead of the API; it usually clears on a retry");
     }

@@ -9,7 +9,7 @@ pub mod cache;
 
 pub use cache::{cache_account_token, peek_cache};
 
-use anyhow::{bail, Result};
+use anyhow::{bail, Context, Result};
 use std::time::{Duration, SystemTime, UNIX_EPOCH};
 
 use crate::auth;
@@ -17,11 +17,6 @@ use crate::banner::{Banner, Endpoints};
 use crate::config::{BannerConfig, Paths};
 use crate::secrets::Secrets;
 use crate::token::cache::{expiry_for, read_cache, write_cache};
-
-/// A recent desktop Chrome. The storefront sits behind bot management that
-/// looks at this, and a default reqwest agent string gets a 403.
-pub const USER_AGENT: &str = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 \
-                              (KHTML, like Gecko) Chrome/149.0.0.0 Safari/537.36";
 
 const COOKIE_NAME: &str = "fs-user-token";
 /// Refresh rather than send a token this close to expiry.
@@ -79,6 +74,7 @@ pub fn fresh(expires_at_ms: u64) -> bool {
 
 /// Everything token resolution needs. A struct rather than eight arguments.
 pub struct Request<'a> {
+    pub http: &'a wreq::Client,
     pub banner: Banner,
     pub endpoints: &'a Endpoints,
     pub paths: &'a Paths,
@@ -124,7 +120,7 @@ pub async fn acquire(req: Request<'_>) -> Result<GuestToken> {
     }
 
     if req.guest {
-        let token = mint(req.banner, req.endpoints).await?;
+        let token = mint(req.http, req.banner, req.endpoints).await?;
         let expires_at_ms = expiry_for(&token);
         write_cache(&cache_file, &token, expires_at_ms);
         return Ok(GuestToken {
@@ -142,7 +138,10 @@ pub async fn acquire(req: Request<'_>) -> Result<GuestToken> {
         // storefront is only reached for when it has not.
         _ => match auth::load(req.secrets)?.is_some() {
             true => (account_token(&req).await?, Source::Login),
-            false => (mint(req.banner, req.endpoints).await?, Source::Storefront),
+            false => (
+                mint(req.http, req.banner, req.endpoints).await?,
+                Source::Storefront,
+            ),
         },
     };
 
@@ -163,16 +162,31 @@ pub async fn acquire(req: Request<'_>) -> Result<GuestToken> {
 /// good for one sitting and no longer.
 async fn account_token(req: &Request<'_>) -> Result<String> {
     let device_id = auth::device_id(req.paths)?;
-    let active = auth::active_session(req.secrets, req.paths, false).await?;
+    let active = auth::active_session(req.http, req.secrets, req.paths, false).await?;
 
-    match auth::banner_token(req.banner, req.endpoints, &active.session, &device_id).await {
+    match auth::banner_token(
+        req.http,
+        req.banner,
+        req.endpoints,
+        &active.session,
+        &device_id,
+    )
+    .await
+    {
         Ok(token) => Ok(token),
         // A session whose `exp` still looked good can be rejected anyway: a
         // clock that disagrees with theirs, or a session ended elsewhere. One
         // forced renewal tells that apart from a login that is really gone.
         Err(e) if !active.renewed && is_unauthorised(&e) => {
-            let renewed = auth::active_session(req.secrets, req.paths, true).await?;
-            auth::banner_token(req.banner, req.endpoints, &renewed.session, &device_id).await
+            let renewed = auth::active_session(req.http, req.secrets, req.paths, true).await?;
+            auth::banner_token(
+                req.http,
+                req.banner,
+                req.endpoints,
+                &renewed.session,
+                &device_id,
+            )
+            .await
         }
         Err(e) => Err(e),
     }
@@ -183,29 +197,32 @@ fn is_unauthorised(e: &anyhow::Error) -> bool {
     text.contains("401") || text.contains("403")
 }
 
-/// Load the storefront and take the `fs-user-token` cookie it sets.
-async fn mint(banner: Banner, endpoints: &Endpoints) -> Result<String> {
+/// Load the storefront and take the `fs-user-token` cookie it sets. No headers
+/// are set: the emulation already describes a browser loading a page.
+async fn mint(http: &wreq::Client, banner: Banner, endpoints: &Endpoints) -> Result<String> {
     let url = format!("{}/", endpoints.origin);
-    let headers = vec![
-        ("User-Agent", USER_AGENT.to_string()),
-        (
-            "Accept",
-            "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8".to_string(),
-        ),
-        ("Accept-Language", "en-NZ,en;q=0.9".to_string()),
-    ];
-    let res = crate::process::curl::request("GET", &url, &headers, None).await?;
+    let res = http
+        .get(&url)
+        .send()
+        .await
+        .with_context(|| format!("GET {url}"))?;
+    let status = res.status();
 
-    if let Some(token) = res.header_values("set-cookie").find_map(cookie_value) {
+    let token = res
+        .headers()
+        .get_all(wreq::header::SET_COOKIE)
+        .iter()
+        .filter_map(|v| v.to_str().ok())
+        .find_map(cookie_value);
+    if let Some(token) = token {
         return Ok(token);
     }
 
     bail!(
-        "{} returned no {COOKIE_NAME} cookie from {url} (HTTP {}).\n\
+        "{} returned no {COOKIE_NAME} cookie from {url} (HTTP {status}).\n\
          Run `fsnz auth login`, or export FSNZ_TOKEN=<value> copied from a browser \
          (DevTools -> Application -> Cookies -> {COOKIE_NAME}).",
         banner.name(),
-        res.status,
     )
 }
 

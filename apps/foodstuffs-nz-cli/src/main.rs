@@ -11,7 +11,9 @@ mod build;
 mod cli;
 mod commands;
 mod config;
+mod cookies;
 mod domain;
+mod http;
 mod output;
 mod process;
 mod secrets;
@@ -21,7 +23,7 @@ mod update;
 use anyhow::Result;
 use clap::{CommandFactory, Parser};
 use std::process::ExitCode;
-use std::time::Duration;
+use std::sync::Arc;
 
 use app::App;
 use cli::{Cli, Command};
@@ -63,29 +65,22 @@ async fn run() -> Result<ExitCode> {
         None => config.default_banner()?,
     };
 
+    let secrets = Secrets::new(paths.state_dir.clone());
+    let jar = Arc::new(cookies::Jar::load(&secrets));
+
     let mut app = App {
-        secrets: Secrets::new(paths.state_dir.clone()),
+        secrets,
         paths,
         config,
-        http: http_client()?,
+        http: http::client(jar.clone())?,
         json: cli.json,
         store_flag: cli.store.clone(),
         token_flag: cli.token.clone(),
         banner_flag: cli.banner,
     };
 
-    commands::dispatch(&mut app, banner, command).await
-}
-
-fn http_client() -> Result<reqwest::Client> {
-    Ok(reqwest::Client::builder()
-        // HTTP/1.1 throughout, deliberately. Cloudflare fingerprints the HTTP/2
-        // connection settings in front of both the storefronts and the Club Plus
-        // API, and answers anything it does not recognise with a 403 challenge
-        // page that no combination of headers gets past. Over HTTP/1.1 every one
-        // of those hosts answers normally.
-        .http1_only()
-        .timeout(Duration::from_secs(30))
-        .connect_timeout(Duration::from_secs(10))
-        .build()?)
+    let result = commands::dispatch(&mut app, banner, command).await;
+    // Either way: a failed run may still have been handed a good cookie.
+    jar.save(&app.secrets);
+    result
 }

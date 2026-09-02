@@ -17,7 +17,6 @@ use crate::domain::order::{
 };
 use crate::domain::Product;
 use crate::domain::Store;
-use crate::token::USER_AGENT;
 
 /// The site's own default ordering. Passed through verbatim so an unfamiliar
 /// value from `--sort` reaches the API rather than being rejected here.
@@ -31,19 +30,14 @@ const MAX_HITS_PER_PAGE: u32 = 50;
 const MAX_ORDERS_PER_PAGE: u32 = 20;
 
 pub struct Client {
-    http: reqwest::Client,
+    http: wreq::Client,
     banner: Banner,
     endpoints: Endpoints,
     token: String,
 }
 
 impl Client {
-    pub fn new(
-        http: reqwest::Client,
-        banner: Banner,
-        endpoints: Endpoints,
-        token: String,
-    ) -> Client {
+    pub fn new(http: wreq::Client, banner: Banner, endpoints: Endpoints, token: String) -> Client {
         Client {
             http,
             banner,
@@ -77,12 +71,10 @@ impl Client {
         self.read_json(res, &url).await
     }
 
-    fn common_headers(&self) -> reqwest::header::HeaderMap {
-        use reqwest::header::{
-            HeaderMap, HeaderValue, ACCEPT, AUTHORIZATION, ORIGIN, REFERER, USER_AGENT as UA,
-        };
+    fn common_headers(&self) -> wreq::header::HeaderMap {
+        use wreq::header::{HeaderMap, HeaderValue, ACCEPT, AUTHORIZATION, ORIGIN, REFERER};
+        // No User-Agent: the emulation sets one that matches the handshake.
         let mut h = HeaderMap::new();
-        h.insert(UA, HeaderValue::from_static(USER_AGENT));
         h.insert(ACCEPT, HeaderValue::from_static("application/json"));
         if let Ok(v) = HeaderValue::from_str(&self.endpoints.origin) {
             h.insert(ORIGIN, v);
@@ -97,7 +89,7 @@ impl Client {
         h
     }
 
-    async fn read_json(&self, res: reqwest::Response, url: &str) -> Result<serde_json::Value> {
+    async fn read_json(&self, res: wreq::Response, url: &str) -> Result<serde_json::Value> {
         let status = res.status();
         let body = res.text().await.unwrap_or_default();
         if !status.is_success() {
@@ -107,8 +99,8 @@ impl Client {
             } else {
                 format!(": {}", truncate(detail, 300))
             };
-            let hint = if status == reqwest::StatusCode::UNAUTHORIZED
-                || status == reqwest::StatusCode::FORBIDDEN
+            let hint = if status == wreq::StatusCode::UNAUTHORIZED
+                || status == wreq::StatusCode::FORBIDDEN
             {
                 "\nThe token may be expired or rejected; try `fsnz auth refresh`."
             } else {

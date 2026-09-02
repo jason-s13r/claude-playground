@@ -127,14 +127,14 @@ pub fn host_platforms() -> Vec<String> {
 ///
 /// Prereleases are included; which of them a given binary may move to is
 /// [`pick`]'s decision, not this one's.
-pub async fn releases(http: &reqwest::Client) -> Result<Vec<Release>> {
+pub async fn releases(http: &wreq::Client) -> Result<Vec<Release>> {
     // One page. A hundred releases back is far past the point where the newest
     // one would have fallen off the end.
     let url = format!("{}/repos/{REPO}/releases?per_page=100", api_base());
     let mut req = http
         .get(&url)
-        .header(reqwest::header::USER_AGENT, user_agent())
-        .header(reqwest::header::ACCEPT, "application/vnd.github+json")
+        .header(wreq::header::USER_AGENT, user_agent())
+        .header(wreq::header::ACCEPT, "application/vnd.github+json")
         .header("X-GitHub-Api-Version", "2022-11-28");
 
     // Only ever to GitHub itself. FSNZ_UPDATE_API can point anywhere, and a
@@ -153,9 +153,7 @@ pub async fn releases(http: &reqwest::Client) -> Result<Vec<Release>> {
     let status = res.status();
     if !status.is_success() {
         let body = res.text().await.unwrap_or_default();
-        if status == reqwest::StatusCode::FORBIDDEN
-            || status == reqwest::StatusCode::TOO_MANY_REQUESTS
-        {
+        if status == wreq::StatusCode::FORBIDDEN || status == wreq::StatusCode::TOO_MANY_REQUESTS {
             bail!(
                 "GitHub declined the update check ({status}). This is usually the \
                  unauthenticated rate limit; set GITHUB_TOKEN, or try again later."
@@ -247,7 +245,7 @@ pub fn current() -> Result<Version> {
 /// `report` is called with each step as it happens, so the caller decides
 /// whether progress is printed.
 pub async fn install(
-    http: &reqwest::Client,
+    http: &wreq::Client,
     release: &Release,
     asset: &Asset,
     paths: &Paths,
@@ -311,10 +309,14 @@ pub async fn install(
     Ok(exe)
 }
 
-async fn fetch(http: &reqwest::Client, url: &str) -> Result<Vec<u8>> {
+/// A release asset URL is a 302 to release-assets.githubusercontent.com. The
+/// policy is set here so `update` does not depend on the shared client's;
+/// wreq's builder defaults to `Policy::none()` (4da18b6).
+async fn fetch(http: &wreq::Client, url: &str) -> Result<Vec<u8>> {
     let res = http
         .get(url)
-        .header(reqwest::header::USER_AGENT, user_agent())
+        .header(wreq::header::USER_AGENT, user_agent())
+        .redirect(wreq::redirect::Policy::limited(10))
         .send()
         .await
         .with_context(|| format!("GET {url}"))?;
