@@ -50,6 +50,75 @@ async fn login_stores_a_session_and_proves_it_mints_tokens() {
     assert_eq!(json["banners"][1]["ok"], true);
 }
 
+/// A held login is finished with the emailed code, read from stdin where there
+/// is no terminal.
+#[tokio::test]
+async fn a_login_held_for_verification_is_finished_with_the_emailed_code() {
+    let f = Fixture::start().await;
+    let cp = MockServer::start().await;
+    f.mount_login_needing_verification(&cp, "384682").await;
+
+    let mut cmd = f.cmd_with_stores();
+    let out = with_clubplus(&mut cmd, &cp.uri())
+        .args([
+            "--json",
+            "auth",
+            "login",
+            "--email",
+            "shopper@example.test",
+            "--password-command",
+            "echo hunter2",
+        ])
+        .write_stdin("384682\n")
+        .output()
+        .unwrap();
+    assert!(
+        out.status.success(),
+        "{}",
+        String::from_utf8_lossy(&out.stderr)
+    );
+
+    // The session stored is the one the code bought, not the pre-TFA token the
+    // password alone returned -- so both banners can mint from it.
+    let json = stdout_json(&out);
+    assert_eq!(json["banners"][0]["ok"], true);
+    assert_eq!(json["banners"][1]["ok"], true);
+}
+
+/// Without the code, nothing is stored: a half-finished login on disk would
+/// look like a session and fail every later command.
+#[tokio::test]
+async fn a_verification_that_is_not_answered_stores_nothing() {
+    let f = Fixture::start().await;
+    let cp = MockServer::start().await;
+    f.mount_login_needing_verification(&cp, "384682").await;
+
+    let mut cmd = f.cmd_with_stores();
+    let out = with_clubplus(&mut cmd, &cp.uri())
+        .args([
+            "auth",
+            "login",
+            "--email",
+            "shopper@example.test",
+            "--password-command",
+            "echo hunter2",
+        ])
+        .write_stdin("")
+        .output()
+        .unwrap();
+    assert!(!out.status.success());
+
+    let mut cmd = f.cmd_with_stores();
+    let status = with_clubplus(&mut cmd, &cp.uri())
+        .args(["auth", "status"])
+        .output()
+        .unwrap();
+    assert!(
+        !status.status.success(),
+        "a login that was never verified must not read as logged in"
+    );
+}
+
 /// The session Club Plus issues lasts about half an hour, the same as the
 /// banner tokens minted from it. Without renewal a login would be good for one
 /// sitting, which is the whole point of storing a refresh token.

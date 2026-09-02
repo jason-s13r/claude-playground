@@ -8,7 +8,7 @@ use crate::app::App;
 use crate::auth;
 use crate::banner::Banner;
 use crate::cli::AuthCommand;
-use crate::commands::io::{human_duration, print_json, prompt};
+use crate::commands::io::{human_duration, print_json, prompt, prompt_or_stdin};
 use crate::token::{self, GuestToken};
 
 /// Returns false when the command should exit non-zero.
@@ -266,7 +266,20 @@ async fn login(app: &App, email: Option<&str>, password_command: Option<&str>) -
     }
 
     let device_id = auth::device_id(&app.paths)?;
-    let session = auth::login(&app.http, &email, &password, &device_id).await?;
+    let session = match auth::login(&app.http, &email, &password, &device_id).await? {
+        auth::Login::Complete(session) => session,
+        // Password was right; a code is already sent. Nothing stored until it
+        // comes back.
+        auth::Login::ChallengeRequired(challenge) => {
+            // stderr: on stdout this would land in front of `--json` output.
+            eprintln!(
+                "Club Plus wants to verify this device and has sent a code to {email} ({}).",
+                challenge.method
+            );
+            let code = prompt_or_stdin("Verification code: ")?;
+            auth::complete_challenge(&app.http, &challenge, &code).await?
+        }
+    };
     auth::save(
         &app.secrets,
         &auth::StoredLogin {

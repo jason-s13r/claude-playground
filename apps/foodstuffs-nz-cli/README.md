@@ -43,6 +43,26 @@ Releases publish `linux-x86_64` and `darwin-arm64` binaries. On anything else
 `fsnz update` says what the release does have and leaves the binary alone;
 build from source instead.
 
+## Device verification
+
+Club Plus holds a login from a device it does not recognise and emails a
+one-time code. `fsnz auth login` asks for it:
+
+```
+Club Plus wants to verify this device and has sent a code to you@example.com (EMAIL_OTP).
+Verification code:
+```
+
+Nothing is stored until the code is accepted, so an interrupted verification
+leaves no half-finished login behind.
+
+The code cannot be a flag -- it does not exist until the login that demands it
+has been made -- so where there is no terminal it is read from stdin:
+
+```bash
+printf '%s\n' "$CODE" | fsnz auth login --email you@example.com --password-command 'pass clubplus'
+```
+
 ## Quick start
 
 Prices, specials and stock are per store. Pick one first.

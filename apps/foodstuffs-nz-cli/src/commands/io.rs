@@ -21,6 +21,23 @@ pub(super) fn prompt(message: &str) -> Result<String> {
     Ok(line)
 }
 
+/// Ask for a line, accepting a piped one. Unlike [`prompt`], which refuses
+/// without a terminal: a one-time code cannot be passed as a flag, since it
+/// does not exist until the request demanding it has been made.
+pub(super) fn prompt_or_stdin(message: &str) -> Result<String> {
+    use std::io::{stdin, IsTerminal};
+    if stdin().is_terminal() {
+        return prompt(message);
+    }
+    let mut line = String::new();
+    stdin().read_line(&mut line).context("reading input")?;
+    let line = line.trim().to_string();
+    if line.is_empty() {
+        bail!("{message}required; pipe it in or run this on a terminal");
+    }
+    Ok(line)
+}
+
 pub(super) fn print_json(value: &serde_json::Value) {
     match serde_json::to_string_pretty(value) {
         Ok(text) => println!("{text}"),

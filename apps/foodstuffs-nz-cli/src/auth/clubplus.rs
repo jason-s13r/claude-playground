@@ -6,7 +6,8 @@
 //! 1. `login.clubplus.co.nz/api/apigee-credentials` hands out a bearer token to
 //!    anyone who asks; it is the key for the login API itself.
 //! 2. `POST .../user/login` exchanges an email and password for a Club Plus
-//!    session.
+//!    session, or -- from an unrecognised device -- for a code emailed to the
+//!    account, redeemed at `POST .../user/tfa/login`.
 //! 3. `POST {clubplus api}/user/token/secure` issues a single-use code scoped
 //!    to one banner, and the storefront's `/api/user/login/sso` swaps that for
 //!    the `fs-user-token` the banner's own API wants.
@@ -55,6 +56,31 @@ struct LoginResponse {
     refresh_token: Option<String>,
     #[serde(rename = "isEmailVerified")]
     is_email_verified: Option<bool>,
+    /// Set when the password alone was not enough and a one-time code has been
+    /// sent. The tokens above are then only good for `/user/tfa/login`.
+    #[serde(rename = "isTFARequired")]
+    is_tfa_required: Option<bool>,
+    /// How the code was sent. `EMAIL_OTP` is the only value seen.
+    #[serde(rename = "tfaMethod")]
+    tfa_method: Option<String>,
+    /// Ties the code back to this login attempt.
+    #[serde(rename = "phvToken")]
+    phv_token: Option<String>,
+}
+
+/// A session, or a demand for the emailed code.
+pub enum Login {
+    Complete(Session),
+    ChallengeRequired(Challenge),
+}
+
+/// A login held for an emailed code. The tokens authorise nothing else and are
+/// never stored.
+pub struct Challenge {
+    /// How the code was sent, as Club Plus names it.
+    pub method: String,
+    pre_auth_token: String,
+    phv_token: String,
 }
 
 const CLUBPLUS_ORIGIN: &str = "https://login.clubplus.co.nz";
@@ -112,13 +138,14 @@ pub async fn apigee_token(http: &wreq::Client) -> Result<String> {
         .with_context(|| format!("{url} returned no access_token: {}", clip(&res.body, 200)))
 }
 
-/// Exchange an email and password for a Club Plus session.
+/// Exchange an email and password for a session, or for a verification
+/// challenge.
 pub async fn login(
     http: &wreq::Client,
     email: &str,
     password: &str,
     device_id: &str,
-) -> Result<Session> {
+) -> Result<Login> {
     let apigee = apigee_token(http).await?;
     let url = format!("{}/user/login", clubplus_api());
     let body = serde_json::json!({ "email": email, "password": password, "source": "WEB" });
@@ -159,11 +186,78 @@ pub async fn login(
         .filter(|t| !t.trim().is_empty())
         .context("Club Plus login succeeded but returned no access_token")?;
 
+    // The code is already sent; these tokens do nothing until it comes back.
+    if parsed.is_tfa_required == Some(true) {
+        let phv_token = parsed
+            .phv_token
+            .filter(|t| !t.trim().is_empty())
+            .context("Club Plus asked for a verification code but sent no phvToken")?;
+        return Ok(Login::ChallengeRequired(Challenge {
+            method: parsed.tfa_method.unwrap_or_else(|| "EMAIL_OTP".into()),
+            pre_auth_token: access_token,
+            phv_token,
+        }));
+    }
+
+    if parsed.is_email_verified == Some(false) {
+        bail!("that Club Plus account's email address is not verified");
+    }
+    Ok(Login::Complete(Session {
+        access_token,
+        refresh_token: parsed.refresh_token.filter(|t| !t.trim().is_empty()),
+    }))
+}
+
+/// Redeem the emailed code. Authorised by the pre-TFA token, not the apigee
+/// one, and carries no `x-device-id`: `phvToken` already pins the device.
+pub async fn complete_challenge(
+    http: &wreq::Client,
+    challenge: &Challenge,
+    code: &str,
+) -> Result<Session> {
+    let url = format!("{}/user/tfa/login", clubplus_api());
+    let body = serde_json::json!({ "code": code.trim(), "phvToken": challenge.phv_token });
+    let res = send(
+        xhr(http.post(&url), CLUBPLUS_ORIGIN)
+            .header(
+                "Authorization",
+                format!("Bearer {}", challenge.pre_auth_token),
+            )
+            .body(body.to_string()),
+        &url,
+    )
+    .await?;
+    bail_if_challenged("Club Plus", &res)?;
+
+    if res.status == 401 || res.status == 400 {
+        bail!(
+            "Club Plus would not accept that verification code ({}): {}",
+            res.status,
+            clip(&res.body, 200)
+        );
+    }
+    if !res.is_success() {
+        bail!(
+            "Club Plus verification failed with {}: {}",
+            res.status,
+            clip(&res.body, 200)
+        );
+    }
+
+    let parsed: LoginResponse = serde_json::from_str(&res.body).with_context(|| {
+        format!(
+            "parsing the Club Plus verification response: {}",
+            clip(&res.body, 200)
+        )
+    })?;
     if parsed.is_email_verified == Some(false) {
         bail!("that Club Plus account's email address is not verified");
     }
     Ok(Session {
-        access_token,
+        access_token: parsed
+            .access_token
+            .filter(|t| !t.trim().is_empty())
+            .context("Club Plus accepted the code but returned no access_token")?,
         refresh_token: parsed.refresh_token.filter(|t| !t.trim().is_empty()),
     })
 }
@@ -262,9 +356,8 @@ async fn secure_token(
     .await?;
     bail_if_challenged(banner.name(), &res)?;
 
-    // Quote what Club Plus said rather than assuming it is a stale session. A
-    // login from an unfamiliar device is held here too, and that reads as a 401
-    // with a different message -- one that logging in again will not clear.
+    // Not necessarily a stale session: a held device reads as a 401 too, and
+    // logging in again will not clear that.
     if res.status == 401 {
         bail!(
             "{} rejected the Club Plus session (401): {}\nIf that names an email \

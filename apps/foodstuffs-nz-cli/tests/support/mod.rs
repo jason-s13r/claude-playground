@@ -7,7 +7,7 @@ use base64::Engine;
 use serde_json::{json, Value};
 use std::time::{SystemTime, UNIX_EPOCH};
 use tempfile::TempDir;
-use wiremock::matchers::{method, path};
+use wiremock::matchers::{body_json, header, method, path};
 use wiremock::{Mock, MockServer, ResponseTemplate};
 
 pub const NW_STORE: &str = "nw-store-1";
@@ -121,6 +121,12 @@ impl Fixture {
             })))
             .mount(server)
             .await;
+        self.mount_token_exchange(server).await;
+    }
+
+    /// Everything past the password: the Club Plus exchange code and the
+    /// storefront swap that turns it into a banner token.
+    async fn mount_token_exchange(&self, server: &MockServer) {
         // Step one hands back an exchange code, not a token. It is Club Plus
         // that issues it: a code minted by the banner API exchanges back into a
         // national token, which the cart answers with an empty cart.
@@ -146,6 +152,44 @@ impl Fixture {
                 .mount(banner)
                 .await;
         }
+    }
+
+    /// A held login and the `/user/tfa/login` step that finishes it. The tfa
+    /// mock matches on bearer and body, so the wrong token or a missing
+    /// `phvToken` fails rather than passing quietly.
+    pub async fn mount_login_needing_verification(&self, server: &MockServer, code: &str) {
+        Mock::given(method("GET"))
+            .and(path("/api/apigee-credentials"))
+            .respond_with(ResponseTemplate::new(200).set_body_json(
+                json!({ "access_token": "apigee-public-token", "expires_in": "3599" }),
+            ))
+            .mount(server)
+            .await;
+        // The password was right; these tokens are good for nothing but the
+        // code exchange.
+        Mock::given(method("POST"))
+            .and(path("/user/login"))
+            .respond_with(ResponseTemplate::new(200).set_body_json(json!({
+                "access_token": "pre-tfa-token",
+                "refresh_token": "pre-tfa-refresh",
+                "isTFARequired": true,
+                "tfaMethod": "EMAIL_OTP",
+                "phvToken": "phv-abc",
+            })))
+            .mount(server)
+            .await;
+        Mock::given(method("POST"))
+            .and(path("/user/tfa/login"))
+            .and(header("authorization", "Bearer pre-tfa-token"))
+            .and(body_json(json!({ "code": code, "phvToken": "phv-abc" })))
+            .respond_with(ResponseTemplate::new(200).set_body_json(json!({
+                "access_token": clubplus_jwt(1800),
+                "refresh_token": "clubplus-refresh",
+                "isEmailVerified": true,
+            })))
+            .mount(server)
+            .await;
+        self.mount_token_exchange(server).await;
     }
 
     /// Base command with the fixture's endpoints and a private config/state dir.

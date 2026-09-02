@@ -5,6 +5,6 @@ pub mod clubplus;
 pub mod jwt;
 pub mod session;
 
-pub use clubplus::{banner_token, login};
+pub use clubplus::{banner_token, complete_challenge, login, Login};
 pub use jwt::{banner_claim, linked_banners};
 pub use session::{active_session, clear, device_id, load, save, StoredLogin};
