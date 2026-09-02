@@ -27,6 +27,8 @@ jobs:
         with:
           fetch-depth: 0 # dispat plans from tags and commit history
 
+      - uses: dtolnay/rust-toolchain@1.98.0
+
       - uses: yohimik/dispat@v1
 
       # ubuntu-latest already ships gcc, make, go, rust, node and python, so
