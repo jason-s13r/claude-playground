@@ -8,14 +8,49 @@ use serde::{Deserialize, Serialize};
 
 use crate::domain::product::title;
 
+/// Render a cart quantity.
+///
+/// Quantities are not always whole: loose produce is sold by the kilogram --
+/// the `-KGM` variants -- so 300g of it is a quantity of `0.3`. Whole
+/// quantities still print as integers, since that is what every line but a
+/// weighed one is.
+pub fn format_quantity(q: f64) -> String {
+    if is_whole(q) {
+        return format!("{}", q.trunc() as i64);
+    }
+    // Three places is a gram; trailing zeros past that are noise.
+    format!("{q:.3}")
+        .trim_end_matches('0')
+        .trim_end_matches('.')
+        .to_string()
+}
+
+/// Serialise a quantity as an integer when it is one.
+///
+/// `--json` consumers were reading `2`, and a bare `f64` would start writing
+/// `2.0` at every line in the cart to accommodate the rare weighed one.
+fn quantity_json<S: serde::Serializer>(q: &f64, s: S) -> Result<S::Ok, S::Error> {
+    if is_whole(*q) {
+        s.serialize_i64(q.trunc() as i64)
+    } else {
+        s.serialize_f64(*q)
+    }
+}
+
+fn is_whole(q: f64) -> bool {
+    q.is_finite() && q.fract() == 0.0 && q.abs() < 1e15
+}
+
 #[derive(Clone, Debug, Serialize)]
 pub struct Cart {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub id: Option<String>,
     pub lines: Vec<CartLine>,
     /// What the site says is in the cart, which is not the same as
-    /// `lines.len()`: it counts quantities, not distinct products.
-    pub total_items: u32,
+    /// `lines.len()`: it counts quantities, not distinct products. Fractional
+    /// for the same reason [`CartLine::quantity`] is.
+    #[serde(serialize_with = "quantity_json")]
+    pub total_items: f64,
     pub unique_products: u32,
     /// The lines alone, which is what the rows on screen add up to.
     #[serde(rename = "items", serialize_with = "crate::domain::money::as_dollars")]
@@ -56,7 +91,10 @@ pub struct CartLine {
     pub name: String,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub brand: Option<String>,
-    pub quantity: u32,
+    /// Whole for a line sold by the each, fractional for one sold by weight:
+    /// a `-KGM` line holding 300g reads `0.3`, in kilograms.
+    #[serde(serialize_with = "quantity_json")]
+    pub quantity: f64,
     #[serde(
         rename = "unit_price",
         serialize_with = "crate::domain::money::as_dollars"
@@ -104,7 +142,10 @@ impl Cart {
 pub struct Change {
     #[serde(rename = "variantKey")]
     pub variant_key: String,
-    pub quantity: u32,
+    /// Sent as an integer whenever it is one: a weighed line takes a fraction,
+    /// but the schema types the rest as whole and `2.0` is not an `Int`.
+    #[serde(serialize_with = "quantity_json")]
+    pub quantity: f64,
 }
 
 /// The variant key a cart mutation needs, from whatever the user typed.
@@ -158,13 +199,13 @@ mod tests {
                 variant_key: "282768-EA".into(),
                 name: "Milk Standard 3L".into(),
                 brand: Some("Woolworths".into()),
-                quantity: 1,
+                quantity: 1.0,
                 unit_price_cents: Some(719),
                 total_cents: Some(719),
                 discount_cents: None,
                 can_substitute: false,
             }],
-            total_items: 1,
+            total_items: 1.0,
             unique_products: 1,
             items_cents: Some(719),
             subtotal_cents: Some(719),

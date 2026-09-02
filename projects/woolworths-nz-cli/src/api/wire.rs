@@ -248,7 +248,8 @@ impl WireLocation {
 #[serde(rename_all = "camelCase")]
 pub struct WireCart {
     pub key: Option<String>,
-    pub total_item_quantity: Option<u32>,
+    /// Counts quantities, so a weighed line makes it fractional too.
+    pub total_item_quantity: Option<f64>,
     pub total_unique_product_sku: Option<u32>,
     #[serde(default)]
     pub line_items: Vec<WireLineItem>,
@@ -300,7 +301,8 @@ pub struct WireFailure {
 pub struct WireLineItem {
     pub sku: Option<String>,
     pub product_variant_sku: Option<String>,
-    pub quantity: Option<u32>,
+    /// Kilograms on a `-KGM` line, a count on every other one.
+    pub quantity: Option<f64>,
     pub can_substitute: Option<bool>,
     pub line_total: Option<WireEvaluated>,
     pub unit_price: Option<WireEvaluated>,
@@ -375,7 +377,7 @@ impl WireCart {
 
         Cart {
             id: self.key,
-            total_items: self.total_item_quantity.unwrap_or(lines.len() as u32),
+            total_items: self.total_item_quantity.unwrap_or(lines.len() as f64),
             unique_products: self.total_unique_product_sku.unwrap_or(lines.len() as u32),
             subtotal_cents: subtotal.and_then(|s| s.after_discount_as_cents),
             items_cents: products.and_then(|s| s.after_discount_as_cents),
@@ -430,7 +432,7 @@ impl WireLineItem {
                 .as_ref()
                 .and_then(|p| p.brand.clone())
                 .filter(|b| !b.trim().is_empty()),
-            quantity: self.quantity.unwrap_or(0),
+            quantity: self.quantity.unwrap_or(0.0),
             unit_price_cents: self
                 .unit_price
                 .as_ref()
@@ -599,7 +601,34 @@ mod tests {
         let line = wire.into_line().unwrap();
         assert_eq!(line.sku, "282768");
         assert_eq!(line.variant_key, "282768-EA");
-        assert_eq!(line.quantity, 2);
+        assert_eq!(line.quantity, 2.0);
+    }
+
+    #[test]
+    fn a_weighed_line_keeps_its_fractional_quantity() {
+        // Loose produce is priced by the kilogram, so 300g of it arrives as
+        // `0.3`. Reading that as a count is what made `cart list` fail
+        // outright on any cart holding one.
+        let wire: WireLineItem = serde_json::from_value(serde_json::json!({
+            "productVariantSku": "133211-KGM",
+            "quantity": 0.3,
+        }))
+        .unwrap();
+        let line = wire.into_line().unwrap();
+        assert_eq!(line.quantity, 0.3);
+
+        let cart: WireCart = serde_json::from_value(serde_json::json!({
+            "totalItemQuantity": 1.3,
+            "lineItems": [
+                { "productVariantSku": "133211-KGM", "quantity": 0.3 },
+                { "productVariantSku": "282768-EA", "quantity": 1 },
+            ],
+        }))
+        .unwrap();
+        let cart = cart.into_cart();
+        assert_eq!(cart.total_items, 1.3);
+        assert_eq!(cart.lines[0].quantity, 0.3);
+        assert_eq!(cart.lines[1].quantity, 1.0);
     }
 
     #[test]
@@ -607,7 +636,7 @@ mod tests {
         let wire: WireCart = serde_json::from_value(serde_json::json!({})).unwrap();
         let cart = wire.into_cart();
         assert!(cart.is_empty());
-        assert_eq!(cart.total_items, 0);
+        assert_eq!(cart.total_items, 0.0);
         assert!(cart.problems.is_empty());
     }
 

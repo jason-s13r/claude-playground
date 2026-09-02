@@ -173,8 +173,8 @@ pub enum CartCommand {
     Add {
         /// Product SKU, as printed by `wwnz search`
         sku: String,
-        /// Quantity to add; defaults to 1
-        quantity: Option<u32>,
+        /// Quantity to add; defaults to 1. Kilograms for a weighed (KGM) line
+        quantity: Option<f64>,
         /// Unit suffix, when the SKU alone does not say (EA, KGM)
         #[arg(long, value_name = "UNIT")]
         unit: Option<String>,
@@ -183,8 +183,8 @@ pub enum CartCommand {
     Update {
         /// Product SKU
         sku: String,
-        /// New quantity. Zero removes the line
-        quantity: u32,
+        /// New quantity. Zero removes the line. Kilograms for a weighed line
+        quantity: f64,
         /// Unit suffix, when the SKU alone does not say (EA, KGM)
         #[arg(long, value_name = "UNIT")]
         unit: Option<String>,

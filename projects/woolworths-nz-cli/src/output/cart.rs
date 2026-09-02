@@ -2,7 +2,7 @@
 
 use owo_colors::{OwoColorize, Stream};
 
-use crate::domain::cart::Cart;
+use crate::domain::cart::{format_quantity, Cart};
 use crate::domain::dollars;
 use crate::output::{plural, store_heading, table};
 
@@ -19,7 +19,7 @@ pub fn print_cart(cart: &Cart) {
         t.add_row(vec![
             line.sku.clone(),
             line.title(),
-            line.quantity.to_string(),
+            format_quantity(line.quantity),
             line.unit_price_cents
                 .map(dollars)
                 .unwrap_or_else(|| "—".into()),
@@ -39,8 +39,10 @@ pub fn print_cart(cart: &Cart) {
     // are worth saying, since "3 items" and "3 products" are rarely the same.
     println!(
         "{} item{} across {} product{}",
-        cart.total_items,
-        plural(cart.total_items as usize),
+        format_quantity(cart.total_items),
+        // Not `plural`, which counts in whole numbers: 0.3 of a kilogram is
+        // "0.3 items", not "0.3 item".
+        if cart.total_items == 1.0 { "" } else { "s" },
         cart.lines.len(),
         plural(cart.lines.len()),
     );

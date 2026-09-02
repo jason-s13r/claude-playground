@@ -12,23 +12,38 @@ working when Woolworths moved to the GraphQL API this talks to.
 
 ## Status
 
-Verified live, end to end: `stores`, `store set`, `search`, `specials`,
-`browse`, `departments`, `doctor`, `auth import`, `auth status` and
-`cart list`.
+Verified live, end to end: `auth login`, `auth import`, `auth status`,
+`stores`, `store set`, `search`, `specials`, `browse`, `departments`,
+`doctor`, `orders list` and `cart list` — the last against a real cart of
+nineteen products, weighed lines included.
 
-`auth login` walks the Auth0 flow to the password form and submits it; a bad
-password comes back correctly reported. A *successful* sign-in has not been
-run, so treat that last step as untested. `wwnz auth import` is the fallback
-and needs no login flow at all.
+`wwnz auth login` signs in through the Auth0 flow with no browser involved.
+`wwnz auth import` remains the fallback if that is ever refused.
 
-`orders show` does not exist. The account these endpoints were traced against
-has no order history, so the operation the website uses for one order's
-contents was never captured, and guessing at its shape would be worse than
-leaving it out. `orders list` and `orders previous` are implemented and answer
-correctly against an empty history.
+`orders show` does not exist. The capture these endpoints were traced from had
+an empty order history, so the operation the website uses for one order's
+contents never appeared in it, and guessing at its shape would be worse than
+leaving it out. It could be captured now that there is a history to open.
 
 Cart writes (`add`, `update`, `remove`, `clear`) are covered by tests against a
 mock but have not been run against a live cart.
+
+## Weighed lines
+
+Loose produce and meat are sold by the kilogram — the `-KGM` variants — and
+their quantities are **decimals in kilograms**, not counts. A cart line holding
+300g of onions reads `0.3`, and 1.5kg of chicken nibbles reads `1.5`:
+
+```bash
+wwnz cart add 144329 0.3 --unit KGM      # 300g of brown onions
+wwnz cart update 57133 1.5 --unit KGM    # 1.5kg of nibbles
+```
+
+Everything else is a count, and prints and serialises as a whole number.
+
+The site's own `totalItemQuantity` does not work this way: it counts a weighed
+line as one item however much of it there is, which is why the item count and
+the sum of the quantities disagree. Both are reported as the site reports them.
 
 ## Getting past Akamai
 
