@@ -44,33 +44,6 @@ The site's own `totalItemQuantity` does not work this way: it counts a weighed
 line as one item however much of it there is, which is why the item count and
 the sum of the quantities disagree. Both are reported as the site reports them.
 
-## Getting past Akamai
-
-Worth knowing, because it dictates the one unusual dependency.
-
-woolworths.co.nz is behind Akamai Bot Manager, which scores the **TLS
-handshake** — not the headers. With a stock `reqwest`/rustls client the
-storefront withholds its bot-manager cookies (`ak_bmsc`, `bm_mi`, `bm_sv`) and
-the login is refused with a bare `400` carrying no explanation. Matching the
-browser's headers exactly changes nothing, and `curl` fares *worse* than rustls
-— it is issued no `__guest__token` at all.
-
-So this uses [`wreq`](https://github.com/0x676e67/wreq), which is `reqwest` with
-a browser TLS and HTTP/2 fingerprint. One constant,
-`session::EMULATION`, selects the profile and everything — handshake, HTTP/2
-settings, `User-Agent` — is derived from it. Nothing sets headers by hand; a
-header naming a different browser than the handshake is exactly the
-inconsistency being watched for.
-
-Akamai's JavaScript sensor never runs. The bot-manager cookies are issued on an
-ordinary page load once the handshake looks right, so no browser is needed.
-
-Note that the sibling `foodstuffs-nz-cli` solves the same *class* of problem
-[the opposite way](../foodstuffs-nz-cli/README.md#getting-past-cloudflare),
-shelling out to `curl` because Cloudflare accepts OpenSSL handshakes. Do not
-copy that here — the two vendors score differently, and `curl` is the worse
-client against this one.
-
 ## Install
 
 ```bash
