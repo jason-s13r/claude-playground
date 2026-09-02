@@ -1,5 +1,34 @@
 # Changelog
 
+## woolworths-nz-cli/v0.1.1 (2026-09-02)
+
+### Fixes
+
+- read cart quantities as decimals, not counts
+  `wwnz cart list` failed outright on any cart holding a weighed line:
+
+      error: parsing the cart: invalid type: floating point `0.3`, expected u32
+
+  Loose produce and meat are sold by the kilogram -- the `-KGM` variants that
+  `variant_key` already knew about -- and their quantities come back in
+  kilograms, so 300g of onions is `0.3`. Every quantity in the tool was a `u32`,
+  so one such line took the whole command down, cart-wide.
+
+  Quantities are `f64` throughout now, including the ones sent back: `cart add`
+  and `cart update` take a decimal, so a weighed line can be set at all. Whole
+  quantities still print and serialise as integers, because `2.0` is not an
+  `Int` to the schema and `--json` consumers were already reading `2`.
+
+  `totalItemQuantity` is made tolerant the same way, though the site does not in
+  fact use it that way: it counts a weighed line as one item however much of it
+  there is, so the item count and the sum of the quantities disagree by design.
+  Both are now reported as the site reports them.
+
+  Verified against a real cart of nineteen products with three weighed lines,
+  which is also what confirmed the sign-in flow works end to end -- the README
+  no longer hedges on either.
+
+
 ## woolworths-nz-cli/v0.1.0 (2026-09-01)
 
 ### Features
