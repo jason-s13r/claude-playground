@@ -1,5 +1,12 @@
 # Changelog
 
+## woolworths-nz-cli/v0.1.3 (2026-09-02)
+
+### Fixes
+
+- bump wreq version
+
+
 ## woolworths-nz-cli/v0.1.2 (2026-09-02)
 
 ### Fixes

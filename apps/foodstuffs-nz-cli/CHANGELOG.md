@@ -1,5 +1,14 @@
 # Changelog
 
+## foodstuffs-nz-cli/v0.3.1 (2026-09-02)
+
+### Fixes
+
+- satisfy rustfmt check
+
+- bump wreq version and use user tokens across grocery APIs
+
+
 ## foodstuffs-nz-cli/v0.3.0 (2026-09-02)
 
 ### Features
