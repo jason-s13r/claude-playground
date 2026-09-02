@@ -329,6 +329,23 @@ impl Github {
             .await;
     }
 
+    /// An asset served the way GitHub serves one: a 302 from the download URL
+    /// to the host that actually holds the bytes.
+    pub async fn asset_redirecting(&self, name: &str, bytes: Vec<u8>) {
+        Mock::given(method("GET"))
+            .and(path(format!("/download/{name}")))
+            .respond_with(
+                ResponseTemplate::new(302).insert_header("location", format!("/blob/{name}")),
+            )
+            .mount(&self.server)
+            .await;
+        Mock::given(method("GET"))
+            .and(path(format!("/blob/{name}")))
+            .respond_with(ResponseTemplate::new(200).set_body_bytes(bytes))
+            .mount(&self.server)
+            .await;
+    }
+
     pub fn download_url(&self, name: &str) -> String {
         format!("{}/download/{name}", self.server.uri())
     }
