@@ -3,8 +3,7 @@
 Search Woolworths New Zealand from the terminal. A sibling of
 [`foodstuffs-nz-cli`](../foodstuffs-nz-cli), built the same way, against the
 other half of the New Zealand supermarket duopoly. It replaces
-[`woolies-nz-cli`](https://github.com/mcinteerj/woolies-nz-cli), which stopped
-working when Woolworths moved to the GraphQL API this talks to.
+[`woolies-nz-cli`](https://github.com/mcinteerj/woolies-nz-cli).
 
 > **Not affiliated with Woolworths New Zealand.** There is no public API. This
 > calls the same undocumented GraphQL endpoint their website calls from the
