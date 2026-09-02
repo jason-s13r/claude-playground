@@ -1,5 +1,34 @@
 # Changelog
 
+## foodstuffs-nz-cli/v0.3.0 (2026-09-02)
+
+### Features
+
+- accept the emailed Club Plus verification code
+  An unrecognised device gets isTFARequired and a phvToken instead of a session.
+  /user/tfa/login redeems the emailed code under the pre-TFA token. No captcha.
+
+  auth login prompts and stores nothing until the code is accepted. Read from
+  stdin where there is no terminal.
+
+  401 from /user/token/secure quotes the API instead of blaming a stale session.
+
+### Fixes
+
+- use a browser handshake instead of curl
+  Cloudflare scores handshake and protocol together: curl passes on HTTP/1.1 and
+  is challenged on h2, a browser fingerprint the reverse. curl and reqwest are
+  replaced by wreq. http::EMULATION drives handshake, h2 and headers;
+  http1_only() breaks it.
+
+  Cookies are kept and replayed. Cloudflare's, and the storefront's fs-user-token
+  and refresh_token, persist beside the login; analytics does not. auth logout
+  clears them.
+
+  update.rs sets its own redirect policy; wreq defaults to Policy::none()
+  (4da18b6).
+
+
 ## foodstuffs-nz-cli/v0.2.0 (2026-08-31)
 
 ### Features
