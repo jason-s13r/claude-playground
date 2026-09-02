@@ -45,9 +45,9 @@ pub async fn login(endpoints: &Endpoints, email: &str, password: &str) -> Result
     let http = wreq::Client::builder()
         .emulation(EMULATION)
         .cookie_provider(jar.clone())
-        // The chain is six redirects across two hosts; the default cap of ten
-        // is uncomfortably close, and a login that loops is better reported as
-        // a loop than as a mystery.
+        // The chain is six redirects across two hosts, and wreq follows none of
+        // them by default. Twenty rather than ten because a login that loops is
+        // better reported as a loop than as a mystery.
         .redirect(wreq::redirect::Policy::limited(20))
         .timeout(std::time::Duration::from_secs(30))
         .build()

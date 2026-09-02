@@ -35,6 +35,28 @@ async fn mount_newer_release(gh: &Github, payload: &[u8]) -> Vec<String> {
     assets
 }
 
+/// The same release, but every asset served the way GitHub actually serves
+/// one: a 302 to the host holding the bytes.
+async fn mount_newer_release_behind_redirects(gh: &Github, payload: &[u8]) -> Vec<String> {
+    let names = host_asset_names(NEWER);
+    let archive = tarball("wwnz", payload);
+
+    let mut files: Vec<(String, Vec<u8>)> = Vec::new();
+    for name in &names {
+        gh.asset_redirecting(name, archive.clone()).await;
+        files.push((name.clone(), archive.clone()));
+    }
+    gh.asset_redirecting("SHA256SUMS", sha256sums(&files)).await;
+
+    let mut assets = names.clone();
+    assets.push("SHA256SUMS".to_string());
+    gh.releases(json!([
+        gh.release(&format!("woolworths-nz-cli/v{NEWER}"), &assets)
+    ]))
+    .await;
+    assets
+}
+
 /// The binary under a path of its own, so replacing it harms nothing.
 fn binary_copy(dir: &std::path::Path) -> std::path::PathBuf {
     let src = assert_cmd::cargo::cargo_bin("wwnz");
@@ -350,4 +372,35 @@ async fn a_marker_left_by_a_different_copy_is_not_claimed_as_this_ones() {
     let out = f.cmd_at(&exe).arg("--version").output().unwrap();
     let stdout = String::from_utf8_lossy(&out.stdout);
     assert!(!stdout.contains("wwnz update"), "got: {stdout}");
+}
+
+#[tokio::test]
+async fn an_asset_behind_a_redirect_is_downloaded_rather_than_reported_as_a_302() {
+    // A real release asset URL is a 302 to release-assets.githubusercontent.com
+    // and the tarball and SHA256SUMS both go through it. wreq follows no
+    // redirects unless asked, which stopped `update` at the 302 with the
+    // download never started.
+    let f = Fixture::start().await;
+    let gh = Github::start().await;
+    let payload = b"#!/bin/sh\necho redirected\n";
+    mount_newer_release_behind_redirects(&gh, payload).await;
+
+    let dir = tempfile::tempdir().unwrap();
+    let exe = binary_copy(dir.path());
+
+    let out = f
+        .cmd_at(&exe)
+        .env("WWNZ_UPDATE_API", gh.server.uri())
+        .arg("update")
+        .output()
+        .unwrap();
+
+    assert!(
+        out.status.success(),
+        "{}",
+        String::from_utf8_lossy(&out.stderr)
+    );
+    let stdout = String::from_utf8_lossy(&out.stdout);
+    assert!(stdout.contains("checksum verified"), "got: {stdout}");
+    assert_eq!(std::fs::read(&exe).unwrap(), payload);
 }

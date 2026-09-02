@@ -309,10 +309,18 @@ pub async fn install(
     Ok(exe)
 }
 
+/// Download one release asset.
+///
+/// The redirect policy is set here rather than on the shared client. A release
+/// asset URL is a 302 to release-assets.githubusercontent.com, but everywhere
+/// else in this tool a redirect means a bot check, and reporting one beats
+/// following it. `wreq`'s builder default is `Policy::none()` -- unlike
+/// `reqwest`, and unlike the doc comment `wreq` inherited from it.
 async fn fetch(http: &wreq::Client, url: &str) -> Result<Vec<u8>> {
     let res = http
         .get(url)
         .header(wreq::header::USER_AGENT, user_agent())
+        .redirect(wreq::redirect::Policy::limited(10))
         .send()
         .await
         .with_context(|| format!("GET {url}"))?;
