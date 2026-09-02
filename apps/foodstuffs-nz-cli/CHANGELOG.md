@@ -1,5 +1,20 @@
 # Changelog
 
+## foodstuffs-nz-cli/v0.4.0 (2026-09-02)
+
+### Features
+
+- keep the password for unattended re-login
+  The refresh token is rotated and single-use, so a run that spent one and
+  died had no way back short of a prompt. `auth login` now keeps the password
+  in the credential store and `active_session` signs in again from it once
+  the refresh token is gone. It cannot answer a verification code, which
+  still needs `fsnz auth login`.
+
+  `--no-store-password` and `store_password = false` opt out; a configured
+  `password_command` is preferred over the stored copy.
+
+
 ## foodstuffs-nz-cli/v0.3.1 (2026-09-02)
 
 ### Fixes

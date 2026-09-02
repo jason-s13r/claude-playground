@@ -1,5 +1,21 @@
 # Changelog
 
+## woolworths-nz-cli/v0.2.0 (2026-09-02)
+
+### Features
+
+- keep the password for unattended re-login
+  The session cookie is encrypted with nothing to refresh it, so walking the
+  login flow again is the only renewal there is -- and that needs a password.
+  `auth login` now keeps it in the credential store, and the API client signs
+  in again and retries once when a call comes back AUTH_NOT_AUTHENTICATED.
+
+  Sessions from `auth import` or WWNZ_SESSION are left alone: neither names an
+  account to sign back in as. `--no-store-password` and `store_password =
+  false` opt out; a configured `password_command` is preferred over the stored
+  copy.
+
+
 ## woolworths-nz-cli/v0.1.3 (2026-09-02)
 
 ### Fixes
