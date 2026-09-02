@@ -1,9 +1,9 @@
 # Workflows
 
 `ci.yml` runs `dispat run check --since all` on every push and pull request.
-dispat discovers the projects under `projects/` itself, so adding one is all it
-takes to get it into CI -- there is no list to update, and a project that
-defines no `check` script is skipped rather than failed.
+dispat discovers the projects under `apps/` and `packages/` itself, so adding
+one is all it takes to get it into CI -- there is no list to update, and a
+project that defines no `check` script is skipped rather than failed.
 
 `release.yml` runs on every push to `main`. dispat reads the conventional
 commits since each project's last tag, decides which projects changed and what

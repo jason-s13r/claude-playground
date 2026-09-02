@@ -5,25 +5,42 @@ things that already exist from interfering with each other. Two ideas do most
 of the work:
 
 1. **Projects are self-contained.** A project owns its dependencies, its build
-   files, its lockfiles and its own `dispat.json`. Nothing is hoisted to the
+   files, its lockfiles and its own `dispat.yaml`. Nothing is hoisted to the
    root — no shared `package.json`, no cargo workspace, no root `go.mod`, no
-   build scripts in the root config. Deleting `projects/<name>/` removes the
-   project completely.
+   build scripts in the root config. Deleting its directory removes it
+   completely.
 2. **Projects declare themselves.** Whatever the language, a project says what
-   can be done to it in its own `dispat.json`. That is the whole contract
+   can be done to it in its own `dispat.yaml`. That is the whole contract
    between a project and the rest of the repo.
 
 [dispat](https://dispat.dev) reads those declarations. It discovers the
 projects, runs their scripts, works out from the commit history which ones
 changed, and releases them.
 
+## The two spaces
+
+Projects live in one of two directories, and dispat treats them identically —
+same contract, same discovery, same release mechanism. The difference is who
+they are for:
+
+- **`apps/`** — the things that ship. A CLI, a TUI, a web app. Almost
+  everything starts here.
+- **`packages/`** — libraries the apps share. Something belongs here when a
+  *second* app needs it. Extracting a library for one caller guesses at the
+  interface, and the guess is usually wrong; a package with one consumer is an
+  app's own module that has been moved further away.
+
+Both are declared in the root [`dispat.yaml`](../dispat.yaml) as spaces, each
+named for its directory. Nothing else distinguishes them.
+
 ## Adding a project
 
 ```bash
-scripts/new-project.sh go my-tool
+scripts/new-project.sh go my-tool                   # into apps/
+scripts/new-project.sh --space packages go my-lib   # into packages/
 ```
 
-This copies `templates/go/` to `projects/my-tool/`, substituting two
+This copies `templates/go/` to `apps/my-tool/`, substituting two
 placeholders:
 
 - `__NAME__` → the project name as given (`my-tool`)
@@ -31,7 +48,7 @@ placeholders:
   file and directory names
 
 Names are lowercase kebab-case. If no template fits, create the directory by
-hand — all a project needs to join the repo is a `dispat.json`.
+hand — all a project needs to join the repo is a `dispat.yaml`.
 
 ## Adding a language
 
@@ -40,12 +57,12 @@ Templates are added on demand. There is one each for `c`, `go`, `node-ts`,
 starting point yet.
 
 When a project needs a language with no template, write the project directly in
-`projects/<name>/` with a hand-written `dispat.json`. That is enough for dispat
+`apps/<name>/` with a hand-written `dispat.yaml`. That is enough for dispat
 and CI to pick it up. Promote the setup to `templates/<lang>/` only when a
 second project in that language shows up and there is something worth copying —
 a template that has never been used twice is a guess, not a convention.
 
-A template is a working hello-world with a test and a `dispat.json`: run
+A template is a working hello-world with a test and a `dispat.yaml`: run
 `scripts/new-project.sh <lang> tmp && dispat run check --since all -p tmp`
 before committing one, so it is known to build rather than assumed to.
 
@@ -92,11 +109,16 @@ the packages the commits since then address.
 ## Dependencies between projects
 
 Projects are unrelated by default. When one genuinely depends on another — a
-library and the CLI in front of it — say so in the root `dispat.json`:
+library in `packages/` and the app in front of it — say so in the root
+`dispat.yaml`:
 
-```json
-"dependencies": { "my-cli": ["my-lib"] }
+```yaml
+dependencies:
+  my-cli: [my-lib]
 ```
+
+The app's own manifest declares it too, however that language does it; for Rust
+that is a path dependency carrying a version.
 
 dispat then builds them in order, and a commit that bumps the library
 propagates to its consumers when you ask it to:
@@ -186,10 +208,11 @@ A project that ships binaries implements `release-build`:
   `fsnz update`-style verification on the platforms it missed.
 
 There is no cross-compiling: a platform is built on its own runner or not at
-all. A project shipping more than one declares them in its own `dispat.json`:
+all. A project shipping more than one declares them in its own `dispat.yaml`:
 
-```json
-"custom": { "releasePlatforms": ["ubuntu-latest", "macos-14"] }
+```yaml
+custom:
+  releasePlatforms: [ubuntu-latest, macos-14]
 ```
 
 `scripts/release-matrix.sh` turns that plus dispat's plan into the build matrix

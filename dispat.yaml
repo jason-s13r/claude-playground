@@ -1,0 +1,23 @@
+tagFormat: "{name}/v{version}"
+
+github:
+  allPackages: true
+
+commit:
+  enabled: true
+  push: true
+
+# Two kinds of package, both discovered by directory. `apps` ship; `packages`
+# are libraries the apps use. Both version the same way, so releasing a library
+# rewrites the range in every app that depends on it.
+spaces:
+  apps:
+    path: apps
+    autoVersion:
+      enabled: true
+      range: caret
+  packages:
+    path: packages
+    autoVersion:
+      enabled: true
+      range: caret

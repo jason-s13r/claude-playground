@@ -22,7 +22,8 @@ jobs:
   # What is releasing, and which runners have to build it. dispat answers the
   # first half; scripts/release-matrix.sh pairs it with each project's declared
   # platforms, because dispat runs a package's stages on one machine and a
-  # project shipping several binaries needs one runner each.
+  # project shipping several binaries needs one runner each. Each row carries
+  # the project's directory too, since a package may live in either space.
   plan:
     runs-on: ubuntu-latest
     outputs:
@@ -84,8 +85,8 @@ jobs:
         with:
           name: release--${{ matrix.package }}--${{ matrix.platform }}
           path: |
-            projects/${{ matrix.package }}/release/*
-            !projects/${{ matrix.package }}/release/SHA256SUMS
+            ${{ matrix.dir }}/release/*
+            !${{ matrix.dir }}/release/SHA256SUMS
           if-no-files-found: error
           retention-days: 1
 

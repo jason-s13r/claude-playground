@@ -5,9 +5,8 @@ Anything goes: C, C++, Rust, Go, Node/TypeScript, Python — CLIs, TUIs, web
 apps, whatever the current idea needs.
 
 The only rule is that each project stays **self-contained**. A project owns its
-dependencies, its build files, its lockfiles, and its own `dispat.json` saying
-how to build and test it. Deleting `projects/<name>/` removes the project
-completely.
+dependencies, its build files, its lockfiles, and its own `dispat.yaml` saying
+how to build and test it. Deleting its directory removes it completely.
 
 [dispat](https://dispat.dev) is the tool that ties them together. It discovers
 the projects, runs their scripts, works out which ones changed from the commit
@@ -15,10 +14,16 @@ history, and releases them.
 
 ## What is here
 
-| Project | What it is |
-| ------- | ---------- |
-| [`foodstuffs-nz-cli`](projects/foodstuffs-nz-cli) | `fsnz` — search New World and PAK'nSAVE from the terminal, and price one query at both |
-| [`woolworths-nz-cli`](projects/woolworths-nz-cli) | `wwnz` — the same for Woolworths NZ, against their GraphQL API |
+Two kinds of directory. [`apps/`](apps) holds the things that ship;
+[`packages/`](packages) holds libraries more than one app needs.
+
+| App | What it is |
+| --- | ---------- |
+| [`foodstuffs-nz-cli`](apps/foodstuffs-nz-cli) | `fsnz` — search New World and PAK'nSAVE from the terminal, and price one query at both |
+| [`woolworths-nz-cli`](apps/woolworths-nz-cli) | `wwnz` — the same for Woolworths NZ, against their GraphQL API |
+
+`packages/` is empty so far. Code moves there when a *second* app needs it —
+extracting a library for one caller guesses at the interface.
 
 That table is for people. dispat and CI discover the projects themselves, so
 adding one means adding a directory and nothing else.
@@ -26,11 +31,12 @@ adding one means adding a directory and nothing else.
 ## Layout
 
 ```
-projects/     one directory per project, each with its own dispat.json
+apps/         one directory per app, each with its own dispat.yaml
+packages/     libraries shared between apps, under the same contract
 templates/    starting points for new projects, one per language
 scripts/      repo tooling (scaffolding, the release build matrix)
 docs/         conventions and notes
-dispat.json   the root config: where projects live, how they are tagged
+dispat.yaml   the root config: where projects live, how they are tagged
 ```
 
 ## Quick start
@@ -40,7 +46,7 @@ dispat run check --since all             # everything, every project
 dispat run test  --since all -p my-tool  # one project
 dispat status                            # what a release would do right now
 dispat preview                           # the notes it would write
-scripts/new-project.sh rust my-tool      # scaffold a project
+scripts/new-project.sh rust my-tool      # scaffold an app
 ```
 
 `--since all` is the flag you will type most. Without it, `dispat run` only
@@ -49,14 +55,14 @@ their last tag — which is what you want in a release and rarely what you want
 at a keyboard.
 
 Available templates: `c`, `go`, `node-ts`, `python`, `rust`. Nothing forces you
-to use one — a project only needs a `dispat.json`, so a language without a
+to use one — a project only needs a `dispat.yaml`, so a language without a
 template is not blocked. New templates get added when a project actually needs
 one.
 
 ## The project contract
 
-Every directory under `projects/` is a project, and its `dispat.json` says what
-can be done to it. By convention those scripts are:
+Every directory under `apps/` or `packages/` is a project, and its
+`dispat.yaml` says what can be done to it. By convention those scripts are:
 
 | Script          | Meaning                                                |
 | --------------- | ------------------------------------------------------ |
@@ -95,10 +101,11 @@ A push with nothing releasable in it does nothing. `dispat status` and
 For a project that ships binaries, the release is the delivery: the tag, the
 GitHub release, its notes taken from the same commits, and the artifacts with a
 `SHA256SUMS` covering all of them. A project declares the runners it needs in
-its own `dispat.json`, since there is no cross-compiling:
+its own `dispat.yaml`, since there is no cross-compiling:
 
-```json
-"custom": { "releasePlatforms": ["ubuntu-latest", "macos-14"] }
+```yaml
+custom:
+  releasePlatforms: [ubuntu-latest, macos-14]
 ```
 
 Declaring nothing builds on `ubuntu-latest` alone.
@@ -111,8 +118,8 @@ number baked into the binary cannot disagree.
 ## CI
 
 `.github/workflows/ci.yml` runs `dispat run check --since all`. Adding a
-project to `projects/` is enough to put it in CI — there is no list to
-maintain.
+directory under `apps/` or `packages/` is enough to put it in CI — there is no
+list to maintain.
 
 ## Conventions
 

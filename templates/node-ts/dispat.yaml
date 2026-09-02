@@ -1,0 +1,12 @@
+scripts:
+  build: npm install --silent && npx tsc
+  run: node dist/index.js
+  test: node --test dist/
+  fmt: npx --yes prettier --write "src/**/*.ts" || echo 'prettier unavailable, skipping'
+  fmt-check: npx --yes prettier --check "src/**/*.ts" || echo 'prettier unavailable, skipping'
+  lint: npx tsc --noEmit
+  check:
+    - npm install --silent
+    - npx tsc --noEmit
+    - npx tsc
+    - node --test dist/

@@ -1,0 +1,13 @@
+env:
+  PYTHONPATH: src
+scripts:
+  build: echo 'nothing to build'
+  run: python3 -m __IDENT__
+  test: python3 -m unittest discover -s tests -v
+  fmt: if command -v ruff >/dev/null 2>&1; then ruff format .; else echo 'ruff not installed, skipping'; fi
+  fmt-check: if command -v ruff >/dev/null 2>&1; then ruff format --check .; else echo 'ruff not installed, skipping'; fi
+  lint: if command -v ruff >/dev/null 2>&1; then ruff check .; else echo 'ruff not installed, skipping'; fi
+  check:
+    - if command -v ruff >/dev/null 2>&1; then ruff format --check .; else echo 'ruff not installed, skipping'; fi
+    - if command -v ruff >/dev/null 2>&1; then ruff check .; else echo 'ruff not installed, skipping'; fi
+    - python3 -m unittest discover -s tests -v
