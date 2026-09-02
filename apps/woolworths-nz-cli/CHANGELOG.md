@@ -1,5 +1,23 @@
 # Changelog
 
+## woolworths-nz-cli/v0.1.2 (2026-09-02)
+
+### Fixes
+
+- follow the redirect on a release asset download
+  A GitHub release asset URL is a 302 to release-assets.githubusercontent.com,
+  and wreq's ClientBuilder defaults to Policy::none() -- unlike reqwest, and
+  unlike the doc comment wreq inherited from it. `wwnz update` stopped at the
+  302 and reported it as a failed GET, so no published binary could install
+  itself. Both fetches went through it, the tarball and SHA256SUMS.
+
+  The policy is set per request rather than on the shared client: everywhere
+  else a redirect means a bot check, and reporting one beats following it.
+
+  The test serves the release the way GitHub does, a 302 to the host holding
+  the bytes, and fails without the fix.
+
+
 ## woolworths-nz-cli/v0.1.1 (2026-09-02)
 
 ### Fixes
