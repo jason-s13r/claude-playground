@@ -29,7 +29,7 @@ use crate::secrets::Secrets;
 /// value -- including the `User-Agent` -- which is why nothing here sets a
 /// user agent by hand: a header naming a different Firefox than the handshake
 /// is exactly the inconsistency being watched for.
-pub const EMULATION: wreq_util::Emulation = wreq_util::Emulation::Firefox139;
+pub const EMULATION: wreq_util::Profile = wreq_util::Profile::Firefox139;
 
 pub const GUEST_COOKIE: &str = "__guest__token";
 

@@ -25,8 +25,8 @@ rpassword = "7"
 # bare 400 and the storefront withholds the bot-manager cookies. `wreq` is
 # `reqwest` with a browser handshake, which is answered normally. See
 # `src/main.rs`.
-wreq = { version = "0.15", features = ["json", "cookies", "gzip", "brotli"] }
-wreq-util = "0.1"
+wreq = { version = "0.16", features = ["json", "cookies", "form", "gzip", "brotli"] }
+wreq-util = "0.2"
 semver = "1"
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"

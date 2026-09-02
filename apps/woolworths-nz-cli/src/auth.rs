@@ -215,14 +215,16 @@ async fn body(res: wreq::Response, step: &str, url: &str) -> Result<Page> {
     let status = res.status();
     // Where the redirect chain actually ended, which is the single most useful
     // fact when the flow goes somewhere unexpected.
-    let landed = res.url().clone();
+    let landed = res.uri().to_string();
+    let landed_path = url::Url::parse(&landed)
+        .map(|url| format!("{}{}", url.origin().ascii_serialization(), url.path()))
+        .unwrap_or_else(|_| landed.clone());
     let html = res.text().await.unwrap_or_default();
     trace(
         step,
         &format!(
-            "{status} -> {}{} ({} bytes){}",
-            landed.origin().ascii_serialization(),
-            landed.path(),
+            "{status} -> {} ({} bytes){}",
+            landed_path,
             html.len(),
             match error_message(&html) {
                 Some(m) => format!(" banner: {m:?}"),
@@ -278,13 +280,24 @@ fn origin_of(url: &str) -> String {
 /// lands. Auth0's own cookies stay on its host and are of no further use.
 fn jar_cookies(jar: &wreq::cookie::Jar, origin: &str) -> Result<BTreeMap<String, String>> {
     use wreq::cookie::CookieStore;
-    let url: wreq::Url = origin
+    let uri: wreq::Uri = origin
         .parse()
         .with_context(|| format!("parsing {origin}"))?;
-    let Some(header) = jar.cookies(&url) else {
-        return Ok(BTreeMap::new());
-    };
-    Ok(parse_cookie_header(header.to_str().unwrap_or_default()))
+    match jar.cookies(&uri, wreq::Version::HTTP_11) {
+        wreq::cookie::Cookies::Compressed(header) => {
+            Ok(parse_cookie_header(header.to_str().unwrap_or_default()))
+        }
+        wreq::cookie::Cookies::Uncompressed(headers) => {
+            let header = headers
+                .iter()
+                .filter_map(|header| header.to_str().ok())
+                .collect::<Vec<_>>()
+                .join("; ");
+            Ok(parse_cookie_header(&header))
+        }
+        wreq::cookie::Cookies::Empty => Ok(BTreeMap::new()),
+        _ => Ok(BTreeMap::new()),
+    }
 }
 
 /// `a=1; b=2` into pairs.
