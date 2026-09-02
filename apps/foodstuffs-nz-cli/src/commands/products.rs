@@ -21,10 +21,7 @@ pub async fn list(
     args: &ListArgs,
 ) -> Result<()> {
     let store_id = app.store_id(banner)?;
-    // Product search prices against a store, not an account: it is guest-scoped
-    // and an account token is rejected with "Invalid store id parameter in
-    // filters". The cart is the other way round.
-    let client = app.guest_client(banner).await?;
+    let (client, _) = app.client(banner, false, true).await?;
     let filters = api::filters(&store_id, specials_only, department);
     let result = client
         .collect(&store_id, query, &filters, args.limit, &args.sort)

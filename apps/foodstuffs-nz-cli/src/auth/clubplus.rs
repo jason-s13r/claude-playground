@@ -407,7 +407,7 @@ async fn exchange_secure_token(
         // Echoed in the body rather than sent as a header, so it is the one
         // place the agent string is named -- and it has to be the one the
         // handshake implies.
-        "fingerprintGuest": crate::http::user_agent(http),
+        "fingerprintGuest": crate::http::user_agent(),
     });
     let res = send(
         xhr(http.post(&url), &endpoints.origin).body(body.to_string()),

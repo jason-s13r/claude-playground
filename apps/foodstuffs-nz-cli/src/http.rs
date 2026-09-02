@@ -9,14 +9,14 @@ use anyhow::Result;
 use std::sync::Arc;
 use std::time::Duration;
 
-use wreq_util::Emulation;
+use wreq_util::Profile;
 
 use crate::cookies;
 
 /// The browser emulated; handshake, HTTP/2 settings and headers all derive from
 /// it. The OS rides along, macOS on every host, so one build is one device.
 /// Club Plus scores device identity, so changing this costs one verification.
-pub const EMULATION: Emulation = Emulation::Chrome137;
+pub const EMULATION: Profile = Profile::Chrome137;
 
 pub fn client(jar: Arc<cookies::Jar>) -> Result<wreq::Client> {
     Ok(wreq::Client::builder()
@@ -32,8 +32,12 @@ pub fn client(jar: Arc<cookies::Jar>) -> Result<wreq::Client> {
 
 /// The `User-Agent` the emulation sends. The SSO exchange echoes it in the
 /// request body as `fingerprintGuest`, the one place it must be named.
-pub fn user_agent(http: &wreq::Client) -> String {
-    http.headers()
+///
+/// Read off the emulation rather than the client, which no longer exposes the
+/// headers it was built with.
+pub fn user_agent() -> String {
+    wreq::IntoEmulation::into_emulation(EMULATION)
+        .headers
         .get(wreq::header::USER_AGENT)
         .and_then(|v| v.to_str().ok())
         .unwrap_or_default()

@@ -11,7 +11,7 @@ use crate::domain::Store;
 use crate::output;
 
 pub async fn list(app: &App, banner: Banner, query: Option<&str>) -> Result<()> {
-    let client = app.guest_client(banner).await?;
+    let (client, _) = app.client(banner, false, true).await?;
     let all = client.stores().await?;
     let stores = filter_stores(all, query);
 
@@ -60,8 +60,8 @@ pub async fn select(app: &mut App, banner: Banner, cmd: &StoreCommand) -> Result
             };
 
             // Name it if the API is reachable; the id alone is still useful.
-            let named = match app.guest_client(banner).await {
-                Ok(client) => client
+            let named = match app.client(banner, false, true).await {
+                Ok((client, _)) => client
                     .stores()
                     .await
                     .ok()
@@ -85,7 +85,7 @@ pub async fn select(app: &mut App, banner: Banner, cmd: &StoreCommand) -> Result
         }
 
         StoreCommand::Set { store } => {
-            let client = app.guest_client(banner).await?;
+            let (client, _) = app.client(banner, false, true).await?;
             let all = client.stores().await?;
             let matches: Vec<Store> = all.into_iter().filter(|s| s.matches(store)).collect();
 

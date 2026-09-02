@@ -47,9 +47,7 @@ pub async fn run(app: &App) -> Result<bool> {
                         .map(|d| serde_json::Value::from(d.as_secs()))
                         .unwrap_or(serde_json::Value::Null),
                 );
-                // The store list is guest-scoped, so probe it with a guest token
-                // even when an account token was just proved to work.
-                match app.guest_client(banner).await?.stores().await {
+                match _client.stores().await {
                     Ok(stores) => {
                         entry.insert("api_reachable".into(), true.into());
                         entry.insert("stores_returned".into(), stores.len().into());

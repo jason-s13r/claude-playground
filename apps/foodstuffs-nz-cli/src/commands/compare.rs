@@ -24,7 +24,7 @@ pub async fn run(app: &App, query: &str, specials_only: bool, args: &ListArgs) -
 
     let mut sides: Vec<Vec<Product>> = Vec::new();
     for (banner, store_id) in banners.iter().zip(&store_ids) {
-        let client = app.guest_client(*banner).await?;
+        let (client, _) = app.client(*banner, false, true).await?;
         let filters = api::filters(store_id, specials_only, None);
         let result = client
             .collect(store_id, query, &filters, args.limit, &args.sort)

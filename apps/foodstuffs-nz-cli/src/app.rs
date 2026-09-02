@@ -56,11 +56,6 @@ impl App {
             .await
     }
 
-    /// A client holding an anonymous token, for the guest-scoped endpoints.
-    pub async fn guest_client(&self, banner: Banner) -> Result<Client> {
-        Ok(self.client_inner(banner, false, true, true).await?.0)
-    }
-
     async fn client_inner(
         &self,
         banner: Banner,

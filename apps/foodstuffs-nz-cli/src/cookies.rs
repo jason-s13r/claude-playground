@@ -9,7 +9,7 @@ use std::collections::BTreeMap;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::RwLock;
 use std::time::{SystemTime, UNIX_EPOCH};
-use wreq::cookie::CookieStore;
+use wreq::cookie::{CookieStore, IntoCookie};
 use wreq::header::HeaderValue;
 
 use crate::secrets::Secrets;
@@ -69,11 +69,14 @@ impl Jar {
         let now = now();
         let mut kept = BTreeMap::new();
         for cookie in stored.into_iter().filter(|c| c.expires_at > now) {
-            let Ok(url) = format!("https://{}/", cookie.host).parse::<wreq::Url>() else {
+            let Ok(uri) = format!("https://{}/", cookie.host).parse::<wreq::Uri>() else {
                 continue;
             };
             jar.inner
-                .add_cookie_str(&format!("{}={}; Path=/", cookie.name, cookie.value), &url);
+                .add(
+                    format!("{}={}; Path=/", cookie.name, cookie.value),
+                    &uri,
+                );
             kept.insert((cookie.host.clone(), cookie.name.clone()), cookie);
         }
         if let Ok(mut guard) = jar.kept.write() {
@@ -100,9 +103,9 @@ impl Jar {
         secrets.delete(ACCOUNT)
     }
 
-    fn remember(&self, url: &wreq::Url, raw: &str) {
-        let Some(host) = url.host_str() else { return };
-        let Ok(cookie) = wreq::cookie::Cookie::parse(raw) else {
+    fn remember(&self, uri: &wreq::Uri, raw: &str) {
+        let Some(host) = uri.host() else { return };
+        let Some(cookie) = raw.into_cookie() else {
             return;
         };
         if !functional(cookie.name()) {
@@ -131,19 +134,19 @@ impl Jar {
 }
 
 impl CookieStore for Jar {
-    fn set_cookies(&self, url: &wreq::Url, headers: &mut dyn Iterator<Item = &HeaderValue>) {
+    fn set_cookies(&self, headers: &mut dyn Iterator<Item = &HeaderValue>, uri: &wreq::Uri) {
         // Consumed once, and the inner jar needs it too.
         let values: Vec<&HeaderValue> = headers.collect();
         for value in &values {
             if let Ok(raw) = value.to_str() {
-                self.remember(url, raw);
+                self.remember(uri, raw);
             }
         }
-        self.inner.set_cookies(url, &mut values.into_iter());
+        self.inner.set_cookies(&mut values.into_iter(), uri);
     }
 
-    fn cookies(&self, url: &wreq::Url) -> Option<HeaderValue> {
-        self.inner.cookies(url)
+    fn cookies(&self, uri: &wreq::Uri, version: wreq::Version) -> wreq::cookie::Cookies {
+        self.inner.cookies(uri, version)
     }
 }
 
@@ -182,8 +185,8 @@ mod tests {
             kept: RwLock::new(BTreeMap::new()),
             dirty: AtomicBool::new(false),
         };
-        let url: wreq::Url = "https://www.newworld.co.nz/".parse().unwrap();
-        jar.remember(&url, raw);
+        let uri: wreq::Uri = "https://www.newworld.co.nz/".parse().unwrap();
+        jar.remember(&uri, raw);
         jar
     }
 
