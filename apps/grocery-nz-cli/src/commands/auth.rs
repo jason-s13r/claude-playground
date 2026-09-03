@@ -37,7 +37,7 @@ async fn login(
 
     let email = match email {
         Some(email) => email,
-        None => prompt("Email: ")?,
+        None => prompt("Email")?,
     };
     // A configured command is the account's real source of truth where one
     // exists, so it beats both the prompt and anything stored.
@@ -46,13 +46,13 @@ async fn login(
         .or(app.config.auth.password_command.as_deref())
     {
         Some(command) => net_kit::run::capturing("password_command", command).await?,
-        None => prompt_password("Password: ")?,
+        None => prompt_password("Password")?,
     };
 
     // Never echoed, never logged: the code goes straight back to Club Plus.
     let ask = |method: &str| {
         eprintln!("A verification code was sent by {method}.");
-        prompt("Code: ")
+        prompt("Code")
     };
     let status = handle.login(&email, &password, &ask).await?;
 

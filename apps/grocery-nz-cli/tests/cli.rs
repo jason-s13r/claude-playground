@@ -313,3 +313,17 @@ fn doctor_says_where_state_lives_so_a_broken_setup_can_be_found() {
         "{text}"
     );
 }
+
+#[test]
+fn a_prompt_label_is_not_punctuated_twice() {
+    // cli_kit::prompt appends its own ": ", and its no-terminal error reads
+    // "{label} is required" -- so the label has to be bare. There is no
+    // terminal here, which is what makes that error the thing to assert on.
+    Sandbox::new()
+        .cmd()
+        .args(["-b", "ww", "auth", "login"])
+        .assert()
+        .failure()
+        .stderr(contains("Email is required"))
+        .stderr(contains("Email:").not());
+}
