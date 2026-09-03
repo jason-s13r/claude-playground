@@ -343,7 +343,7 @@ dependencies = [
 
 [[package]]
 name = "build-kit"
-version = "0.0.0"
+version = "0.1.0"
 dependencies = [
  "flate2",
  "net-kit",
@@ -1415,7 +1415,7 @@ dependencies = [
 
 [[package]]
 name = "net-kit"
-version = "0.0.0"
+version = "0.1.0"
 dependencies = [
  "base64",
  "directories",
