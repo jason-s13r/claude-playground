@@ -360,3 +360,42 @@ fn the_short_version_stays_one_line() {
     assert_eq!(text.lines().count(), 1, "{text}");
     assert!(!text.contains("libraries"), "{text}");
 }
+
+#[test]
+fn signing_out_of_one_banner_names_the_other_it_also_signs_out() {
+    // One Club Plus account covers both, so this is not a surprise to
+    // discover later.
+    Sandbox::new()
+        .cmd()
+        .args(["-b", "nw", "auth", "logout"])
+        .assert()
+        .success()
+        .stdout(contains("New World and PAK'nSAVE"));
+}
+
+#[test]
+fn auth_without_a_shop_walks_every_credential_once_each() {
+    // Three shops, two accounts. Asking for the Club Plus password twice is
+    // the thing this avoids.
+    let out = Sandbox::new()
+        .cmd()
+        .args(["auth", "logout"])
+        .assert()
+        .success();
+    let text = String::from_utf8_lossy(&out.get_output().stdout).to_string();
+    assert_eq!(text.lines().count(), 2, "{text}");
+    assert!(text.contains("New World and PAK'nSAVE"), "{text}");
+    assert!(text.contains("Woolworths"), "{text}");
+}
+
+#[test]
+fn an_email_for_more_than_one_account_is_refused_rather_than_reused() {
+    // Two accounts, one address: silently trying it on both would be wrong,
+    // and prompting for the second after being given the first is worse.
+    Sandbox::new()
+        .cmd()
+        .args(["auth", "login", "--email", "shopper@example.test"])
+        .assert()
+        .code(2)
+        .stderr(contains("-b ww auth login"));
+}

@@ -148,6 +148,42 @@ impl App {
     pub fn handle(&self) -> AppResult<Handle> {
         Ok(self.registry.get(self.retailer()?)?)
     }
+
+    /// One entry per credential the requested shops need, each with a shop to
+    /// act through.
+    ///
+    /// This is what stops `auth login` asking for the same Club Plus password
+    /// twice: `-b nw,pns` is one credential, not two. With no `-b` it is every
+    /// credential, which is the whole of "set this tool up".
+    pub fn auth_targets(&self) -> Vec<AuthTarget> {
+        let requested = if self.selected.is_empty() {
+            RetailerId::ALL.to_vec()
+        } else {
+            self.selected.clone()
+        };
+        let mut seen: Vec<&'static str> = Vec::new();
+        let mut targets = Vec::new();
+        for id in requested {
+            let family = family(id);
+            if seen.contains(&family) {
+                continue;
+            }
+            seen.push(family);
+            targets.push(AuthTarget {
+                through: id,
+                covers: family_shops(family),
+            });
+        }
+        targets
+    }
+}
+
+/// One credential, and the shops it speaks for.
+pub struct AuthTarget {
+    /// The adapter to run the command through. Any shop in the family will do:
+    /// they share the credential store.
+    pub through: RetailerId,
+    pub covers: Vec<RetailerId>,
 }
 
 /// What builds an adapter. Cloned into the registry's closure so the registry
@@ -252,6 +288,32 @@ impl Factory {
     }
 }
 
+/// The shops one credential covers.
+///
+/// New World and PAK'nSAVE are one Club Plus account, so signing into either
+/// signs into both -- and signing out of either signs out of both. Every auth
+/// command works in these units, and names them, because a user who is not
+/// told this signs in twice with the same password.
+pub fn family_shops(family: &str) -> Vec<RetailerId> {
+    RetailerId::ALL
+        .into_iter()
+        .filter(|id| self::family(*id) == family)
+        .collect()
+}
+
+/// How to say what a login covers: "New World and PAK'nSAVE".
+pub fn name_shops(ids: &[RetailerId]) -> String {
+    match ids {
+        [] => String::new(),
+        [one] => one.name().to_string(),
+        [rest @ .., last] => format!(
+            "{} and {}",
+            rest.iter().map(|r| r.name()).collect::<Vec<_>>().join(", "),
+            last.name()
+        ),
+    }
+}
+
 /// Which credential namespace a shop belongs to.
 ///
 /// New World and PAK'nSAVE share one Club Plus login, so they share a
@@ -273,6 +335,24 @@ fn backend(override_: Option<&str>) -> Backend {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn shops_are_named_the_way_a_sentence_would() {
+        assert_eq!(name_shops(&[RetailerId::Woolworths]), "Woolworths");
+        assert_eq!(
+            name_shops(&[RetailerId::NewWorld, RetailerId::PaknSave]),
+            "New World and PAK'nSAVE"
+        );
+    }
+
+    #[test]
+    fn one_club_plus_account_covers_both_banners() {
+        assert_eq!(
+            family_shops("foodstuffs"),
+            vec![RetailerId::NewWorld, RetailerId::PaknSave]
+        );
+        assert_eq!(family_shops("woolworths"), vec![RetailerId::Woolworths]);
+    }
 
     #[test]
     fn the_two_foodstuffs_banners_share_a_credential_namespace() {

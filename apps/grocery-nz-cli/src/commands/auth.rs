@@ -5,7 +5,7 @@ use gsnz_core::AuthStatus;
 use serde::Serialize;
 use std::io::Write;
 
-use crate::app::App;
+use crate::app::{self, App};
 use crate::cli::AuthAction;
 use crate::error::{AppError, AppResult};
 
@@ -17,55 +17,107 @@ pub async fn run(app: &App, action: AuthAction) -> AppResult<()> {
             no_store_password,
         } => login(app, email, password_command, no_store_password).await,
         AuthAction::Import { file } => import(app, &file).await,
-        AuthAction::Refresh => {
-            let status = app.handle()?.refresh_session().await?;
-            show(app, vec![status])
-        }
+        AuthAction::Refresh => refresh(app).await,
         AuthAction::Status => status(app).await,
         AuthAction::Logout => logout(app).await,
     }
 }
 
+/// Sign in once per credential, not once per shop.
+///
+/// `gsnz auth login` with no `-b` is the whole of setting this tool up: two
+/// prompts, because there are two accounts. Asking for the Club Plus password
+/// twice -- once as New World and once as PAK'nSAVE -- is the thing this
+/// avoids, and the thing the old per-shop version did not tell you about.
 async fn login(
     app: &App,
     email: Option<String>,
     password_command: Option<String>,
     no_store_password: bool,
 ) -> AppResult<()> {
-    let retailer = app.retailer()?;
-    let handle = app.handle()?;
-
-    let email = match email {
-        Some(email) => email,
-        None => prompt("Email")?,
-    };
-    // A configured command is the account's real source of truth where one
-    // exists, so it beats both the prompt and anything stored.
-    let password = match password_command
-        .as_deref()
-        .or(app.config.auth.password_command.as_deref())
-    {
-        Some(command) => net_kit::run::capturing("password_command", command).await?,
-        None => prompt_password("Password")?,
-    };
-
-    // Never echoed, never logged: the code goes straight back to Club Plus.
-    let ask = |method: &str| {
-        eprintln!("A verification code was sent by {method}.");
-        prompt("Code")
-    };
-    let status = handle.login(&email, &password, &ask).await?;
-
-    // Only after the login worked: storing a password that does not sign in is
-    // worse than storing none.
-    let keep = app.config.auth.store_password && !no_store_password;
-    if keep {
-        let secrets = app.secrets(retailer);
-        if let Err(e) = net_kit::password::save(&secrets, &password) {
-            eprintln!("gsnz: signed in, but the password could not be kept: {e}");
-        }
+    let targets = app.auth_targets();
+    if email.is_some() && targets.len() > 1 {
+        return Err(AppError::usage(
+            "--email names one account, but this would sign in to more than one: \
+             name the shop too, as `gsnz -b ww auth login --email ...`",
+        ));
     }
-    show(app, vec![status])
+
+    let mut statuses = Vec::new();
+    for target in targets {
+        let covers = app::name_shops(&target.covers);
+        // On stderr with the prompts: which account is being asked for is part
+        // of the conversation, not part of the result.
+        eprintln!("{covers}:");
+
+        let handle = app.registry.get(target.through)?;
+        let email = match &email {
+            Some(email) => email.clone(),
+            None => prompt("  Email")?,
+        };
+        // A configured command is the account's real source of truth where one
+        // exists, so it beats both the prompt and anything stored.
+        let password =
+            match password_command
+                .as_deref()
+                .or(app.config.auth.password_command.as_deref())
+            {
+                Some(command) => net_kit::run::capturing("password_command", command).await?,
+                None => prompt_password("  Password")?,
+            };
+
+        // Never echoed, never logged: the code goes straight back to Club Plus.
+        let ask = |method: &str| {
+            eprintln!("  A verification code was sent by {method}.");
+            prompt("  Code")
+        };
+        handle.login(&email, &password, &ask).await?;
+
+        // Only after the login worked: storing a password that does not sign
+        // in is worse than storing none.
+        if app.config.auth.store_password && !no_store_password {
+            let secrets = app.secrets(target.through);
+            if let Err(e) = net_kit::password::save(&secrets, &password) {
+                eprintln!("gsnz: signed in, but the password could not be kept: {e}");
+            }
+        }
+
+        // Every shop the credential covers, so a login that also signed in
+        // PAK'nSAVE says so instead of leaving it to be discovered.
+        statuses.extend(statuses_for(app, &target.covers).await);
+    }
+    show(app, statuses)
+}
+
+async fn refresh(app: &App) -> AppResult<()> {
+    let mut statuses = Vec::new();
+    for target in app.auth_targets() {
+        app.registry.get(target.through)?.refresh_session().await?;
+        statuses.extend(statuses_for(app, &target.covers).await);
+    }
+    show(app, statuses)
+}
+
+/// What each shop reports, with a failure reported rather than raised.
+///
+/// `auth status` is what someone runs to find out that a stored blob is
+/// unreadable, so it must not be the command that fails because of one.
+async fn statuses_for(app: &App, ids: &[gsnz_core::RetailerId]) -> Vec<AuthStatus> {
+    let mut out = Vec::new();
+    for &id in ids {
+        let result = match app.registry.get(id) {
+            Ok(handle) => handle.auth_status().await,
+            Err(e) => Err(e),
+        };
+        out.push(result.unwrap_or_else(|e| AuthStatus {
+            retailer: id,
+            signed_in: false,
+            account: None,
+            expires_in: None,
+            detail: Some(e.to_string()),
+        }));
+    }
+    out
 }
 
 async fn import(app: &App, file: &std::path::Path) -> AppResult<()> {
@@ -86,52 +138,29 @@ async fn status(app: &App) -> AppResult<()> {
     } else {
         app.selected.clone()
     };
-    let mut statuses = Vec::new();
-    for id in shops {
-        // Asking about one shop must not fail because another's stored blob is
-        // unreadable: `auth status` is what someone runs to find that out.
-        match app.registry.get(id) {
-            Ok(handle) => match handle.auth_status().await {
-                Ok(status) => statuses.push(status),
-                Err(e) => statuses.push(AuthStatus {
-                    retailer: id,
-                    signed_in: false,
-                    account: None,
-                    expires_in: None,
-                    detail: Some(e.to_string()),
-                }),
-            },
-            Err(e) => statuses.push(AuthStatus {
-                retailer: id,
-                signed_in: false,
-                account: None,
-                expires_in: None,
-                detail: Some(e.to_string()),
-            }),
-        }
-    }
+    let statuses = statuses_for(app, &shops).await;
     show(app, statuses)
 }
 
+/// Signing out drops the credential, so it drops every shop that credential
+/// covered. Saying which ones beats letting it be noticed later.
 async fn logout(app: &App) -> AppResult<()> {
-    let retailer = app.retailer()?;
-    let dropped = app.handle()?.logout().await?;
+    let mut statuses = Vec::new();
     let mut out = app.out();
+    for target in app.auth_targets() {
+        let dropped = app.registry.get(target.through)?.logout().await?;
+        let covers = app::name_shops(&target.covers);
+        if !out.is_json() {
+            if dropped {
+                writeln!(out, "Signed out of {covers}.")?;
+            } else {
+                writeln!(out, "Was not signed in to {covers}.")?;
+            }
+        }
+        statuses.extend(statuses_for(app, &target.covers).await);
+    }
     if out.is_json() {
-        emit(
-            &mut out,
-            &Statuses(vec![AuthStatus {
-                retailer,
-                signed_in: false,
-                account: None,
-                expires_in: None,
-                detail: None,
-            }]),
-        )?;
-    } else if dropped {
-        writeln!(out, "Signed out of {retailer}.")?;
-    } else {
-        writeln!(out, "Was not signed in to {retailer}.")?;
+        emit(&mut out, &Statuses(statuses))?;
     }
     Ok(())
 }

@@ -105,6 +105,15 @@ A wrapper should not have to read stderr to know what happened.
 Three shops, two logins. One Club Plus account covers both Foodstuffs banners;
 Woolworths is separate.
 
+```bash
+gsnz auth login        # both accounts, two prompts -- the whole setup
+```
+
+Every `auth` command works in those units rather than per shop, and names what
+it covered: signing in as `-b nw` signs in PAK'nSAVE, and signing out of either
+signs out of both. That is why there is no `-b fs`; with no `-b` at all, `auth
+login` already asks once per account.
+
 - **Foodstuffs** renews itself from a rotating refresh token, so a login lasts
   well past its half-hour access token. `auth import` seeds one from a browser's
   `cookies.txt` — bring `refresh_token` as well as `fs-user-token`, or the
