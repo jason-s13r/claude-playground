@@ -1,0 +1,15 @@
+[package]
+name = "gsnz-ui"
+version = "0.0.0"
+edition = "2021"
+description = "Grocery renderers: product listings, carts, orders and price comparisons"
+license = "MIT"
+publish = false
+
+[dependencies]
+cli-kit = { path = "../cli-kit", version = "0.0.0" }
+gsnz-core = { path = "../gsnz-core", version = "0.0.0" }
+serde = { version = "1", features = ["derive"] }
+
+[dev-dependencies]
+serde_json = "1"

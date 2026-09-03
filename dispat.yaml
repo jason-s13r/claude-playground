@@ -31,3 +31,4 @@ spaces:
 # range and leaves the api crates pinned to a version that no longer exists.
 dependencies:
   build-kit: [net-kit]
+  gsnz-ui: [gsnz-core, cli-kit]
