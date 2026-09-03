@@ -16,10 +16,17 @@ template gets added when a second library wants one.
 
 ## When something belongs here
 
-When a *second* app needs it. One app needing it means it belongs in that app;
-extracting a library ahead of its second caller guesses at the interface, and
-the guess is usually wrong. A package with one consumer is an app's own module
-that has been moved further away.
+When a *second project* needs it — another app, or another package. One
+consumer means it belongs in that consumer; extracting a library ahead of its
+second caller guesses at the interface, and the guess is usually wrong. A
+package with one consumer is an app's own module that has been moved further
+away.
+
+There is one other reason a directory here is justified: when the boundary
+exists to keep a dependency **out**. A presentation library that cannot reach
+the network, or a domain library carrying nothing heavier than `serde`, is a
+constraint the compiler enforces and a module inside an app cannot. `cli-kit`
+and `gsnz-core` are here for that reason rather than for a second caller.
 
 ## Depending on one
 

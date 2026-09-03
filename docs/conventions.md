@@ -25,10 +25,14 @@ they are for:
 
 - **`apps/`** — the things that ship. A CLI, a TUI, a web app. Almost
   everything starts here.
-- **`packages/`** — libraries the apps share. Something belongs here when a
-  *second* app needs it. Extracting a library for one caller guesses at the
-  interface, and the guess is usually wrong; a package with one consumer is an
-  app's own module that has been moved further away.
+- **`packages/`** — libraries the projects share. Something belongs here when a
+  *second project* needs it — an app or another package. Extracting a library
+  for one caller guesses at the interface, and the guess is usually wrong; a
+  package with one consumer is an app's own module that has been moved further
+  away. The one other justification is a boundary that exists to keep a
+  dependency *out*: a presentation library that cannot reach the network, or a
+  domain library with nothing but `serde` in it, earn their own directory even
+  before the second caller arrives.
 
 Both are declared in the root [`dispat.yaml`](../dispat.yaml) as spaces, each
 named for its directory. Nothing else distinguishes them.
