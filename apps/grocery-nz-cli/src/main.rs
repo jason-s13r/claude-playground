@@ -57,8 +57,14 @@ fn main() -> ExitCode {
                 }
                 cause = e.source();
             }
+            // The library says what is wrong and, separately, what kind of
+            // thing would fix it. Only this binary knows it is called `gsnz`,
+            // so turning that into a command line happens here.
             if let Some(hint) = e.hint() {
                 eprintln!("      {hint}");
+            }
+            if let Some(advice) = cli::advice(&e) {
+                eprintln!("      {advice}");
             }
             // 2 misuse, 3 auth, 4 unsupported, 5 no store -- so a script can
             // tell them apart without reading this text.

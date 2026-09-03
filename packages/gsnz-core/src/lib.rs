@@ -31,7 +31,7 @@ pub mod store;
 pub use cart::{Adjustment, Cart, CartLine, Change, Quantity};
 pub use compare::{pair, MatchKey, Row};
 pub use department::Department;
-pub use error::{Error, Result};
+pub use error::{Error, Remedy, Result};
 pub use money::dollars;
 pub use order::{Order, OrderFilter, OrderLine, OrderSummary};
 pub use product::{Product, SaleUnit};

@@ -16,7 +16,10 @@ pub async fn run(app: &App, action: OrderAction) -> AppResult<()> {
     match action {
         OrderAction::List { limit, filter } => {
             let orders = handle.orders(filter, limit).await?;
-            emit(&mut out, &OrderList(&orders))?;
+            emit(
+                &mut out,
+                &OrderList::new(&orders).next("Show one: gsnz orders show <number>"),
+            )?;
         }
         OrderAction::Show { order } => {
             let id = match position(&order) {

@@ -9,6 +9,20 @@ use crate::retailer::RetailerId;
 
 pub type Result<T> = std::result::Result<T, Error>;
 
+/// What a caller should do about a failure, named rather than spelled.
+///
+/// The app turns one of these into the command a person types, because only
+/// the app knows what it is called.
+#[derive(Copy, Clone, PartialEq, Eq, Debug)]
+pub enum Remedy {
+    /// Sign in from scratch.
+    SignIn,
+    /// Renew a session that has lapsed but can be recovered.
+    RefreshSession,
+    /// Choose a store for this retailer.
+    SelectStore,
+}
+
 #[derive(Debug, thiserror::Error)]
 pub enum Error {
     #[error("{retailer} does not support {feature}")]
@@ -18,7 +32,7 @@ pub enum Error {
         hint: Option<String>,
     },
 
-    #[error("not signed in to {retailer}: run `gsnz -b {} auth login`", retailer.short())]
+    #[error("not signed in to {retailer}")]
     NeedsLogin { retailer: RetailerId },
 
     #[error("the {retailer} session has expired")]
@@ -48,7 +62,7 @@ pub enum Error {
     #[error("the {retailer} cart is not bound to a store")]
     CartUnbound { retailer: RetailerId },
 
-    #[error("no {retailer} store selected: run `gsnz -b {} store set <id or name>`", retailer.short())]
+    #[error("no {retailer} store selected")]
     NoStore { retailer: RetailerId },
 
     #[error("{retailer}: {message}")]
@@ -86,31 +100,39 @@ impl Error {
         }
     }
 
-    /// The extra line printed under the message, when there is something more
-    /// useful to say than the failure itself.
+    /// The extra line printed under the message, when the *retailer* has
+    /// something more to say than the failure itself.
+    ///
+    /// Never a command: see [`Error::remedy`].
     pub fn hint(&self) -> Option<&str> {
         match self {
             Error::Unsupported { hint, .. } => hint.as_deref(),
             Error::SessionExpired {
-                retailer,
-                renewable,
-            } => Some(if *renewable {
-                "run `gsnz auth refresh`"
-            } else {
-                match retailer {
-                    RetailerId::Woolworths => {
-                        "a Woolworths session cannot be renewed from a cookie; run `gsnz -b ww auth login`"
-                    }
-                    _ => "run `gsnz auth login`",
-                }
-            }),
+                retailer: RetailerId::Woolworths,
+                renewable: false,
+            } => Some("a Woolworths session cannot be renewed from a cookie"),
+            _ => None,
+        }
+    }
+
+    /// What would fix this, as a thing rather than as a command line.
+    ///
+    /// This crate does not know it is behind a CLI, let alone which one: the
+    /// same failure is `gsnz -b nw auth login` here and `fsnz auth login` in
+    /// the tool this was lifted from. Naming either would make the domain
+    /// depend on its caller, and be wrong for the other.
+    pub fn remedy(&self) -> Option<Remedy> {
+        match self {
+            Error::NeedsLogin { .. } => Some(Remedy::SignIn),
+            Error::SessionExpired {
+                renewable: true, ..
+            } => Some(Remedy::RefreshSession),
+            Error::SessionExpired {
+                renewable: false, ..
+            } => Some(Remedy::SignIn),
             // The account's cart carries its own store, separate from the one
-            // searches are scoped to, and `store set` binds both.
-            Error::CartUnbound { retailer } => Some(match retailer {
-                RetailerId::NewWorld => "run `gsnz -b nw store set <id or name>`",
-                RetailerId::PaknSave => "run `gsnz -b pns store set <id or name>`",
-                RetailerId::Woolworths => "run `gsnz -b ww store set <id or name>`",
-            }),
+            // searches are scoped to, and selecting one binds both.
+            Error::NoStore { .. } | Error::CartUnbound { .. } => Some(Remedy::SelectStore),
             _ => None,
         }
     }
@@ -156,13 +178,18 @@ mod tests {
             retailer: RetailerId::PaknSave,
         };
         assert_eq!(unbound.exit_code(), 5);
-        assert!(!unbound.to_string().contains("store set"));
-        assert!(unbound.hint().unwrap().contains("store set"));
+        assert_eq!(unbound.remedy(), Some(Remedy::SelectStore));
+        assert!(unbound.to_string().contains("cart is not bound"));
 
+        // Same remedy, different sentence: one is a local setting, the other
+        // is the account's cart.
         let unselected = Error::NoStore {
             retailer: RetailerId::PaknSave,
         };
-        assert!(unselected.to_string().contains("store set"));
+        assert_eq!(unselected.remedy(), Some(Remedy::SelectStore));
+        assert!(unselected
+            .to_string()
+            .contains("no PAK'nSAVE store selected"));
     }
 
     #[test]
@@ -195,15 +222,26 @@ mod tests {
     }
 
     #[test]
-    fn messages_name_the_command_that_fixes_them() {
-        let e = Error::NeedsLogin {
-            retailer: RetailerId::Woolworths,
-        };
-        assert!(e.to_string().contains("gsnz -b ww auth login"), "{e}");
-        let e = Error::NoStore {
-            retailer: RetailerId::PaknSave,
-        };
-        assert!(e.to_string().contains("gsnz -b pns store set"), "{e}");
+    fn messages_say_what_is_wrong_and_never_what_to_type() {
+        // The same failure is `gsnz -b ww auth login` in one tool and
+        // `wwnz auth login` in another. Naming either here would make the
+        // domain depend on its caller and be wrong for the other.
+        for e in [
+            Error::NeedsLogin {
+                retailer: RetailerId::Woolworths,
+            },
+            Error::NoStore {
+                retailer: RetailerId::PaknSave,
+            },
+            Error::CartUnbound {
+                retailer: RetailerId::NewWorld,
+            },
+        ] {
+            let text = format!("{e}{}", e.hint().unwrap_or_default());
+            assert!(!text.contains("gsnz"), "names a command: {text}");
+            assert!(!text.contains("run `"), "names a command: {text}");
+            assert!(e.remedy().is_some(), "no remedy for {e}");
+        }
     }
 
     #[test]
@@ -212,11 +250,15 @@ mod tests {
             retailer: RetailerId::Woolworths,
             renewable: false,
         };
-        assert!(e.hint().unwrap().contains("auth login"));
+        // The reason is domain knowledge and stays; the command does not.
+        assert_eq!(e.remedy(), Some(Remedy::SignIn));
+        assert!(e.hint().unwrap().contains("cannot be renewed"));
+        assert!(!e.hint().unwrap().contains("gsnz"));
+
         let e = Error::SessionExpired {
             retailer: RetailerId::NewWorld,
             renewable: true,
         };
-        assert!(e.hint().unwrap().contains("auth refresh"));
+        assert_eq!(e.remedy(), Some(Remedy::RefreshSession));
     }
 }

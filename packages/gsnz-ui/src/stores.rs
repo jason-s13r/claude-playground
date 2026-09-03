@@ -2,22 +2,42 @@
 
 use std::io::{self, Write};
 
-use cli_kit::{plural, table, Out, View};
+use cli_kit::{table, Out, View};
 use gsnz_core::Store;
 use serde::Serialize;
 
 #[derive(Serialize)]
 #[serde(transparent)]
-pub struct StoreList<'a>(pub &'a [Store]);
+pub struct StoreList<'a> {
+    pub stores: &'a [Store],
+    #[serde(skip)]
+    pub next: Option<&'a str>,
+}
+
+impl<'a> StoreList<'a> {
+    pub fn new(stores: &'a [Store]) -> StoreList<'a> {
+        StoreList { stores, next: None }
+    }
+
+    /// What to do with the list, supplied by the caller.
+    ///
+    /// The text names a command, and this crate does not know what the command is
+    /// called: the same listing is `gsnz store set` here and `fsnz store set` in
+    /// the tool this was lifted from. Left off, the footer is the count alone.
+    pub fn next(mut self, next: &'a str) -> StoreList<'a> {
+        self.next = Some(next);
+        self
+    }
+}
 
 impl View for StoreList<'_> {
     fn text(&self, out: &mut Out) -> io::Result<()> {
-        if self.0.is_empty() {
+        if self.stores.is_empty() {
             return writeln!(out, "No stores matched.");
         }
         // Distance is only known for a location search, and an empty column
         // across every row is worse than no column.
-        let has_distance = self.0.iter().any(|s| s.distance_km.is_some());
+        let has_distance = self.stores.iter().any(|s| s.distance_km.is_some());
         let headers: &[&str] = if has_distance {
             &["ID", "Name", "Where", "Distance"]
         } else {
@@ -25,7 +45,7 @@ impl View for StoreList<'_> {
         };
 
         let mut t = table(headers);
-        for s in self.0 {
+        for s in self.stores {
             let mut row = vec![
                 s.id.clone(),
                 s.name.clone(),
@@ -41,12 +61,7 @@ impl View for StoreList<'_> {
             t.add_row(row);
         }
         writeln!(out, "{t}")?;
-        writeln!(
-            out,
-            "{} store{}. Select one: gsnz store set <id or name fragment>",
-            self.0.len(),
-            plural(self.0.len())
-        )
+        crate::write_count(out, self.stores.len(), "store", self.next)
     }
 }
 
@@ -70,7 +85,11 @@ mod tests {
 
     fn render(stores: &[Store]) -> String {
         let mut out = Out::buffer(Format::Text);
-        emit(&mut out, &StoreList(stores)).unwrap();
+        emit(
+            &mut out,
+            &StoreList::new(stores).next("my-tool store set <id>"),
+        )
+        .unwrap();
         out.into_string()
     }
 
@@ -93,7 +112,8 @@ mod tests {
     fn the_count_is_pluralised_and_names_the_next_command() {
         let text = render(&[store("1", "Regent", None)]);
         assert!(text.contains("1 store."), "{text}");
-        assert!(text.contains("gsnz store set"), "{text}");
+        // Supplied by the caller: this crate does not know the command's name.
+        assert!(text.contains("my-tool store set"), "{text}");
 
         let text = render(&[store("1", "A", None), store("2", "B", None)]);
         assert!(text.contains("2 stores."), "{text}");

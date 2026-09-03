@@ -36,6 +36,28 @@ pub struct Cli {
     pub command: Command,
 }
 
+/// The command that would fix a failure, spelled for this binary.
+///
+/// `gsnz_core` names the remedy and refuses to name the command: the same
+/// failure is `gsnz -b nw auth login` here and `fsnz auth login` in the tool
+/// this was lifted from, and a domain crate that knew either would be wrong
+/// for the other.
+pub fn advice(error: &crate::error::AppError) -> Option<String> {
+    use gsnz_core::Remedy;
+    let crate::error::AppError::Domain(domain) = error else {
+        return None;
+    };
+    let shop = domain
+        .retailer()
+        .map(|r| format!("-b {} ", r.short()))
+        .unwrap_or_default();
+    Some(match domain.remedy()? {
+        Remedy::SignIn => format!("run `gsnz {shop}auth login`"),
+        Remedy::RefreshSession => format!("run `gsnz {shop}auth refresh`"),
+        Remedy::SelectStore => format!("run `gsnz {shop}store set <id or name>`"),
+    })
+}
+
 /// The parser, in one place so `completions` generates for exactly what runs.
 pub fn command() -> clap::Command {
     <Cli as clap::CommandFactory>::command()

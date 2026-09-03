@@ -552,3 +552,26 @@ fn store_is_taken_by_the_commands_that_do() {
         // this can go without a server.
         .code(1);
 }
+
+#[test]
+fn the_command_that_would_fix_it_comes_from_the_app_not_the_library() {
+    // gsnz-core names a Remedy and refuses to name the command: the same
+    // failure is `gsnz -b nw auth login` here and `fsnz auth login` in the
+    // tool this was lifted from.
+    Sandbox::new()
+        .cmd()
+        .args(["-b", "ww", "cart", "list"])
+        .assert()
+        .code(3)
+        .stderr(contains("not signed in to Woolworths"))
+        .stderr(contains("run `gsnz -b ww auth login`"));
+}
+
+#[test]
+fn a_listing_footer_names_the_command_only_because_the_app_supplied_it() {
+    let sandbox = Sandbox::new();
+    sandbox.write_config("retailer = \"nw\"\n[newworld]\nstore_id = \"s1\"\n");
+    // No network in the sandbox, so this only has to reach the failure rather
+    // than render rows; the footer text itself is covered in gsnz-ui.
+    sandbox.cmd().args(["stores"]).assert().failure();
+}

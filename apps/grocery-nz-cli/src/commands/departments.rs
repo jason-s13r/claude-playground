@@ -20,6 +20,9 @@ pub async fn run(app: &App, query: Option<String>, depth: u32) -> AppResult<()> 
             .clone()],
         None => all,
     };
-    emit(&mut app.out(), &DepartmentTree::new(&shown, depth))?;
+    emit(
+        &mut app.out(),
+        &DepartmentTree::new(&shown, depth).next("Browse one: gsnz browse \"<name>\""),
+    )?;
     Ok(())
 }

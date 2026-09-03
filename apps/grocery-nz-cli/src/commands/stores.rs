@@ -14,7 +14,10 @@ use crate::error::AppResult;
 pub async fn list(app: &App, query: Option<String>, limit: u32) -> AppResult<()> {
     let handle = app.handle()?;
     let stores = handle.stores(query.as_deref(), limit).await?;
-    emit(&mut app.out(), &StoreList(&stores))?;
+    emit(
+        &mut app.out(),
+        &StoreList::new(&stores).next("Select one: gsnz store set <id or name fragment>"),
+    )?;
     Ok(())
 }
 

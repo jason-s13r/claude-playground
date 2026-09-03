@@ -5,7 +5,7 @@
 
 use std::io::{self, Write};
 
-use cli_kit::{plural, Out, View};
+use cli_kit::{Out, View};
 use gsnz_core::Department;
 use serde::Serialize;
 
@@ -16,11 +16,27 @@ pub struct DepartmentTree<'a> {
     /// mostly noise for someone looking for a name to pass to `browse`.
     #[serde(skip)]
     pub depth: u32,
+    #[serde(skip)]
+    pub next: Option<&'a str>,
 }
 
 impl<'a> DepartmentTree<'a> {
     pub fn new(departments: &'a [Department], depth: u32) -> DepartmentTree<'a> {
-        DepartmentTree { departments, depth }
+        DepartmentTree {
+            departments,
+            depth,
+            next: None,
+        }
+    }
+
+    /// What to do with the list, supplied by the caller.
+    ///
+    /// The text names a command, and this crate does not know what the command is
+    /// called: the same listing is `gsnz store set` here and `fsnz store set` in
+    /// the tool this was lifted from. Left off, the footer is the count alone.
+    pub fn next(mut self, next: &'a str) -> DepartmentTree<'a> {
+        self.next = Some(next);
+        self
     }
 }
 
@@ -33,11 +49,8 @@ impl View for DepartmentTree<'_> {
         for department in self.departments {
             write_node(out, department, 0, self.depth, &mut shown)?;
         }
-        writeln!(
-            out,
-            "\n{shown} department{}. Browse one: gsnz browse \"<name>\"",
-            plural(shown)
-        )
+        writeln!(out)?;
+        crate::write_count(out, shown, "department", self.next)
     }
 }
 

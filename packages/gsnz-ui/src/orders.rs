@@ -3,23 +3,43 @@
 use std::io::{self, Write};
 
 use cli_kit::comfy_table::Cell;
-use cli_kit::{plural, table, Out, View};
+use cli_kit::{table, Out, View};
 use gsnz_core::{dollars, Order, OrderSummary};
 use serde::Serialize;
 
 #[derive(Serialize)]
 #[serde(transparent)]
-pub struct OrderList<'a>(pub &'a [OrderSummary]);
+pub struct OrderList<'a> {
+    pub orders: &'a [OrderSummary],
+    #[serde(skip)]
+    pub next: Option<&'a str>,
+}
+
+impl<'a> OrderList<'a> {
+    pub fn new(orders: &'a [OrderSummary]) -> OrderList<'a> {
+        OrderList { orders, next: None }
+    }
+
+    /// What to do with the list, supplied by the caller.
+    ///
+    /// The text names a command, and this crate does not know what the command is
+    /// called: the same listing is `gsnz store set` here and `fsnz store set` in
+    /// the tool this was lifted from. Left off, the footer is the count alone.
+    pub fn next(mut self, next: &'a str) -> OrderList<'a> {
+        self.next = Some(next);
+        self
+    }
+}
 
 impl View for OrderList<'_> {
     fn text(&self, out: &mut Out) -> io::Result<()> {
-        if self.0.is_empty() {
+        if self.orders.is_empty() {
             return writeln!(out, "No orders on file.");
         }
         let mut t = table(&["#", "Placed", "Status", "Store", "Total"]);
         // Numbered so a following command can name one by position -- an order
         // id is long and, at one retailer, contains a slash.
-        for (i, o) in self.0.iter().enumerate() {
+        for (i, o) in self.orders.iter().enumerate() {
             t.add_row(vec![
                 Cell::new(i + 1),
                 Cell::new(short_datetime(o.placed_at.as_deref())),
@@ -34,12 +54,7 @@ impl View for OrderList<'_> {
             ]);
         }
         writeln!(out, "{t}")?;
-        writeln!(
-            out,
-            "{} order{}. Show one: gsnz orders show <number>",
-            self.0.len(),
-            plural(self.0.len())
-        )
+        crate::write_count(out, self.orders.len(), "order", self.next)
     }
 }
 
@@ -164,16 +179,18 @@ mod tests {
     #[test]
     fn the_list_numbers_orders_so_one_can_be_named_by_position() {
         let orders = vec![summary("ABC/123", Some(4500)), summary("DEF/456", None)];
-        let text = render(&OrderList(&orders));
+        let text = render(&OrderList::new(&orders).next("my-tool orders show <number>"));
         assert!(text.contains("2 orders."), "{text}");
-        assert!(text.contains("gsnz orders show <number>"), "{text}");
+        // Supplied by the caller: this crate does not know the command's name.
+        assert!(text.contains("my-tool orders show <number>"), "{text}");
+        assert!(!render(&OrderList::new(&orders)).contains("my-tool"));
         assert!(text.contains("$45.00"), "{text}");
         assert!(text.contains("—"), "a missing total is not a zero: {text}");
     }
 
     #[test]
     fn no_orders_says_so() {
-        assert_eq!(render(&OrderList(&[])), "No orders on file.\n");
+        assert_eq!(render(&OrderList::new(&[])), "No orders on file.\n");
     }
 
     #[test]
