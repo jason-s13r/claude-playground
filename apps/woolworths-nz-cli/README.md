@@ -1,9 +1,15 @@
 # woolworths-nz-cli
 
-Search Woolworths New Zealand from the terminal. A sibling of
-[`foodstuffs-nz-cli`](../foodstuffs-nz-cli), built the same way, against the
-other half of the New Zealand supermarket duopoly. It replaces
-[`woolies-nz-cli`](https://github.com/mcinteerj/woolies-nz-cli).
+Search Woolworths New Zealand from the terminal — the other half of the
+supermarket duopoly [`foodstuffs-nz-cli`](../foodstuffs-nz-cli) covers. It
+replaces [`woolies-nz-cli`](https://github.com/mcinteerj/woolies-nz-cli).
+
+`wwnz` is the oldest of the three CLIs here and the only self-contained one:
+its HTTP client, credential store, domain types and renderers are its own,
+not the libraries in [`packages/`](../../packages) that `fsnz` and
+[`gsnz`](../grocery-nz-cli) were built on. Moving it across is separate work.
+In the meantime `gsnz` covers Woolworths alongside both Foodstuffs banners,
+and prices one query at all three.
 
 > **Not affiliated with Woolworths New Zealand.** There is no public API. This
 > calls the same undocumented GraphQL endpoint their website calls from the
