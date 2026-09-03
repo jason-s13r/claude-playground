@@ -1,0 +1,16 @@
+[package]
+name = "cli-kit"
+version = "0.0.0"
+edition = "2021"
+description = "General-purpose command line presentation: output routing, tables, prompts, health reports"
+license = "MIT"
+publish = false
+
+[dependencies]
+clap = { version = "4", features = ["derive", "env"] }
+clap_complete = "4"
+comfy-table = "7"
+owo-colors = "4"
+rpassword = "7"
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
