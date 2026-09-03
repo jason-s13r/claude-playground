@@ -9,7 +9,7 @@ use tempfile::TempDir;
 /// Every variable `gsnz` reads. Listed rather than filtered by prefix so that
 /// adding one to `src/env.rs` without adding it here is a test that fails, not
 /// a test that quietly starts depending on the developer's shell.
-pub const READS: [&str; 21] = [
+pub const READS: [&str; 23] = [
     "GSNZ_CONFIG_DIR",
     "GSNZ_STATE_DIR",
     "GSNZ_SECRET_BACKEND",
@@ -30,8 +30,14 @@ pub const READS: [&str; 21] = [
     "GSNZ_WOOLWORTHS_ORIGIN",
     "GSNZ_WOOLWORTHS_AUTH_ORIGIN",
     "GSNZ_WOOLWORTHS_STORE_ID",
+    "GSNZ_CLUBPLUS_ORIGIN",
+    "GSNZ_CLUBPLUS_API",
     "NO_COLOR",
 ];
+
+/// A port nothing listens on, so a connection is refused at once rather than
+/// timing out.
+pub const DEAD: &str = "http://127.0.0.1:1";
 
 pub struct Sandbox {
     pub home: TempDir,
@@ -58,6 +64,22 @@ impl Sandbox {
             // the machine's credentials.
             .env("GSNZ_SECRET_BACKEND", "file")
             .env("NO_COLOR", "1");
+        // Every host, pointed at a closed port. Nothing in this suite may
+        // reach a supermarket: `doctor` probes each shop, and without this it
+        // would make three real calls per test that runs it -- slow, flaky,
+        // and traffic nobody asked for.
+        for name in [
+            "GSNZ_NEWWORLD_ORIGIN",
+            "GSNZ_NEWWORLD_API",
+            "GSNZ_PAKNSAVE_ORIGIN",
+            "GSNZ_PAKNSAVE_API",
+            "GSNZ_WOOLWORTHS_ORIGIN",
+            "GSNZ_WOOLWORTHS_AUTH_ORIGIN",
+            "GSNZ_CLUBPLUS_ORIGIN",
+            "GSNZ_CLUBPLUS_API",
+        ] {
+            cmd.env(name, DEAD);
+        }
         cmd
     }
 

@@ -14,8 +14,9 @@ use std::sync::Arc;
 use async_trait::async_trait;
 use fsnz_api::{Banner, ClubPlusEndpoints, Endpoints};
 use gsnz_core::{
-    AuthStatus, Caps, Cart, Change, CodePrompt, Department, Error, Order, OrderFilter, OrderLine,
-    OrderSummary, Result, Retailer, RetailerId, Search, SearchBy, SearchResult, Sort, Store,
+    AuthStatus, Caps, Cart, Change, CodePrompt, Department, Error, Fact, Order, OrderFilter,
+    OrderLine, OrderSummary, Result, Retailer, RetailerId, Search, SearchBy, SearchResult, Sort,
+    Store,
 };
 use net_kit::{wreq, Jar, Paths, Secrets};
 
@@ -158,6 +159,32 @@ fn sort(sort: &Sort) -> String {
 impl Retailer for Foodstuffs {
     fn id(&self) -> RetailerId {
         self.id
+    }
+
+    fn facts(&self) -> Vec<Fact> {
+        let mut facts = vec![
+            Fact::new("storefront", &self.endpoints.origin),
+            Fact::new("api", &self.endpoints.api),
+        ];
+        // The cached account token, if there is one. Reported because it is
+        // the thing between a Club Plus login and a working request, and the
+        // one that quietly lapses after half an hour.
+        facts.push(Fact::new(
+            "token",
+            match fsnz_api::token::peek(&self.paths, self.banner, false) {
+                Some(token) if token.fresh() => match token.expires_in() {
+                    Some(left) => format!(
+                        "cached, {}, expires in {}",
+                        token.source.describe(),
+                        cli_kit::human_duration(left)
+                    ),
+                    None => format!("cached, {}", token.source.describe()),
+                },
+                Some(_) => "cached but lapsed; the next call mints a fresh one".into(),
+                None => "none cached; the next call mints one".into(),
+            },
+        ));
+        facts
     }
 
     fn caps(&self) -> Caps {

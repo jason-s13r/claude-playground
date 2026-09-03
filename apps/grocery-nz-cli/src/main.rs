@@ -39,6 +39,7 @@ fn main() -> ExitCode {
 
     match runtime.block_on(run(cli)) {
         Ok(()) => ExitCode::SUCCESS,
+        Err(e) if e.silent() => ExitCode::from(e.exit_code()),
         Err(e) => {
             eprintln!("gsnz: {e}");
             // The chain, not just the top: "reading the cart" alone says

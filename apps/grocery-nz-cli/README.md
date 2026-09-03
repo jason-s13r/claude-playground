@@ -42,7 +42,10 @@ gsnz -b ww cart add 282768 2
 gsnz -b ww orders list
 ```
 
-`gsnz doctor` prints what is set up and what each shop can do.
+`gsnz doctor` prints what is set up and then checks it: one call per shop, so
+it reports whether the thing works rather than only whether it is configured.
+It exits non-zero when a shop cannot be reached. Being signed out is not a
+fault -- most of this tool works signed out.
 
 ## Commands
 

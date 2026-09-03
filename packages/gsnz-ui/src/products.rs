@@ -251,6 +251,8 @@ mod tests {
         let value: serde_json::Value = serde_json::from_str(&out.into_string()).unwrap();
         assert!(value.is_array(), "got {value}");
         assert_eq!(value[0]["price"], 4.50, "money is dollars in json");
-        assert_eq!(value[0]["retailer"], "new-world");
+        // The same spelling `RetailerId::id` uses, which is also what config
+        // keys and state directory names use. One machine name, not four.
+        assert_eq!(value[0]["retailer"], "newworld");
     }
 }

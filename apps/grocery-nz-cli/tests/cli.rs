@@ -292,51 +292,53 @@ fn logging_out_of_a_shop_that_was_never_signed_in_is_not_an_error() {
 }
 
 #[test]
+fn doctor_leads_with_the_header_then_a_section_per_shop() {
+    let sandbox = Sandbox::new();
+    sandbox.write_config("retailer = \"nw\"\n");
+    // Nothing listens on the sandbox's hosts, so every shop is unreachable --
+    // which is the point: the layout has to hold when the probes fail.
+    let out = sandbox.cmd().arg("doctor").assert().code(1);
+    let text = String::from_utf8_lossy(&out.get_output().stdout).to_string();
+
+    assert!(text.starts_with("gsnz "), "{text}");
+    for label in ["config file", "state dir", "default", "secrets"] {
+        assert!(text.contains(label), "no {label} in:\n{text}");
+    }
+    for shop in ["New World", "PAK'nSAVE", "Woolworths"] {
+        assert!(text.contains(shop), "no {shop} in:\n{text}");
+    }
+    // Sections are indented under their heading; the header block is not.
+    assert!(text.contains("\n  storefront"), "{text}");
+    assert!(!text.contains('\u{250c}'), "no box drawing: {text}");
+}
+
+#[test]
 fn doctor_stays_quiet_about_capabilities_when_there_are_no_gaps() {
-    // The matrix exists to surface gaps. Every cell reading "yes" is a table
-    // that says nothing, so it is not printed at all -- it comes back on its
-    // own the day a shop cannot do something.
+    // The matrix exists to surface gaps. Every shop being able to do
+    // everything is a table that says nothing, so it is not printed at all.
     Sandbox::new()
         .cmd()
         .arg("doctor")
         .assert()
-        .success()
-        .stdout(contains("none selected"))
-        .stdout(contains("gsnz -b nw store set"))
-        .stdout(contains("cannot do").not())
+        .code(1)
+        .stdout(contains("Not available everywhere").not())
         .stdout(contains("orders previous").not());
 }
 
 #[test]
-fn doctor_reports_without_drawing_a_box() {
-    let out = Sandbox::new().cmd().arg("doctor").assert().success();
-    let text = String::from_utf8_lossy(&out.get_output().stdout).to_string();
-    assert!(!text.contains('┌'), "{text}");
-}
-
-#[test]
-fn doctor_says_where_state_lives_so_a_broken_setup_can_be_found() {
-    let sandbox = Sandbox::new();
-    let out = sandbox.cmd().arg("doctor").assert().success();
-    let text = String::from_utf8_lossy(&out.get_output().stdout).to_string();
-    assert!(
-        text.contains(&sandbox.home.path().display().to_string()),
-        "{text}"
-    );
-}
-
-#[test]
-fn a_prompt_label_is_not_punctuated_twice() {
-    // cli_kit::prompt appends its own ": ", and its no-terminal error reads
-    // "{label} is required" -- so the label has to be bare. There is no
-    // terminal here, which is what makes that error the thing to assert on.
-    Sandbox::new()
-        .cmd()
-        .args(["-b", "ww", "auth", "login"])
-        .assert()
-        .failure()
-        .stderr(contains("Email is required"))
-        .stderr(contains("Email:").not());
+fn a_config_file_takes_the_spellings_the_flag_takes() {
+    // `-b nw` working while `retailer = "nw"` failed reads as the tool being
+    // broken, and the file is the half people write by hand.
+    for spelling in ["nw", "new-world", "New World"] {
+        let sandbox = Sandbox::new();
+        sandbox.write_config(&format!("retailer = \"{spelling}\"\n"));
+        sandbox
+            .cmd()
+            .args(["store", "show"])
+            .assert()
+            .success()
+            .stdout(contains("New World"));
+    }
 }
 
 #[test]

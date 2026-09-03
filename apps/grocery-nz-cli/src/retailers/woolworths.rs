@@ -10,8 +10,9 @@ pub mod convert;
 
 use async_trait::async_trait;
 use gsnz_core::{
-    AuthStatus, Caps, Cart, Change, CodePrompt, Department, Error, Order, OrderFilter, OrderLine,
-    OrderSummary, Result, Retailer, RetailerId, Search, SearchBy, SearchResult, Sort, Store,
+    AuthStatus, Caps, Cart, Change, CodePrompt, Department, Error, Fact, Order, OrderFilter,
+    OrderLine, OrderSummary, Result, Retailer, RetailerId, Search, SearchBy, SearchResult, Sort,
+    Store,
 };
 use net_kit::{wreq, Paths, Secrets};
 use wwnz_api::{Endpoints, Session, StoredSession};
@@ -195,6 +196,16 @@ fn sort(sort: &Sort) -> String {
 impl Retailer for Woolworths {
     fn id(&self) -> RetailerId {
         ID
+    }
+
+    fn facts(&self) -> Vec<Fact> {
+        vec![
+            Fact::new("storefront", &self.endpoints.origin),
+            // Auth0, not an API host: the GraphQL endpoint is on the
+            // storefront. It is here because a login failing is the most
+            // likely thing to need diagnosing.
+            Fact::new("sign-in", &self.endpoints.auth),
+        ]
     }
 
     fn caps(&self) -> Caps {

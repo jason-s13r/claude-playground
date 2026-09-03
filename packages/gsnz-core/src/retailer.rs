@@ -12,12 +12,30 @@ use crate::store::Store;
 /// The three storefronts. New World and PAK'nSAVE are one platform wearing two
 /// names; Woolworths is a different company, a different protocol and a
 /// different catalogue.
-#[derive(Copy, Clone, PartialEq, Eq, Hash, Debug, Serialize, Deserialize)]
-#[serde(rename_all = "kebab-case")]
+#[derive(Copy, Clone, PartialEq, Eq, Hash, Debug)]
 pub enum RetailerId {
     NewWorld,
     PaknSave,
     Woolworths,
+}
+
+/// Serialised as [`RetailerId::id`], so JSON, config keys and state directory
+/// names all spell a shop the same way. A derive would have produced a fourth
+/// spelling of its own.
+impl Serialize for RetailerId {
+    fn serialize<S: serde::Serializer>(&self, s: S) -> std::result::Result<S::Ok, S::Error> {
+        s.serialize_str(self.id())
+    }
+}
+
+/// Deserialised through [`FromStr`], so a config file accepts everything `-b`
+/// accepts. Anything else is a trap: `retailer = "nw"` is what someone who has
+/// used the flag will write, and a derive would reject it while `-b nw` worked.
+impl<'de> Deserialize<'de> for RetailerId {
+    fn deserialize<D: serde::Deserializer<'de>>(d: D) -> std::result::Result<Self, D::Error> {
+        let text = String::deserialize(d)?;
+        text.parse().map_err(serde::de::Error::custom)
+    }
 }
 
 impl RetailerId {
@@ -116,6 +134,27 @@ pub struct Caps {
     pub server_side_store: bool,
 }
 
+/// One configured fact about a shop, for `doctor` to print.
+///
+/// Which facts matter differs per retailer -- Foodstuffs has two hostnames and
+/// a mintable token, Woolworths has a storefront and an Auth0 tenant -- so the
+/// adapter decides what to say rather than the domain guessing at a shape that
+/// fits both.
+#[derive(Clone, Debug, Serialize)]
+pub struct Fact {
+    pub label: &'static str,
+    pub value: String,
+}
+
+impl Fact {
+    pub fn new(label: &'static str, value: impl Into<String>) -> Fact {
+        Fact {
+            label,
+            value: value.into(),
+        }
+    }
+}
+
 /// How a login asks for a code it was challenged for.
 ///
 /// A callback rather than a second command, because the token the challenge
@@ -162,6 +201,12 @@ pub trait Retailer: Send + Sync {
     /// Sign in from scratch. `code` is called only if the retailer challenges
     /// the attempt, with the method it named.
     async fn login(&self, email: &str, password: &str, code: CodePrompt<'_>) -> Result<AuthStatus>;
+
+    /// How this shop is configured, for `doctor`. Reads nothing over the
+    /// network: a report has to work when the network is the broken part.
+    fn facts(&self) -> Vec<Fact> {
+        Vec::new()
+    }
 
     async fn departments(&self) -> Result<Vec<Department>> {
         Err(Error::unsupported(self.id(), "departments"))
@@ -210,6 +255,30 @@ mod tests {
     fn rejects_an_unknown_shop_by_name() {
         let err = "tesco".parse::<RetailerId>().unwrap_err();
         assert!(err.to_string().contains("tesco"), "{err}");
+    }
+
+    #[test]
+    fn a_config_file_takes_the_same_spellings_as_the_flag() {
+        // `-b nw` working while `retailer = "nw"` failed is the sort of gap
+        // that reads as the tool being broken.
+        for text in ["nw", "new-world", "New World", "ww", "countdown"] {
+            let json = format!("\"{text}\"");
+            serde_json::from_str::<RetailerId>(&json).unwrap_or_else(|e| panic!("{text}: {e}"));
+        }
+        assert!(serde_json::from_str::<RetailerId>("\"tesco\"").is_err());
+    }
+
+    #[test]
+    fn one_machine_spelling_everywhere() {
+        // JSON, config keys and state directory names, all from `id()`.
+        assert_eq!(
+            serde_json::to_string(&RetailerId::NewWorld).unwrap(),
+            "\"newworld\""
+        );
+        assert_eq!(
+            serde_json::from_str::<RetailerId>("\"newworld\"").unwrap(),
+            RetailerId::NewWorld
+        );
     }
 
     #[test]

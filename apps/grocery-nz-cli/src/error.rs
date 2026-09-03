@@ -26,6 +26,14 @@ pub enum AppError {
     /// A flag combination no amount of network work would fix.
     #[error("{0}")]
     Usage(String),
+
+    /// A failure the command has already described in full.
+    ///
+    /// `doctor` prints a report saying exactly what is wrong; adding
+    /// "gsnz: something is wrong" underneath it says less than the report
+    /// already did, but the exit code still has to carry.
+    #[error("")]
+    Reported(u8),
 }
 
 impl AppError {
@@ -39,8 +47,14 @@ impl AppError {
         match self {
             AppError::Domain(e) => e.exit_code(),
             AppError::Usage(_) => 2,
+            AppError::Reported(code) => *code,
             _ => 1,
         }
+    }
+
+    /// Whether `main` should print anything, or the command already did.
+    pub fn silent(&self) -> bool {
+        matches!(self, AppError::Reported(_))
     }
 
     pub fn hint(&self) -> Option<&str> {
