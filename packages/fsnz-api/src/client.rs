@@ -95,6 +95,20 @@ impl Client {
         Ok(net_kit::http::json("POST", &url, sent).await?)
     }
 
+    /// A POST whose answer is 200 and nothing else.
+    async fn post_empty(&self, path: &str) -> Result<()> {
+        let url = format!("{}{path}", self.endpoints.api);
+        let sent = self
+            .http
+            .post(&url)
+            .headers(self.headers())
+            .body(String::new())
+            .send()
+            .await;
+        net_kit::http::text("POST", &url, sent).await?;
+        Ok(())
+    }
+
     async fn delete(&self, path: &str) -> Result<()> {
         let url = format!("{}{path}", self.endpoints.api);
         let sent = self.http.delete(&url).headers(self.headers()).send().await;
@@ -105,6 +119,20 @@ impl Client {
     // ---- cart ----
     // The cart belongs to an account rather than a store, so all of this needs
     // a logged-in token; a guest one gets a 401.
+
+    /// Bind this account's cart to a store.
+    ///
+    /// The cart belongs to the account and carries its own store, separate
+    /// from the one searches are scoped to. Until it has one, every cart
+    /// mutation is refused with "Store is not defined" -- so this is what
+    /// makes a freshly signed-in account able to add anything at all.
+    ///
+    /// No body, and the response is empty: the store is the whole request.
+    pub async fn set_store(&self, store_id: &str) -> Result<()> {
+        self.post_empty(&format!("/v1/edge/cart/store/{store_id}"))
+            .await
+            .map_err(account)
+    }
 
     pub async fn cart(&self) -> Result<Cart> {
         let raw: serde_json::Value = self.get("/v1/edge/cart").await.map_err(account)?;

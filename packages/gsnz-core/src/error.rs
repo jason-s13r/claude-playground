@@ -104,11 +104,13 @@ impl Error {
                     _ => "run `gsnz auth login`",
                 }
             }),
-            // `store set` writes a config file; it does not touch the cart.
-            Error::CartUnbound { .. } => Some(
-                "this is the account's cart, not a local setting: open the shop's website \
-                 once and choose a store for it",
-            ),
+            // The account's cart carries its own store, separate from the one
+            // searches are scoped to, and `store set` binds both.
+            Error::CartUnbound { retailer } => Some(match retailer {
+                RetailerId::NewWorld => "run `gsnz -b nw store set <id or name>`",
+                RetailerId::PaknSave => "run `gsnz -b pns store set <id or name>`",
+                RetailerId::Woolworths => "run `gsnz -b ww store set <id or name>`",
+            }),
             _ => None,
         }
     }
@@ -155,7 +157,7 @@ mod tests {
         };
         assert_eq!(unbound.exit_code(), 5);
         assert!(!unbound.to_string().contains("store set"));
-        assert!(unbound.hint().unwrap().contains("website"));
+        assert!(unbound.hint().unwrap().contains("store set"));
 
         let unselected = Error::NoStore {
             retailer: RetailerId::PaknSave,

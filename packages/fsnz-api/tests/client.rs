@@ -284,6 +284,24 @@ async fn a_guest_token_is_minted_from_the_storefront_cookie() {
 }
 
 #[tokio::test]
+async fn binding_the_cart_to_a_store_is_a_bare_post_with_no_body() {
+    // The account's cart carries its own store, separate from the one a search
+    // is scoped to, and until it has one every mutation is refused with
+    // "Store is not defined". The store is the whole request: no body, and the
+    // response is empty.
+    let server = MockServer::start().await;
+    Mock::given(method("POST"))
+        .and(path("/v1/edge/cart/store/store-1"))
+        .respond_with(ResponseTemplate::new(200))
+        .expect(1)
+        .mount(&server)
+        .await;
+
+    // The helper signs with "a-token"; what matters here is the shape.
+    client(&server).set_store("store-1").await.unwrap();
+}
+
+#[tokio::test]
 async fn a_storefront_that_sets_no_token_says_which_cookie_was_missing() {
     let server = MockServer::start().await;
     Mock::given(method("GET"))

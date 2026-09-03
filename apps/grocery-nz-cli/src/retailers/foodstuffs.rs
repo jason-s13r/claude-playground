@@ -195,9 +195,9 @@ impl Retailer for Foodstuffs {
             refresh_session: true,
             import_cookies: true,
             weight_lines: true,
-            // Selecting a store here is a local preference: prices come from
-            // the store id sent with each search, not from a bound session.
-            server_side_store: false,
+            // `store set` writes the local preference *and* binds the
+            // account's cart, which is a separate store the API keeps.
+            server_side_store: true,
         }
     }
 
@@ -246,9 +246,28 @@ impl Retailer for Foodstuffs {
     }
 
     async fn select_store(&self, id: &str) -> Result<Store> {
-        // Nothing to bind server-side, so this is only a lookup: the caller
-        // saves what comes back.
-        super::resolve_store(self.stores(None, u32::MAX).await?, id, self.id)
+        let store = super::resolve_store(self.stores(None, u32::MAX).await?, id, self.id)?;
+        // Two different stores: the one searches are scoped to, which is the
+        // local preference the caller saves, and the one the account's cart
+        // carries. Only binding the second makes `cart add` work, and until
+        // this existed a signed-in account was refused with "Store is not
+        // defined" and nothing to do about it from here.
+        //
+        // Signed out there is no cart to bind and browsing still works, so
+        // that case is passed over rather than raised.
+        match self.client(false).await {
+            Ok(client) => {
+                if let Err(e) = client.set_store(&store.id).await {
+                    let e = self.err(e);
+                    if !matches!(e, Error::NeedsLogin { .. }) {
+                        return Err(e);
+                    }
+                }
+            }
+            Err(Error::NeedsLogin { .. }) => {}
+            Err(e) => return Err(e),
+        }
+        Ok(store)
     }
 
     async fn departments(&self) -> Result<Vec<Department>> {
