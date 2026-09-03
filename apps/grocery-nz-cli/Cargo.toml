@@ -1,6 +1,6 @@
 [package]
 name = "grocery-nz-cli"
-version = "0.0.0"
+version = "0.1.0"
 edition = "2021"
 description = "Unofficial CLI across New World, PAK'nSAVE and Woolworths NZ"
 license = "MIT"
