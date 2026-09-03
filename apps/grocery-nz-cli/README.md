@@ -81,6 +81,12 @@ silently equates two different two-litre milks is a wrong-price bug, which is
 the worst kind this tool can have. `--strict` drops them; `--json` carries
 `"match": "normalised"` on each.
 
+`gsnz --version` prints the whole provenance -- commit, source, toolchain, how
+this file got installed -- and the version of each of the seven libraries it
+was built against. They release on their own tags, so "gsnz 0.1.0" alone does
+not say which `fsnz-api` is compiled in, and that is the part that breaks when
+a supermarket changes its API. `gsnz -V` stays one line.
+
 ## Exit codes
 
 A wrapper should not have to read stderr to know what happened.

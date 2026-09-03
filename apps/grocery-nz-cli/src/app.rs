@@ -37,7 +37,7 @@ pub struct App {
 
 impl App {
     pub fn new(cli: &Cli) -> AppResult<App> {
-        let env = Overrides::read();
+        let env = Overrides::get().clone();
         let mut paths = Paths::defaults(APP)?;
         if let Some(dir) = &env.config_dir {
             paths = paths.with_config_dir(dir.clone());

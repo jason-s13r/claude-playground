@@ -11,6 +11,7 @@ use gsnz_core::{OrderFilter, RetailerId, Sort};
     name = "gsnz",
     about = "Search, compare and shop New World, PAK'nSAVE and Woolworths NZ",
     version = crate::build::short_version(),
+    long_version = crate::build::long_version(),
     disable_help_subcommand = true
 )]
 pub struct Cli {

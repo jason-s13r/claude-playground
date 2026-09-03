@@ -53,6 +53,17 @@ pub struct ClubPlus {
 }
 
 impl Overrides {
+    /// Read once, and shared.
+    ///
+    /// `--version` needs the state directory to say how this binary was
+    /// installed, and clap builds that string before `App` exists. Memoising
+    /// keeps "the environment is read once" literally true rather than nearly
+    /// true.
+    pub fn get() -> &'static Overrides {
+        static CELL: std::sync::OnceLock<Overrides> = std::sync::OnceLock::new();
+        CELL.get_or_init(Overrides::read)
+    }
+
     pub fn read() -> Overrides {
         Overrides {
             config_dir: path("GSNZ_CONFIG_DIR"),

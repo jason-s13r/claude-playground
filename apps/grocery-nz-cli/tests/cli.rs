@@ -327,3 +327,36 @@ fn a_prompt_label_is_not_punctuated_twice() {
         .stderr(contains("Email is required"))
         .stderr(contains("Email:").not());
 }
+
+#[test]
+fn the_long_version_names_every_library_it_was_built_against() {
+    // These release on their own tags, so "gsnz 0.1.0" alone does not say
+    // which fsnz-api is compiled in -- and that is the part that breaks when a
+    // supermarket changes its API.
+    let out = Sandbox::new().cmd().arg("--version").assert().success();
+    let text = String::from_utf8_lossy(&out.get_output().stdout).to_string();
+    for lib in [
+        "gsnz-core",
+        "gsnz-ui",
+        "cli-kit",
+        "net-kit",
+        "fsnz-api",
+        "wwnz-api",
+        "build-kit",
+    ] {
+        assert!(text.contains(lib), "no {lib} in:\n{text}");
+    }
+    // One per line, aligned under the label column rather than run together.
+    let lines: Vec<&str> = text.lines().filter(|l| l.contains("gsnz-ui")).collect();
+    assert_eq!(lines.len(), 1, "{text}");
+    assert!(lines[0].starts_with("           gsnz-ui"), "{:?}", lines[0]);
+}
+
+#[test]
+fn the_short_version_stays_one_line() {
+    // `-V` is what a script greps and what a bug report pastes.
+    let out = Sandbox::new().cmd().arg("-V").assert().success();
+    let text = String::from_utf8_lossy(&out.get_output().stdout).to_string();
+    assert_eq!(text.lines().count(), 1, "{text}");
+    assert!(!text.contains("libraries"), "{text}");
+}
