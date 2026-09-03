@@ -21,3 +21,11 @@ pub use doctor::{Check, Report, Status};
 pub use io::{confirm, human_duration, prompt, prompt_or_stdin, prompt_password};
 pub use out::{emit, Format, Out, View};
 pub use table::{plural, qualified, table};
+
+/// Re-exported so a consumer building rows compiles against the same
+/// `comfy-table` this crate's [`table`] returns, and the same `serde_json`
+/// whose `Value` appears in [`View::json`]. Two majors of either in one
+/// dependency tree would surface as a baffling type mismatch rather than a
+/// version error.
+pub use comfy_table;
+pub use serde_json;
