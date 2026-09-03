@@ -34,7 +34,10 @@ pub enum Error {
         source: serde_json::Error,
     },
 
-    #[error("{context}")]
+    // `detail` is inline rather than a `#[source]`: `toml` reports the line
+    // and the offending key there, and a message that says only "reading
+    // config.toml" leaves nothing to act on.
+    #[error("{context}: {detail}")]
     Toml { context: String, detail: String },
 
     #[error("{command} failed: {detail}")]
