@@ -4,8 +4,12 @@ use net_kit::wreq;
 use serde::de::DeserializeOwned;
 
 use crate::banner::{Banner, Endpoints};
+use crate::cart::{changes_body, Cart, Change, WireCart};
 use crate::domain::{Category, Product, Store};
 use crate::error::{Error, Result};
+use crate::order::{
+    Order, OrderLine, OrderPage, Source, WireOrderDetail, WireOrderPage, WirePreviousPurchases,
+};
 use crate::wire::{WireCategory, WireProduct, WireSearchPage, WireStore};
 
 /// The site's own default ordering. Passed through verbatim so an unfamiliar
@@ -14,6 +18,10 @@ pub const DEFAULT_SORT: &str = "NI_POPULARITY_ASC";
 
 /// The API's own page ceiling for the search endpoint.
 const MAX_HITS_PER_PAGE: u32 = 50;
+
+/// The site asks for 20 orders a page. Nothing documents a ceiling, so this
+/// stays at what is known to work and pages for the rest.
+const MAX_ORDERS_PER_PAGE: u32 = 20;
 
 pub struct Client {
     http: wreq::Client,
@@ -85,6 +93,116 @@ impl Client {
             .send()
             .await;
         Ok(net_kit::http::json("POST", &url, sent).await?)
+    }
+
+    async fn delete(&self, path: &str) -> Result<()> {
+        let url = format!("{}{path}", self.endpoints.api);
+        let sent = self.http.delete(&url).headers(self.headers()).send().await;
+        net_kit::http::text("DELETE", &url, sent).await?;
+        Ok(())
+    }
+
+    // ---- cart ----
+    // The cart belongs to an account rather than a store, so all of this needs
+    // a logged-in token; a guest one gets a 401.
+
+    pub async fn cart(&self) -> Result<Cart> {
+        let raw: serde_json::Value = self.get("/v1/edge/cart").await.map_err(account)?;
+        Ok(serde_json::from_value::<WireCart>(raw)
+            .map_err(|e| Error::decode("parsing the cart", e))?
+            .into_cart())
+    }
+
+    /// Apply changes and return the cart as it stands afterwards. A quantity of
+    /// zero removes a line, which is how the site does it too.
+    pub async fn cart_apply(&self, changes: &[Change]) -> Result<Cart> {
+        let raw: serde_json::Value = self
+            .post("/v1/edge/cart", &changes_body(changes))
+            .await
+            .map_err(account)?;
+        Ok(serde_json::from_value::<WireCart>(raw)
+            .map_err(|e| Error::decode("parsing the updated cart", e))?
+            .into_cart())
+    }
+
+    pub async fn cart_clear(&self) -> Result<()> {
+        self.delete("/v1/edge/cart").await.map_err(account)
+    }
+
+    // ---- orders ----
+
+    async fn orders_page(&self, page: u32, size: u32, source: Option<Source>) -> Result<OrderPage> {
+        let source = source.map(Source::wire).unwrap_or("ALL");
+        let raw: serde_json::Value = self
+            .get(&format!(
+                "/v1/edge/order/paged?page={page}&source={source}&size={size}"
+            ))
+            .await
+            .map_err(account)?;
+        Ok(serde_json::from_value::<WireOrderPage>(raw)
+            .map_err(|e| Error::decode("parsing the order list", e))?
+            .into_page())
+    }
+
+    /// Page until `max` orders are in hand or the history runs out.
+    ///
+    /// Pages are numbered from one here, unlike the search endpoint's.
+    pub async fn orders(&self, max: u32, source: Option<Source>) -> Result<OrderPage> {
+        let per_page = max.clamp(1, MAX_ORDERS_PER_PAGE);
+        let mut orders = Vec::new();
+        let mut page = 1u32;
+        let mut total_pages = 1u32;
+        let mut total = 0u32;
+
+        while (orders.len() as u32) < max && page <= total_pages {
+            let res = self.orders_page(page, per_page, source).await?;
+            total = res.total;
+            total_pages = res.total_pages.max(1);
+            if res.orders.is_empty() {
+                break;
+            }
+            let room = max as usize - orders.len();
+            orders.extend(res.orders.into_iter().take(room));
+            page += 1;
+        }
+
+        Ok(OrderPage {
+            orders,
+            total,
+            total_pages,
+        })
+    }
+
+    /// One order and its lines.
+    pub async fn order(&self, id: &str, source: Source) -> Result<Order> {
+        // A till receipt's id is a path, and the site sends it as a query
+        // parameter with its slashes intact, so it is spliced in rather than
+        // encoded. An online id is a single segment and goes in the path.
+        let path = match source {
+            Source::InStore => format!("/v1/edge/order/instore?orderId={id}"),
+            Source::Online => format!("/v1/edge/order/{id}"),
+        };
+        let raw: serde_json::Value = self.get(&path).await.map_err(account)?;
+        serde_json::from_value::<WireOrderDetail>(raw)
+            .map_err(|e| Error::decode("parsing the order", e))?
+            .into_order()
+            .ok_or_else(|| Error::NoSuchOrder {
+                id: id.to_string(),
+                kind: source.label(),
+            })
+    }
+
+    /// What this account has bought before, most recently first. The site's
+    /// "buy it again"; it spans both kinds of order.
+    pub async fn previous_purchases(&self, max: u32, exclude_cart: bool) -> Result<Vec<OrderLine>> {
+        let body = serde_json::json!({ "excludeCart": exclude_cart, "maximumResults": max });
+        let raw: serde_json::Value = self
+            .post("/v1/edge/order/previousPurchases", &body)
+            .await
+            .map_err(account)?;
+        Ok(serde_json::from_value::<WirePreviousPurchases>(raw)
+            .map_err(|e| Error::decode("parsing previous purchases", e))?
+            .into_lines())
     }
 
     /// Every store the banner runs. Prices and stock are per store, which is
@@ -262,6 +380,21 @@ fn into_category(w: WireCategory) -> Option<Category> {
         name: w.name.filter(|n| !n.trim().is_empty())?,
         children: w.children.into_iter().filter_map(into_category).collect(),
     })
+}
+
+/// Recognise the one upstream signal that is a bare string.
+///
+/// The cart is bound to a store separately from the one searches price against.
+/// A token that is not banner-scoped reaches the cart endpoints but has no cart
+/// of its own, and the API says so in prose with no code beside it. It is
+/// matched **once**, here, where the raw body is still in hand, and becomes a
+/// variant immediately -- so nothing downstream formats an error chain and
+/// greps it back.
+fn account(e: Error) -> Error {
+    if e.body().contains("Store is not defined") {
+        return Error::CartStoreUnbound;
+    }
+    e
 }
 
 /// Only used for the pre-rendered multi-buy label.

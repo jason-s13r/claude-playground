@@ -11,7 +11,7 @@
 use std::path::{Path, PathBuf};
 use std::time::Duration;
 
-use net_kit::{wreq, Paths};
+use net_kit::{wreq, Fault, Paths};
 use serde::{Deserialize, Serialize};
 
 use crate::banner::{Banner, Endpoints};
@@ -158,6 +158,132 @@ pub async fn mint_guest(
             url,
             status: 200,
         })
+}
+
+/// Everything token resolution needs. A struct rather than ten arguments.
+pub struct Request<'a> {
+    pub http: &'a wreq::Client,
+    pub banner: Banner,
+    pub endpoints: &'a Endpoints,
+    pub clubplus: &'a crate::banner::ClubPlusEndpoints,
+    pub paths: &'a Paths,
+    pub secrets: &'a net_kit::Secrets,
+    /// A token supplied outright, which skips everything below.
+    pub explicit: Option<&'a str>,
+    /// A configured command that prints a token.
+    pub token_command: Option<&'a str>,
+    /// For renewing a session whose refresh token is gone.
+    pub password: Option<&'a net_kit::password::Source>,
+    /// The agent string the SSO exchange echoes back. Injected rather than read
+    /// here, so it always matches the client that will send the request.
+    pub user_agent: &'a str,
+    /// Ask for an anonymous token even when logged in.
+    ///
+    /// Some endpoints are guest-scoped: `/v1/edge/store` answers a guest token
+    /// with the store list and an account token with a flat 400.
+    pub guest: bool,
+    pub force_refresh: bool,
+}
+
+/// Resolve a usable token, cheapest source first.
+///
+/// explicit -> cache -> (guest ? storefront : token_command -> stored login ->
+/// storefront). The storefront is the fallback for "no account yet" rather than
+/// the normal path, because a guest token cannot read a cart.
+pub async fn acquire(req: Request<'_>) -> Result<Token> {
+    if let Some(token) = req.explicit.map(str::trim).filter(|t| !t.is_empty()) {
+        return Ok(Token {
+            expires_at_ms: expiry_for(token),
+            token: token.to_string(),
+            source: Source::Override,
+        });
+    }
+
+    let file = cache_file(req.paths, req.banner, req.guest);
+    if !req.force_refresh {
+        if let Some(cached) = read_cache(&file) {
+            if cached.fresh() {
+                return Ok(cached);
+            }
+        }
+    }
+
+    if req.guest {
+        let token = mint_guest(req.http, req.banner, req.endpoints).await?;
+        let expires_at_ms = expiry_for(&token);
+        write_cache(&file, &token, expires_at_ms);
+        return Ok(Token {
+            token,
+            expires_at_ms,
+            source: Source::Storefront,
+        });
+    }
+
+    let (token, source) = match req.token_command.map(str::trim).filter(|c| !c.is_empty()) {
+        Some(cmd) => (
+            net_kit::run::capturing("token_command", cmd).await?,
+            Source::Command,
+        ),
+        // A stored login is the normal path once someone has logged in; the
+        // storefront is only reached for when nobody has.
+        None => match crate::auth::session::load(req.secrets)?.is_some() {
+            true => (account_token(&req).await?, Source::Login),
+            false => (
+                mint_guest(req.http, req.banner, req.endpoints).await?,
+                Source::Storefront,
+            ),
+        },
+    };
+
+    let expires_at_ms = expiry_for(&token);
+    write_cache(&file, &token, expires_at_ms);
+    Ok(Token {
+        token,
+        expires_at_ms,
+        source,
+    })
+}
+
+/// Mint a banner token from the stored Club Plus login, renewing the session
+/// first if it has aged out.
+async fn account_token(req: &Request<'_>) -> Result<String> {
+    let device_id = crate::auth::session::device_id(req.paths)?;
+    let cfg = crate::auth::clubplus::Config {
+        http: req.http,
+        clubplus: req.clubplus,
+        device_id: &device_id,
+    };
+    let active =
+        crate::auth::session::active_session(&cfg, req.secrets, req.password, false).await?;
+
+    match crate::auth::clubplus::banner_token(
+        &cfg,
+        req.banner,
+        req.endpoints,
+        &active.session,
+        req.user_agent,
+    )
+    .await
+    {
+        Ok(token) => Ok(token),
+        // A session whose `exp` still looked good can be rejected anyway: a
+        // clock that disagrees with theirs, or a session ended elsewhere. One
+        // forced renewal tells that apart from a login that is really gone --
+        // and `renewed` is what stops it looping.
+        Err(e) if !active.renewed && e.auth().is_some() => {
+            let renewed =
+                crate::auth::session::active_session(&cfg, req.secrets, req.password, true).await?;
+            crate::auth::clubplus::banner_token(
+                &cfg,
+                req.banner,
+                req.endpoints,
+                &renewed.session,
+                req.user_agent,
+            )
+            .await
+        }
+        Err(e) => Err(e),
+    }
 }
 
 #[cfg(test)]

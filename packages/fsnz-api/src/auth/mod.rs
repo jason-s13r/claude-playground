@@ -1,7 +1,10 @@
-//! Reading what a Foodstuffs token says about itself.
-//!
-//! The Club Plus login chain that mints one lands here next; for now this is
-//! the half that needs no network.
+//! Club Plus: logging in, and what a token says about itself.
+
+pub mod clubplus;
+pub mod session;
+
+pub use clubplus::{banner_token, login, Challenge, Config, Login, Session};
+pub use session::{device_id, StoredLogin};
 
 /// The banners named in a session's `linkedAccounts` claim.
 ///

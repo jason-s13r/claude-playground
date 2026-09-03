@@ -35,6 +35,17 @@ pub enum Error {
     #[error("the Club Plus refresh token was refused")]
     RefreshRejected,
 
+    #[error("not logged in")]
+    NotLoggedIn,
+
+    // `kind` rather than `source`: thiserror reads a field of that name as the
+    // error's cause.
+    #[error("no {kind} order {id} on this account")]
+    NoSuchOrder { id: String, kind: &'static str },
+
+    #[error("the stored Club Plus session has expired and carries no refresh token")]
+    SessionUnrenewable,
+
     #[error("{banner} set no {cookie} cookie on {url} (HTTP {status})")]
     NoToken {
         banner: Banner,
