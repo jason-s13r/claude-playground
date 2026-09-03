@@ -11,6 +11,14 @@
 //! There is no domain type in here and there must never be one: a table is a
 //! table whether it holds groceries or anything else.
 
+/// This crate's own version, for a consumer that reports what it was
+/// built against.
+///
+/// `env!` expands where it is written, so this is the one place it can be
+/// read from: a consumer writing `env!("CARGO_PKG_VERSION")` would get its
+/// own version back, not this one.
+pub const VERSION: &str = env!("CARGO_PKG_VERSION");
+
 pub mod completions;
 pub mod doctor;
 pub mod io;

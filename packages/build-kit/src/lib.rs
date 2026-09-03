@@ -34,6 +34,14 @@
 //! payoff beyond correctness: [`Stamp`] is an ordinary struct, so version
 //! strings and dates are unit-testable without compiling anything.
 
+/// This crate's own version, for a consumer that reports what it was
+/// built against.
+///
+/// `env!` expands where it is written, so this is the one place it can be
+/// read from: a consumer writing `env!("CARGO_PKG_VERSION")` would get its
+/// own version back, not this one.
+pub const VERSION: &str = env!("CARGO_PKG_VERSION");
+
 #[cfg(feature = "emit")]
 pub mod emit;
 

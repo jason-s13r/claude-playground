@@ -12,6 +12,14 @@ mod orders;
 mod products;
 mod stores;
 
+/// This crate's own version, for a consumer that reports what it was
+/// built against.
+///
+/// `env!` expands where it is written, so this is the one place it can be
+/// read from: a consumer writing `env!("CARGO_PKG_VERSION")` would get its
+/// own version back, not this one.
+pub const VERSION: &str = env!("CARGO_PKG_VERSION");
+
 pub use cart::CartView;
 pub use compare::CompareTable;
 pub use departments::DepartmentTree;

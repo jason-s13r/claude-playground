@@ -14,6 +14,14 @@
 //! This crate speaks its own vendor-shaped types and does not depend on a
 //! shared domain crate.
 
+/// This crate's own version, for a consumer that reports what it was
+/// built against.
+///
+/// `env!` expands where it is written, so this is the one place it can be
+/// read from: a consumer writing `env!("CARGO_PKG_VERSION")` would get its
+/// own version back, not this one.
+pub const VERSION: &str = env!("CARGO_PKG_VERSION");
+
 pub mod auth;
 mod client;
 mod domain;
