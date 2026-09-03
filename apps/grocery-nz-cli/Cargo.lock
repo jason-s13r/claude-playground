@@ -419,7 +419,7 @@ dependencies = [
 
 [[package]]
 name = "build-kit"
-version = "0.0.0"
+version = "0.1.0"
 dependencies = [
  "flate2",
  "net-kit",
@@ -558,7 +558,7 @@ checksum = "c8d4a3bb8b1e0c1050499d1815f5ab16d04f0959b233085fb31653fbfc9d98f9"
 
 [[package]]
 name = "cli-kit"
-version = "0.0.0"
+version = "0.1.0"
 dependencies = [
  "clap",
  "clap_complete",
@@ -1020,7 +1020,7 @@ dependencies = [
 
 [[package]]
 name = "fsnz-api"
-version = "0.0.0"
+version = "0.1.0"
 dependencies = [
  "net-kit",
  "serde",
@@ -1196,7 +1196,7 @@ dependencies = [
 
 [[package]]
 name = "gsnz-core"
-version = "0.0.0"
+version = "0.1.0"
 dependencies = [
  "async-trait",
  "serde",
@@ -1206,7 +1206,7 @@ dependencies = [
 
 [[package]]
 name = "gsnz-ui"
-version = "0.0.0"
+version = "0.1.0"
 dependencies = [
  "cli-kit",
  "gsnz-core",
@@ -1698,7 +1698,7 @@ dependencies = [
 
 [[package]]
 name = "net-kit"
-version = "0.0.0"
+version = "0.1.0"
 dependencies = [
  "base64",
  "directories",
@@ -3007,7 +3007,7 @@ checksum = "3ad82d2a33cdc9674dc7465672f271e096168fcdbe0f799d9e6db8c5892679dc"
 
 [[package]]
 name = "wwnz-api"
-version = "0.0.0"
+version = "0.1.0"
 dependencies = [
  "net-kit",
  "serde",
