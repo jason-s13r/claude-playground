@@ -3,8 +3,27 @@
 Libraries the apps share. One directory per package, self-contained the same
 way an app is, with its own `dispat.yaml` declaring its scripts.
 
-Nothing lives here yet. The space exists so that the first piece of code two
-apps both need has somewhere to go that is not a copy-paste.
+| Package | What it holds |
+| ------- | ------------- |
+| [`net-kit`](net-kit) | The process boundary: HTTP with a browser TLS fingerprint, the cookie jar, the credential store, the config file and the paths those live under |
+| [`cli-kit`](cli-kit) | Command line presentation: `Out` routing to text or `--json`, tables, prompts, completions, doctor reports |
+| [`gsnz-core`](gsnz-core) | The grocery domain: one `Product`, `Cart`, `Order`, `Store`, `Quantity`, and the `Retailer` trait a per-chain adapter implements |
+| [`gsnz-ui`](gsnz-ui) | `cli_kit::View` implementations over `gsnz-core` types — product listings, carts, orders, department trees, comparison tables |
+| [`fsnz-api`](fsnz-api) | The Foodstuffs edge API (New World and PAK'nSAVE) and the Club Plus login |
+| [`wwnz-api`](wwnz-api) | The Woolworths GraphQL API and its Auth0 login flow |
+| [`build-kit`](build-kit) | The provenance a `build.rs` stamps into a binary, and the self-update that replaces it from a GitHub release |
+
+Each one documents itself in its own `README.md`, linked above.
+
+They stack in that order. `net-kit` and `cli-kit` know nothing about
+groceries; `gsnz-core` knows nothing about HTTP; the two API crates speak their
+own vendor-shaped types and convert to the domain in the app, which is what
+keeps each of them usable on its own. Consumers and the edges dispat follows
+are the `dependencies` block in the root [`dispat.yaml`](../dispat.yaml).
+
+Each crate exports its own `VERSION`, which is how `gsnz --version` can name
+the library versions it was compiled against — they release on separate tags,
+so the binary's own number does not say which `fsnz-api` is inside it.
 
 ```bash
 scripts/new-project.sh --space packages <c|go|node-ts|python|rust> <name>
@@ -26,7 +45,10 @@ There is one other reason a directory here is justified: when the boundary
 exists to keep a dependency **out**. A presentation library that cannot reach
 the network, or a domain library carrying nothing heavier than `serde`, is a
 constraint the compiler enforces and a module inside an app cannot. `cli-kit`
-and `gsnz-core` are here for that reason rather than for a second caller.
+and `gsnz-core` were split out for that reason, before either had a second
+caller; `net-kit` holds the same kind of line from the other side, forbidding
+itself the environment so a caller has to pass values in. A `clippy.toml`
+banning `std::env` sits in every library that could have reached for it.
 
 ## Depending on one
 

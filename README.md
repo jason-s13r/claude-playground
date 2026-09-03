@@ -15,17 +15,29 @@ history, and releases them.
 ## What is here
 
 Two kinds of directory. [`apps/`](apps) holds the things that ship;
-[`packages/`](packages) holds libraries more than one app needs.
+[`packages/`](packages) holds the libraries they are built from.
 
-| App | What it is |
-| --- | ---------- |
-| [`foodstuffs-nz-cli`](apps/foodstuffs-nz-cli) | `fsnz` — search New World and PAK'nSAVE from the terminal, and price one query at both |
-| [`woolworths-nz-cli`](apps/woolworths-nz-cli) | `wwnz` — the same for Woolworths NZ, against their GraphQL API |
+| App | Binary | What it is |
+| --- | ------ | ---------- |
+| [`grocery-nz-cli`](apps/grocery-nz-cli) | `gsnz` | New World, PAK'nSAVE and Woolworths NZ from one command line, with `compare` pricing a query at all three |
+| [`foodstuffs-nz-cli`](apps/foodstuffs-nz-cli) | `fsnz` | The Foodstuffs half on its own: New World and PAK'nSAVE |
+| [`woolworths-nz-cli`](apps/woolworths-nz-cli) | `wwnz` | Woolworths NZ on its own, against their GraphQL API |
 
-`packages/` is empty so far. Code moves there when a *second* app needs it —
-extracting a library for one caller guesses at the interface.
+| Package | What it holds |
+| ------- | ------------- |
+| [`net-kit`](packages/net-kit) | The process boundary: HTTP that is not scored as a bot, cookies, credentials, and the paths those live under |
+| [`cli-kit`](packages/cli-kit) | Command line presentation: output routing, `--json`, tables, prompts, doctor reports — and no domain types |
+| [`gsnz-core`](packages/gsnz-core) | The grocery domain: one `Product`, `Cart`, `Order`, `Store`, and the `Retailer` trait a vendor adapter implements. No I/O |
+| [`gsnz-ui`](packages/gsnz-ui) | `cli-kit` views over `gsnz-core` types — listings, carts, orders, comparison tables |
+| [`fsnz-api`](packages/fsnz-api) | The Foodstuffs edge API and the Club Plus login, in its own vendor-shaped types |
+| [`wwnz-api`](packages/wwnz-api) | The Woolworths GraphQL API and its Auth0 login flow, likewise |
+| [`build-kit`](packages/build-kit) | The provenance a binary stamps into itself at build time, and the self-update that replaces it |
 
-That table is for people. dispat and CI discover the projects themselves, so
+`gsnz` is built on all seven, `fsnz` on all but `wwnz-api`. `wwnz` came first
+and still carries its own copy of that ground — HTTP, secrets, tables, its own
+product and cart types — because it has not been moved onto the libraries yet.
+
+Those tables are for people. dispat and CI discover the projects themselves, so
 adding one means adding a directory and nothing else.
 
 ## Layout
@@ -114,6 +126,13 @@ Versions are not hand-maintained. dispat writes the new version into the
 project's manifest (`Cargo.toml`, `package.json`, `pyproject.toml`) as part of
 the release, so the number in the manifest, the number in the tag and the
 number baked into the binary cannot disagree.
+
+Libraries release on their own tags, so a bump can be carried onward to the
+apps in front of them — `feat(net-kit)^: ...` releases the direct consumers
+too, `^^` the transitive ones, and dispat rewrites the version in each
+consumer's manifest to what it just published. The edges it follows are the
+`dependencies` block in the root [`dispat.yaml`](dispat.yaml); see
+[`packages/README.md`](packages) for how a dependency is declared.
 
 ## CI
 
