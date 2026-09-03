@@ -24,7 +24,7 @@ pub mod http;
 pub mod session;
 mod wire;
 
-pub use client::{Client, SearchBy, SearchResult, DEFAULT_SORT, SORTS};
+pub use client::{Client, Reauth, SearchBy, SearchResult, DEFAULT_SORT, SORTS};
 pub use domain::{
     format_quantity, variant_key, Cart, CartLine, Category, Change, Fee, Filter, Order,
     OrderDetail, OrderLineItem, OrderPage, Product, Store,

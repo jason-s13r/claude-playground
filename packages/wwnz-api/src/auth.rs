@@ -46,7 +46,10 @@ use crate::session::{Session, GUEST_COOKIE, SESSION_COOKIE_PREFIX};
 /// Nothing passed to it is a secret: query strings are dropped (they carry the
 /// flow's `state`), cookies appear by name only, and no credential is ever
 /// formatted.
-pub type Trace<'a> = &'a dyn Fn(&str, &str);
+/// `Send + Sync` because a trace is held across the awaits of the login flow,
+/// and [`crate::Client::renew`] runs that flow from inside an async trait
+/// method whose future has to be `Send`.
+pub type Trace<'a> = &'a (dyn Fn(&str, &str) + Send + Sync);
 
 /// A trace that discards everything.
 pub fn no_trace(_step: &str, _detail: &str) {}
