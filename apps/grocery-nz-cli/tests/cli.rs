@@ -48,7 +48,7 @@ fn woolworths_refuses_a_per_command_store_rather_than_quoting_another_ones_price
     // while `--store` named a different one would be a wrong-price bug.
     Sandbox::new()
         .cmd()
-        .args(["-b", "ww", "--store", "9999", "search", "milk"])
+        .args(["-b", "ww", "search", "milk", "--store", "9999"])
         .assert()
         .code(4)
         .stderr(contains("store set"));
@@ -70,7 +70,7 @@ fn the_configured_shop_is_used_when_no_flag_names_one() {
     sandbox.write_config("retailer = \"woolworths\"\n");
     sandbox
         .cmd()
-        .args(["--store", "9999", "search", "milk"])
+        .args(["search", "milk", "--store", "9999"])
         .assert()
         // Reaching the Woolworths refusal proves the config picked the shop.
         .code(4);
@@ -431,7 +431,7 @@ fn use_sets_the_default_shop_and_reads_it_back() {
     // And it takes effect: Woolworths refuses a per-command --store.
     sandbox
         .cmd()
-        .args(["--store", "1", "search", "milk"])
+        .args(["search", "milk", "--store", "1"])
         .assert()
         .code(4);
 }
@@ -515,4 +515,40 @@ fn config_list_covers_every_key_and_says_what_each_does() {
     ] {
         assert!(text.contains(key), "no {key} in:\n{text}");
     }
+}
+
+#[test]
+fn a_bearer_token_is_supplied_per_shop_not_globally() {
+    // There was a global --token that only Foodstuffs read, so `-b ww --token`
+    // was silently ignored. A token is scoped to one banner anyway, and one
+    // presented to the other is not refused -- it answers with an empty cart.
+    Sandbox::new()
+        .cmd()
+        .args(["--token", "abc", "search", "milk"])
+        .assert()
+        .failure()
+        .stderr(contains("--token"));
+}
+
+#[test]
+fn store_is_refused_by_commands_that_do_not_quote_a_price() {
+    // It used to be global, so `gsnz config list --store X` was accepted and
+    // ignored. Only four commands quote a price against a store.
+    Sandbox::new()
+        .cmd()
+        .args(["config", "list", "--store", "1"])
+        .assert()
+        .failure()
+        .stderr(contains("unexpected argument '--store'"));
+}
+
+#[test]
+fn store_is_taken_by_the_commands_that_do() {
+    Sandbox::new()
+        .cmd()
+        .args(["-b", "nw", "search", "milk", "--store", "abc"])
+        .assert()
+        // Reached the network rather than a parse error, which is as far as
+        // this can go without a server.
+        .code(1);
 }

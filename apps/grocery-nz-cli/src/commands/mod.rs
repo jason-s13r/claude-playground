@@ -34,7 +34,8 @@ pub async fn run(app: &App, command: Command) -> AppResult<()> {
             department,
             listing,
         } => listing::run(app, SearchBy::Department(department), listing).await,
-        Command::Departments { query, depth } => departments::run(app, query, depth).await,
+        // `store` was consumed by `Cli::store()` before the adapter was built.
+        Command::Departments { query, depth, .. } => departments::run(app, query, depth).await,
         Command::Compare {
             query,
             listing,

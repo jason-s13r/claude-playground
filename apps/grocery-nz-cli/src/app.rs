@@ -63,8 +63,7 @@ impl App {
             config: config.clone(),
             paths: paths.clone(),
             backend: backend(env.secret_backend.as_deref()),
-            store: cli.store.clone(),
-            token: cli.token.clone(),
+            store: cli.store().map(str::to_string),
         };
 
         Ok(App {
@@ -195,7 +194,6 @@ struct Factory {
     paths: Paths,
     backend: Backend,
     store: Option<String>,
-    token: Option<String>,
 }
 
 impl Factory {
@@ -240,7 +238,7 @@ impl Factory {
                     paths,
                     secrets,
                     token_command: self.config.retailer(id).token_command.clone(),
-                    explicit_token: self.token.clone().or_else(|| ov.token.clone()),
+                    explicit_token: ov.token.clone(),
                     password,
                     store_id: self.store_id(id),
                 })?))

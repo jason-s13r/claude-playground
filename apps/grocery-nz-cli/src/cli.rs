@@ -28,26 +28,35 @@ pub struct Cli {
     )]
     pub retailer: Vec<RetailerId>,
 
-    /// Use this store for this command only, without saving it.
-    #[arg(long, global = true, value_name = "ID")]
-    pub store: Option<String>,
-
-    /// Use this bearer token instead of acquiring one. Foodstuffs only.
-    #[arg(
-        long,
-        global = true,
-        value_name = "TOKEN",
-        env = "GSNZ_TOKEN",
-        hide_env_values = true
-    )]
-    pub token: Option<String>,
-
     /// Print machine-readable JSON instead of a table.
     #[arg(long, global = true)]
     pub json: bool,
 
     #[command(subcommand)]
     pub command: Command,
+}
+
+/// The parser, in one place so `completions` generates for exactly what runs.
+pub fn command() -> clap::Command {
+    <Cli as clap::CommandFactory>::command()
+}
+
+impl Cli {
+    /// The `--store` this run was given, wherever it was given.
+    ///
+    /// Only four commands take one -- a store is what prices are quoted
+    /// against, and nothing else in here quotes a price -- but the adapter is
+    /// built before the command runs, so it has to be found from up here.
+    pub fn store(&self) -> Option<&str> {
+        match &self.command {
+            Command::Search { listing, .. }
+            | Command::Specials { listing }
+            | Command::Browse { listing, .. }
+            | Command::Compare { listing, .. } => listing.store.as_deref(),
+            Command::Departments { store, .. } => store.as_deref(),
+            _ => None,
+        }
+    }
 }
 
 #[derive(Subcommand, Debug)]
@@ -81,6 +90,9 @@ pub enum Command {
         /// How many levels to print.
         #[arg(long, default_value_t = 2)]
         depth: u32,
+        /// Use this store for this command only, without saving it.
+        #[arg(long, value_name = "ID")]
+        store: Option<String>,
     },
 
     /// Find a store.
@@ -167,6 +179,10 @@ pub enum Command {
 /// differ only in what selects the products, so they share this.
 #[derive(clap::Args, Debug, Clone)]
 pub struct Listing {
+    /// Use this store for this command only, without saving it.
+    #[arg(long, value_name = "ID")]
+    pub store: Option<String>,
+
     /// How many products to return.
     #[arg(long, default_value_t = 20)]
     pub limit: u32,

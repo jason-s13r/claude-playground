@@ -5,10 +5,10 @@
 //! ends here: one struct, read once, before anything is spawned. Below this
 //! boundary the program is a function of its arguments.
 //!
-//! Two variables are missing on purpose. `GSNZ_RETAILER` and `GSNZ_TOKEN` are
-//! `clap(env = ..)` attributes on the flags they back, read during
-//! `Cli::parse()` -- the same single-threaded moment, expressed where the flag
-//! is defined so `--help` documents it.
+//! One variable is missing on purpose. `GSNZ_RETAILER` is a `clap(env = ..)`
+//! attribute on the flag it backs, read during `Cli::parse()` -- the same
+//! single-threaded moment, expressed where the flag is defined so `--help`
+//! documents it.
 
 use std::path::PathBuf;
 
@@ -43,6 +43,9 @@ pub struct Retailer {
     /// both from one origin, so it has none.
     pub api: Option<String>,
     pub store_id: Option<String>,
+    /// A bearer token supplied outright, skipping acquisition. Per shop rather
+    /// than global: a token is scoped to one banner, and one presented to the
+    /// other is not refused -- it answers with that account's empty cart.
     pub token: Option<String>,
 }
 

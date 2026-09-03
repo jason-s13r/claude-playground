@@ -50,12 +50,12 @@ fault -- most of this tool works signed out.
 ## Commands
 
 ```
-gsnz [-b nw|pns|ww] [--store ID] [--token T] [--json]
-├── search <QUERY>        [--limit --size --sort --specials]
-├── specials              [--limit --size --sort]
-├── browse <DEPARTMENT>   [--limit --size --sort --specials]
-├── departments [QUERY]   [--depth]
-├── compare <QUERY>       [--limit --size --sort --specials --strict]
+gsnz [-b nw|pns|ww] [--json]
+├── search <QUERY>        [--store --limit --size --sort --specials]
+├── specials              [--store --limit --size --sort]
+├── browse <DEPARTMENT>   [--store --limit --size --sort --specials]
+├── departments [QUERY]   [--store --depth]
+├── compare <QUERY>       [--store --limit --size --sort --specials --strict]
 ├── stores [QUERY]        [--limit]
 ├── use [SHOP]
 ├── config  list | get <KEY> | set <KEY> <VALUE> | unset <KEY> | path
@@ -177,8 +177,7 @@ store list, and on Woolworths it binds the cart server-side.
 
 ### Environment
 
-`GSNZ_CONFIG_DIR`, `GSNZ_STATE_DIR`, `GSNZ_RETAILER`, `GSNZ_TOKEN`,
-`GSNZ_SECRET_BACKEND`, `GSNZ_UPDATE_API`, `GSNZ_DEBUG_AUTH`,
+`GSNZ_CONFIG_DIR`, `GSNZ_STATE_DIR`, `GSNZ_RETAILER`, `GSNZ_SECRET_BACKEND`, `GSNZ_UPDATE_API`, `GSNZ_DEBUG_AUTH`,
 `GSNZ_{NEWWORLD,PAKNSAVE}_{ORIGIN,API,STORE_ID,TOKEN}`,
 `GSNZ_WOOLWORTHS_{ORIGIN,AUTH_ORIGIN,STORE_ID}`, `GSNZ_CLUBPLUS_{ORIGIN,API}`,
 plus `NO_COLOR`, `GITHUB_TOKEN` and `GH_TOKEN`.
