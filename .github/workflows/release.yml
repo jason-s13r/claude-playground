@@ -29,6 +29,7 @@ jobs:
     outputs:
       matrix: ${{ steps.plan.outputs.matrix }}
       any: ${{ steps.plan.outputs.any }}
+      builds: ${{ steps.plan.outputs.builds }}
     steps:
       - uses: actions/checkout@v5
         with:
@@ -38,16 +39,28 @@ jobs:
 
       - uses: yohimik/dispat@v1
 
+      # Two different questions. `any` is whether anything releases at all;
+      # `builds` is whether any of it needs a runner. They came apart when
+      # libraries arrived: a library releases -- a tag and an assetless GitHub
+      # release -- but ships no binary, so a run that releases only libraries
+      # has an empty matrix and must still publish.
       - id: plan
         run: |
           set -euo pipefail
           matrix="$(scripts/release-matrix.sh)"
+          releasing="$(scripts/release-matrix.sh --count)"
           echo "matrix=$matrix" >> "$GITHUB_OUTPUT"
-          if [ "$matrix" = "{}" ]; then
+          if [ "$releasing" -eq 0 ]; then
             echo "any=false" >> "$GITHUB_OUTPUT"
             echo "nothing to release"
           else
             echo "any=true" >> "$GITHUB_OUTPUT"
+          fi
+          if [ "$matrix" = "{}" ]; then
+            echo "builds=false" >> "$GITHUB_OUTPUT"
+            echo "$releasing package(s) releasing, none of them shipping a binary"
+          else
+            echo "builds=true" >> "$GITHUB_OUTPUT"
           fi
           dispat status
 
@@ -55,7 +68,7 @@ jobs:
   # is built on its own runner or not at all.
   build:
     needs: plan
-    if: needs.plan.outputs.any == 'true'
+    if: needs.plan.outputs.builds == 'true'
     strategy:
       # A release missing one platform's binary is worse than no release, so
       # one failing leg stops the rest before anything is published.
@@ -96,7 +109,14 @@ jobs:
 
   release:
     needs: [plan, build]
-    if: needs.plan.outputs.any == 'true'
+    # `build` is skipped when nothing ships a binary, and a skipped dependency
+    # would skip this too under a bare `needs`. Publishing is still the point,
+    # so the condition names what must *not* have happened rather than relying
+    # on `build` having run.
+    if: |
+      !cancelled()
+      && needs.plan.outputs.any == 'true'
+      && needs.build.result != 'failure'
     runs-on: ubuntu-latest
     permissions:
       contents: write
@@ -120,6 +140,9 @@ jobs:
         run: |
           set -euo pipefail
           mkdir -p staging
+          # A release with no binaries downloads nothing, and an unmatched glob
+          # would otherwise be staged as a directory named `downloaded/*`.
+          shopt -s nullglob
           for dir in downloaded/*/; do
             name="$(basename "$dir")"
             package="${name#release--}"
