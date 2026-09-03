@@ -32,3 +32,4 @@ spaces:
 dependencies:
   build-kit: [net-kit]
   gsnz-ui: [gsnz-core, cli-kit]
+  fsnz-api: [net-kit]
