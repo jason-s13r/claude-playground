@@ -39,6 +39,20 @@ Apps do not find packages automatically — a dependency is declared twice:
    my-lib = { path = "../../packages/my-lib", version = "0.1.0" }
    ```
 
+   **One inline entry per dependency.** dispat rewrites the version of an
+   inline entry on release; it does not see the sub-table form, so this
+
+   ```toml
+   [build-dependencies.my-lib]     # don't
+   path = "../../packages/my-lib"
+   version = "0.1.0"
+   ```
+
+   is left pinned to a version that no longer exists, and the next `cargo`
+   invocation fails with "failed to select a version". The same applies in
+   `[dev-dependencies]` and `[build-dependencies]`, where it is tempting
+   because the entry has several keys.
+
 2. In the root [`dispat.yaml`](../dispat.yaml), so dispat orders the builds and
    propagates version bumps:
 
