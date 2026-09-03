@@ -1,5 +1,179 @@
 # Changelog
 
+## grocery-nz-cli/v0.2.0 (2026-09-03)
+
+### Features
+
+- bind the account's cart to a store
+  `store set` chose which store searches were scoped to and left the cart alone,
+  so a freshly signed-in account could search but every `cart add` was refused
+  with "Store is not defined" and nothing here could fix it.
+
+  The account's cart carries its own store, and one bare POST sets it:
+
+      POST /v1/edge/cart/store/{storeId}    no body, empty 200
+
+  Found by recording a store change on the site; the earlier capture happened
+  not to contain one, which is why an endpoint was assumed not to exist. The
+  store cookies on the storefront are the browser's own copy, not the source of
+  truth.
+
+  `store set` now writes the local preference and binds the cart, so it means
+  the same thing on all three shops, and Foodstuffs claims server_side_store
+  like Woolworths already did. Signed out there is no cart to bind and browsing
+  still works, so that case is passed over rather than raised.
+
+  Verified against a live account: the cart reported no store, `store set` bound
+  it to PAK'nSAVE Whangarei, and an add that had been refused went through.
+
+- set the config from the command line
+  Ten settings had no command, and the default shop could be set exactly once --
+  as a side effect of the first `store set`, which only filled it in when it was
+  empty. Changing it afterwards meant editing the file.
+
+  `gsnz config list|get|set|unset|path` covers all of them, and `gsnz use ww` is
+  the shorthand for the one that gets touched most. Two commands for one key is
+  worth it here: `use` is the flag you would otherwise pass to every command.
+
+  Writes go through the typed Config, so a value that will not parse is refused
+  at the point of making the typo, and what lands in the file is the canonical
+  form -- `ww` is stored as `woolworths`, whatever was typed. Only settings that
+  differ from their default are written now, so the file stays skimmable for the
+  people who do edit it by hand.
+
+  `store set` stays separate. It is not a plain write: it resolves a name
+  against the live store list, and on Woolworths it binds the cart server-side.
+
+- make doctor a report that checks things
+  Reshaped to match `fsnz doctor`: a header block of what the tool decided, then
+  one section per shop of indented label/value lines, then a verdict. The old
+  table had a column the status could not name and painted cells that
+  box-drawing measured wider than they looked.
+
+  It now also *checks*. One store call per shop says whether the chain works,
+  which is a different claim from "configured" and the more useful one, and the
+  store list it returns names the selected store for free. Adapters describe
+  their own hostnames and token state through Retailer::facts, because what is
+  worth reporting differs: Foodstuffs has two hostnames and a mintable token,
+  Woolworths has a storefront and an Auth0 tenant.
+
+  Three things found while doing it:
+
+  - `retailer = "nw"` in the config file was rejected while `-b nw` worked, and
+    RetailerId serialised as "new-world" while id() said "newworld". It now
+    deserialises through FromStr and serialises through id(), so the file takes
+    what the flag takes and there is one machine spelling. This changes `--json`:
+    "new-world" becomes "newworld". gsnz-ui's stability test caught it, which is
+    what that test is for; the tool is a day old and two spellings of a machine
+    name would outlive that.
+  - doctor exited 0 however badly it went. AppError::Reported carries an exit
+    code without a message, since the report already said everything.
+  - the suite started making real calls to three supermarkets. Every host is
+    pointed at a closed port in the sandbox, which also took the run from 10.5s
+    back to 1.1s.
+
+- sign in once per account, not once per shop
+  Three shops, two accounts -- and nothing said so. `auth login -b nw` reported
+  only New World, so the obvious next move was to run it again for PAK'nSAVE
+  with the same Club Plus password, which had already been signed in.
+
+  Every auth command now works in credential units and names what it covered.
+  `gsnz auth login` with no `-b` is the whole setup: two prompts, one per
+  account. `-b nw,pns` is one credential, not two.
+
+  This is why there is no `-b fs`: a pseudo-retailer would put something in
+  RetailerId that is not a shop, and dropping `-b` altogether is fewer
+  keystrokes than adding one.
+
+  --email with more than one account in scope is refused rather than tried on
+  both.
+
+### Fixes
+
+- complete the variant key, and stop misreporting an unbound cart
+  `gsnz -b ww cart add 282848` sent the stock code as the variant key. The site
+  does not reject that as unknown -- it answers "these items are no longer
+  available at this store", which reads as the product being gone, so every add
+  looked like a stock problem. Search prints the stock code and that is what
+  people type, so it is completed to `282848-EA` before it is sent, or `-KGM`
+  when kilograms were asked for.
+
+  `gsnz -b pns cart add` reported "no PAK'nSAVE store selected: run `store set`"
+  when a store *was* selected. Two different problems shared one error: the
+  local setting this tool owns, and the store the account's cart is bound to
+  server-side. `store set` writes a config file and does not touch the cart, so
+  the advice was a dead end. Error::CartUnbound says what it is and points at
+  the website, which is the only place that binding can be changed.
+
+  Also: `store set` printed the store *listing* view, whose footer says "1
+  store. Select one: gsnz store set ...", so a successful set read as though
+  nothing had happened. And an error whose message already contained its
+  source's words printed them twice, which read as two problems.
+
+- put the shop-scoped flags where they apply
+  Two global flags were accepted everywhere and read almost nowhere.
+
+  --token was Foodstuffs-only, so `gsnz -b ww --token X search` silently used
+  something else -- the same trap --store had, which is already an explicit
+  refusal. It is gone: GSNZ_NEWWORLD_TOKEN and GSNZ_PAKNSAVE_TOKEN are per shop
+  and cannot be ambiguous, and token_command covers the automation case. A token
+  is scoped to one banner anyway, and one presented to the other is not refused,
+  it answers with that account's empty cart.
+
+  --store now belongs to the four commands that quote a price against a store,
+  so `gsnz config list --store 1` is an error rather than a no-op, and it is out
+  of the help for every command that cannot use it.
+
+  -b stays global. `gsnz auth status -b ww` after the subcommand is a natural
+  thing to type, and a non-global argument only parses before it -- so it still
+  appears under `gsnz config --help`, which is the price of that. Hiding it per
+  subcommand is not available: clap propagates a global after mut_subcommand
+  runs, so mut_arg panics.
+
+- report health as a list, and only show real gaps
+  The report was a table whose first column had no header, because the status
+  has nothing to call itself. It was also painted, and box-drawing measured the
+  escape codes as width, which pushed every border out of line. An aligned list
+  has neither problem, and puts a hint under the detail it belongs to.
+
+  The capability matrix is gone from an ordinary run. It exists to surface gaps,
+  and there are none left -- so it printed three columns of "yes", which is a
+  table that says nothing. It comes back on its own the day a shop cannot do
+  something, which is the only day it is worth reading.
+
+- a refused sign-in is not an expired session
+  A wrong Woolworths password reported "the Woolworths session has expired" and
+  suggested `gsnz auth refresh` -- a command that cannot help, for a session
+  that never existed. The upstream error is LoginRefused, whose Fault is
+  AuthFault::Rejected, which the adapter mapped to SessionExpired along with
+  every other rejection.
+
+  The same upstream error means different things depending on what was being
+  attempted, so each adapter now reads failures from its login through a
+  separate mapping. Error::LoginRefused carries the reason, exits 3 like the
+  other auth failures, and offers no hint, because there is nothing useful to
+  suggest beyond the password.
+
+  Two more from the same transcript:
+
+  - `auth login` and `auth refresh` abandoned every remaining account at the
+    first failure, and threw away the statuses of the ones that had already
+    worked. They now collect failures, print what happened to every account,
+    and return the first so the exit code is still right.
+  - `auth refresh` treated "never signed in" as a failure. It is a note now:
+    refreshing everything is maintenance, and one shop being signed out is not
+    a reason for it to fail.
+
+  Both login chains are now verified against the real services.
+
+### Dependencies
+
+- gsnz-core: 0.1.0 -> 0.2.0
+- gsnz-ui: 0.1.0 -> 0.2.0
+- cli-kit: 0.1.0 -> 0.2.0
+- fsnz-api: 0.1.0 -> 0.2.0
+
+
 ## grocery-nz-cli/v0.1.0 (2026-09-03)
 
 ### Features

@@ -1,5 +1,32 @@
 # Changelog
 
+## fsnz-api/v0.2.0 (2026-09-03)
+
+### Features
+
+- bind the account's cart to a store
+  `store set` chose which store searches were scoped to and left the cart alone,
+  so a freshly signed-in account could search but every `cart add` was refused
+  with "Store is not defined" and nothing here could fix it.
+
+  The account's cart carries its own store, and one bare POST sets it:
+
+      POST /v1/edge/cart/store/{storeId}    no body, empty 200
+
+  Found by recording a store change on the site; the earlier capture happened
+  not to contain one, which is why an endpoint was assumed not to exist. The
+  store cookies on the storefront are the browser's own copy, not the source of
+  truth.
+
+  `store set` now writes the local preference and binds the cart, so it means
+  the same thing on all three shops, and Foodstuffs claims server_side_store
+  like Woolworths already did. Signed out there is no cart to bind and browsing
+  still works, so that case is passed over rather than raised.
+
+  Verified against a live account: the cart reported no store, `store set` bound
+  it to PAK'nSAVE Whangarei, and an add that had been refused went through.
+
+
 ## fsnz-api/v0.1.0 (2026-09-03)
 
 ### Features

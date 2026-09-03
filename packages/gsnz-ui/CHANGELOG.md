@@ -1,5 +1,43 @@
 # Changelog
 
+## gsnz-ui/v0.2.0 (2026-09-03)
+
+### Features
+
+- make doctor a report that checks things
+  Reshaped to match `fsnz doctor`: a header block of what the tool decided, then
+  one section per shop of indented label/value lines, then a verdict. The old
+  table had a column the status could not name and painted cells that
+  box-drawing measured wider than they looked.
+
+  It now also *checks*. One store call per shop says whether the chain works,
+  which is a different claim from "configured" and the more useful one, and the
+  store list it returns names the selected store for free. Adapters describe
+  their own hostnames and token state through Retailer::facts, because what is
+  worth reporting differs: Foodstuffs has two hostnames and a mintable token,
+  Woolworths has a storefront and an Auth0 tenant.
+
+  Three things found while doing it:
+
+  - `retailer = "nw"` in the config file was rejected while `-b nw` worked, and
+    RetailerId serialised as "new-world" while id() said "newworld". It now
+    deserialises through FromStr and serialises through id(), so the file takes
+    what the flag takes and there is one machine spelling. This changes `--json`:
+    "new-world" becomes "newworld". gsnz-ui's stability test caught it, which is
+    what that test is for; the tool is a day old and two spellings of a machine
+    name would outlive that.
+  - doctor exited 0 however badly it went. AppError::Reported carries an exit
+    code without a message, since the report already said everything.
+  - the suite started making real calls to three supermarkets. Every host is
+    pointed at a closed port in the sandbox, which also took the run from 10.5s
+    back to 1.1s.
+
+### Dependencies
+
+- gsnz-core: 0.1.0 -> 0.2.0
+- cli-kit: 0.1.0 -> 0.2.0
+
+
 ## gsnz-ui/v0.1.0 (2026-09-03)
 
 ### Features
