@@ -44,9 +44,17 @@ fn main() -> ExitCode {
             eprintln!("gsnz: {e}");
             // The chain, not just the top: "reading the cart" alone says
             // nothing, and the cause underneath it is the part worth reading.
+            // Skipping anything the line above already said, because a wrapper
+            // carrying its source's own words would print them twice and read
+            // as two problems.
+            let mut shown = e.to_string();
             let mut cause = std::error::Error::source(&e);
             while let Some(e) = cause {
-                eprintln!("      {e}");
+                let text = e.to_string();
+                if !shown.contains(&text) {
+                    eprintln!("      {text}");
+                    shown = text;
+                }
                 cause = e.source();
             }
             if let Some(hint) = e.hint() {

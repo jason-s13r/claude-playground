@@ -26,9 +26,20 @@ fn quantity(q: f64, variant_key: &str) -> Quantity {
     }
 }
 
+/// A cart mutation keys on the variant, not the stock code.
+///
+/// Search prints both and people type the stock code, so `cart add 282848`
+/// has to become `282848-EA` before it is sent. Sending the bare code is not
+/// rejected as unknown -- the site answers "these items are no longer
+/// available at this store", which reads like the product is gone.
 pub fn change(c: &Change) -> wwnz_api::Change {
     wwnz_api::Change {
-        variant_key: c.key.clone(),
+        variant_key: match c.quantity {
+            // A weighed line is `-KGM`; asking for kilograms says so even when
+            // what was typed was a bare code or the each variant.
+            Quantity::Kilograms { .. } => wwnz_api::variant_key(&c.key, Some("kgm")),
+            Quantity::Units { .. } => wwnz_api::variant_key(&c.key, None),
+        },
         quantity: match c.quantity {
             Quantity::Units { count } => count as f64,
             Quantity::Kilograms { kg } => kg,
@@ -302,6 +313,24 @@ mod tests {
             error(wwnz_api::Error::SessionExpired),
             Error::SessionExpired { .. }
         ));
+    }
+
+    #[test]
+    fn a_typed_stock_code_is_completed_before_it_is_sent() {
+        // `cart add 282848` sent as-is is answered with "no longer available
+        // at this store", which reads as the product being gone rather than
+        // as the key being incomplete.
+        let add = |key: &str, q| {
+            change(&Change {
+                key: key.into(),
+                quantity: q,
+            })
+            .variant_key
+        };
+        assert_eq!(add("282848", Quantity::units(1)), "282848-EA");
+        assert_eq!(add("282848-EA", Quantity::units(1)), "282848-EA");
+        assert_eq!(add("282848", Quantity::kilograms(0.5)), "282848-KGM");
+        assert_eq!(add("282848-EA", Quantity::kilograms(0.5)), "282848-KGM");
     }
 
     #[test]

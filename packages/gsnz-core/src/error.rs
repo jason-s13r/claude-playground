@@ -40,6 +40,14 @@ pub enum Error {
         detail: String,
     },
 
+    /// The account's cart has no store bound to it, server-side.
+    ///
+    /// Not the same as [`Error::NoStore`], which is a local setting this tool
+    /// owns. Telling someone to run `store set` here sends them to a command
+    /// that writes a config file and changes nothing about the cart.
+    #[error("the {retailer} cart is not bound to a store")]
+    CartUnbound { retailer: RetailerId },
+
     #[error("no {retailer} store selected: run `gsnz -b {} store set <id or name>`", retailer.short())]
     NoStore { retailer: RetailerId },
 
@@ -96,6 +104,11 @@ impl Error {
                     _ => "run `gsnz auth login`",
                 }
             }),
+            // `store set` writes a config file; it does not touch the cart.
+            Error::CartUnbound { .. } => Some(
+                "this is the account's cart, not a local setting: open the shop's website \
+                 once and choose a store for it",
+            ),
             _ => None,
         }
     }
@@ -109,7 +122,7 @@ impl Error {
             | Error::SessionExpired { .. }
             | Error::LoginRefused { .. } => 3,
             Error::Unsupported { .. } => 4,
-            Error::NoStore { .. } => 5,
+            Error::NoStore { .. } | Error::CartUnbound { .. } => 5,
             _ => 1,
         }
     }
@@ -121,6 +134,7 @@ impl Error {
             | Error::LoginRefused { retailer, .. }
             | Error::NeedsLogin { retailer }
             | Error::SessionExpired { retailer, .. }
+            | Error::CartUnbound { retailer }
             | Error::NoStore { retailer }
             | Error::Upstream { retailer, .. } => Some(*retailer),
             Error::Other(_) => None,
@@ -131,6 +145,23 @@ impl Error {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn an_unbound_cart_is_not_confused_with_an_unselected_store() {
+        // Both are "there is no store", and only one of them is fixed by
+        // `store set` -- which writes a config file and leaves the cart alone.
+        let unbound = Error::CartUnbound {
+            retailer: RetailerId::PaknSave,
+        };
+        assert_eq!(unbound.exit_code(), 5);
+        assert!(!unbound.to_string().contains("store set"));
+        assert!(unbound.hint().unwrap().contains("website"));
+
+        let unselected = Error::NoStore {
+            retailer: RetailerId::PaknSave,
+        };
+        assert!(unselected.to_string().contains("store set"));
+    }
 
     #[test]
     fn a_refused_sign_in_does_not_suggest_renewing_anything() {

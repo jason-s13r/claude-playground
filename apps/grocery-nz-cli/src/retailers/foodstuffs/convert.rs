@@ -251,7 +251,7 @@ pub fn error(id: RetailerId, e: fsnz_api::Error) -> Error {
             retailer: id,
             renewable: false,
         },
-        E::CartStoreUnbound => Error::NoStore { retailer: id },
+        E::CartStoreUnbound => Error::CartUnbound { retailer: id },
         other => match other.auth() {
             Some(AuthFault::Missing) => Error::NeedsLogin { retailer: id },
             Some(AuthFault::Expired) | Some(AuthFault::Rejected) => Error::SessionExpired {

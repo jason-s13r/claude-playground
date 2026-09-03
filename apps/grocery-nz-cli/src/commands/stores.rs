@@ -66,7 +66,25 @@ async fn set(app: &App, needle: &str) -> AppResult<()> {
     }
     net_kit::config::save_toml(&app.config_file, &app_config)?;
 
-    emit(&mut app.out(), &StoreList(std::slice::from_ref(&store)))?;
+    // Not the store *listing* view: its footer says "1 store. Select one:
+    // gsnz store set ...", which after a successful `store set` reads as
+    // though nothing happened.
+    let selection = Selection {
+        stores: vec![Selected {
+            retailer,
+            store_id: Some(store.id.clone()),
+        }],
+    };
+    let mut out = app.out();
+    if out.is_json() {
+        emit(&mut out, &selection)?;
+    } else {
+        let where_it_is = store
+            .where_it_is()
+            .map(|w| format!(" ({w})"))
+            .unwrap_or_default();
+        writeln!(out, "{retailer}: {} {}{where_it_is}", store.id, store.name)?;
+    }
     Ok(())
 }
 
