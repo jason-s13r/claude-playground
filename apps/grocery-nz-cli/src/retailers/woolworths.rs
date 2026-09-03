@@ -424,7 +424,7 @@ impl Retailer for Woolworths {
         };
         let session = wwnz_api::auth::login(&self.endpoints, email, password, &trace)
             .await
-            .map_err(|e| self.err(e))?;
+            .map_err(convert::login_error)?;
         self.save_session(Some(email.to_string()), &session)?;
         self.auth_status().await
     }

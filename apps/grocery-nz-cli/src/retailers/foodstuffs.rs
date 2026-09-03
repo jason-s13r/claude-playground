@@ -325,7 +325,7 @@ impl Retailer for Foodstuffs {
         let cfg = self.clubplus_config(&device_id);
         let session = match fsnz_api::auth::login(&cfg, email, password)
             .await
-            .map_err(|e| self.err(e))?
+            .map_err(|e| convert::login_error(self.id, e))?
         {
             fsnz_api::auth::Login::Complete(session) => session,
             fsnz_api::auth::Login::ChallengeRequired(challenge) => {
@@ -335,7 +335,7 @@ impl Retailer for Foodstuffs {
                     .map_err(|e| Error::Other(format!("reading the verification code: {e}")))?;
                 fsnz_api::auth::clubplus::complete_challenge(&cfg, &challenge, &typed)
                     .await
-                    .map_err(|e| self.err(e))?
+                    .map_err(|e| convert::login_error(self.id, e))?
             }
         };
         fsnz_api::auth::session::save(

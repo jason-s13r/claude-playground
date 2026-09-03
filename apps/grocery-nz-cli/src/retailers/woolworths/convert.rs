@@ -222,6 +222,30 @@ fn fee_label(kind: &str) -> String {
     out
 }
 
+/// The same failures, read as a *sign-in* rather than as a call with a stored
+/// session. A rejection here is a wrong password, not a stale cookie -- and
+/// the difference decides whether `auth refresh` is worth suggesting.
+pub fn login_error(e: wwnz_api::Error) -> Error {
+    use wwnz_api::Error as E;
+    match e {
+        E::LoginRefused { .. } | E::NoSession { .. } => Error::LoginRefused {
+            retailer: ID,
+            detail: e_detail(&e),
+        },
+        other => match other.auth() {
+            Some(_) => Error::LoginRefused {
+                retailer: ID,
+                detail: other.to_string(),
+            },
+            None => error(other),
+        },
+    }
+}
+
+fn e_detail(e: &wwnz_api::Error) -> String {
+    e.to_string()
+}
+
 pub fn error(e: wwnz_api::Error) -> Error {
     use wwnz_api::Error as E;
     match e {
@@ -262,6 +286,22 @@ mod tests {
         assert_eq!(unit("133211-KGM"), SaleUnit::Weight);
         assert_eq!(quantity(1.5, "133211-KGM"), Quantity::kilograms(1.5));
         assert_eq!(quantity(2.0, "133211-EA"), Quantity::units(2));
+    }
+
+    #[test]
+    fn a_rejection_while_signing_in_is_not_a_stale_session() {
+        // The same upstream error means different things depending on what was
+        // being attempted. During a login there is no session to have expired.
+        let refused = || wwnz_api::Error::LoginRefused {
+            step: "password",
+            detail: ": wrong password".into(),
+        };
+        assert!(matches!(login_error(refused()), Error::LoginRefused { .. }));
+        // Whereas a genuinely lapsed session still reads as one.
+        assert!(matches!(
+            error(wwnz_api::Error::SessionExpired),
+            Error::SessionExpired { .. }
+        ));
     }
 
     #[test]

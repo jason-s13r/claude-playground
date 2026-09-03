@@ -28,6 +28,18 @@ pub enum Error {
         renewable: bool,
     },
 
+    /// The credentials were wrong, or the shop would not take them.
+    ///
+    /// Distinct from [`Error::SessionExpired`] on purpose: that one means a
+    /// session went stale and can often be renewed, and telling someone to run
+    /// `auth refresh` when they mistyped a password wastes their time on a
+    /// command that cannot help.
+    #[error("{retailer} refused the sign-in: {detail}")]
+    LoginRefused {
+        retailer: RetailerId,
+        detail: String,
+    },
+
     #[error("no {retailer} store selected: run `gsnz -b {} store set <id or name>`", retailer.short())]
     NoStore { retailer: RetailerId },
 
@@ -93,7 +105,9 @@ impl Error {
     /// this; anything wrapping `gsnz` will want it.
     pub fn exit_code(&self) -> u8 {
         match self {
-            Error::NeedsLogin { .. } | Error::SessionExpired { .. } => 3,
+            Error::NeedsLogin { .. }
+            | Error::SessionExpired { .. }
+            | Error::LoginRefused { .. } => 3,
             Error::Unsupported { .. } => 4,
             Error::NoStore { .. } => 5,
             _ => 1,
@@ -104,6 +118,7 @@ impl Error {
     pub fn retailer(&self) -> Option<RetailerId> {
         match self {
             Error::Unsupported { retailer, .. }
+            | Error::LoginRefused { retailer, .. }
             | Error::NeedsLogin { retailer }
             | Error::SessionExpired { retailer, .. }
             | Error::NoStore { retailer }
@@ -116,6 +131,19 @@ impl Error {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn a_refused_sign_in_does_not_suggest_renewing_anything() {
+        // Telling someone to run `auth refresh` when they mistyped a password
+        // sends them to a command that cannot possibly help.
+        let refused = Error::LoginRefused {
+            retailer: RetailerId::Woolworths,
+            detail: "the password was not accepted".into(),
+        };
+        assert_eq!(refused.exit_code(), 3);
+        assert_eq!(refused.hint(), None);
+        assert!(refused.to_string().contains("refused the sign-in"));
+    }
 
     #[test]
     fn auth_failures_share_an_exit_code_distinct_from_unsupported() {

@@ -219,6 +219,26 @@ pub fn order(id: RetailerId, o: fsnz_api::Order) -> Order {
 /// `renewable` is the load-bearing bit: a stored login with a refresh token can
 /// be renewed silently, and one without cannot, and telling the user to run
 /// `auth refresh` when it will not work wastes their time.
+/// The same failures, read as a *sign-in*. `Unauthorised` on an ordinary call
+/// means the token went stale and renewing is the fix; during a login it means
+/// Club Plus did not accept what was typed, and there is nothing to renew.
+pub fn login_error(id: RetailerId, e: fsnz_api::Error) -> Error {
+    use fsnz_api::Error as E;
+    match e {
+        E::VerificationRequired { .. } => Error::LoginRefused {
+            retailer: id,
+            detail: "the verification code was not accepted".into(),
+        },
+        other => match other.auth() {
+            Some(_) => Error::LoginRefused {
+                retailer: id,
+                detail: other.to_string(),
+            },
+            None => error(id, other),
+        },
+    }
+}
+
 pub fn error(id: RetailerId, e: fsnz_api::Error) -> Error {
     use fsnz_api::Error as E;
     match e {

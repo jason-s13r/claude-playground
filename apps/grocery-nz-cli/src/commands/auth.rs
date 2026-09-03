@@ -44,6 +44,7 @@ async fn login(
     }
 
     let mut statuses = Vec::new();
+    let mut failures: Vec<gsnz_core::Error> = Vec::new();
     for target in targets {
         let covers = app::name_shops(&target.covers);
         // On stderr with the prompts: which account is being asked for is part
@@ -71,7 +72,14 @@ async fn login(
             eprintln!("  A verification code was sent by {method}.");
             prompt("  Code")
         };
-        handle.login(&email, &password, &ask).await?;
+        if let Err(e) = handle.login(&email, &password, &ask).await {
+            // One account refusing must not throw away an account that just
+            // signed in: the statuses below are the record of what happened,
+            // and they are worth printing either way.
+            failures.push(e);
+            statuses.extend(statuses_for(app, &target.covers).await);
+            continue;
+        }
 
         // Only after the login worked: storing a password that does not sign
         // in is worse than storing none.
@@ -86,16 +94,58 @@ async fn login(
         // PAK'nSAVE says so instead of leaving it to be discovered.
         statuses.extend(statuses_for(app, &target.covers).await);
     }
-    show(app, statuses)
+    finish(app, statuses, failures)
 }
 
+/// Renew what can be renewed.
+///
+/// An account that is not signed in is reported, not failed: `auth refresh`
+/// across everything is a maintenance command, and one shop never having been
+/// signed into is not a reason for it to fail.
 async fn refresh(app: &App) -> AppResult<()> {
     let mut statuses = Vec::new();
+    let mut failures = Vec::new();
     for target in app.auth_targets() {
-        app.registry.get(target.through)?.refresh_session().await?;
+        let handle = app.registry.get(target.through)?;
+        match handle.auth_status().await {
+            Ok(status) if !status.signed_in => {
+                eprintln!(
+                    "gsnz: {} is not signed in, so there is nothing to renew",
+                    app::name_shops(&target.covers)
+                );
+                statuses.extend(statuses_for(app, &target.covers).await);
+                continue;
+            }
+            _ => {}
+        }
+        if let Err(e) = handle.refresh_session().await {
+            failures.push(e);
+        }
         statuses.extend(statuses_for(app, &target.covers).await);
     }
-    show(app, statuses)
+    finish(app, statuses, failures)
+}
+
+/// Print what happened to every account, then fail if any of them did.
+///
+/// The order matters: the statuses are the useful part, and burying them
+/// behind the first error is what made a two-account login report nothing.
+fn finish(
+    app: &App,
+    statuses: Vec<AuthStatus>,
+    mut failures: Vec<gsnz_core::Error>,
+) -> AppResult<()> {
+    show(app, statuses)?;
+    if failures.is_empty() {
+        return Ok(());
+    }
+    // The first is returned so `main` gives it the right exit code; any others
+    // would otherwise go unmentioned.
+    let first = failures.remove(0);
+    for e in &failures {
+        eprintln!("gsnz: {e}");
+    }
+    Err(first.into())
 }
 
 /// What each shop reports, with a failure reported rather than raised.
@@ -183,8 +233,10 @@ impl View for Statuses {
             } else {
                 out.dim("signed out")
             };
-            let who = s.account.as_deref().unwrap_or("");
-            writeln!(out, "{}  {mark} {who}", s.retailer)?;
+            match s.account.as_deref() {
+                Some(who) => writeln!(out, "{}  {mark} {who}", s.retailer)?,
+                None => writeln!(out, "{}  {mark}", s.retailer)?,
+            }
             if let Some(expires_in) = s.expires_in {
                 let d = std::time::Duration::from_secs(expires_in);
                 writeln!(out, "  expires in {}", cli_kit::human_duration(d))?;

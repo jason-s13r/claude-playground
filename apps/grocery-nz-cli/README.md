@@ -176,5 +176,6 @@ dispat run test  --since all -p grocery-nz-cli
 ```
 
 No test touches the network. The two login chains are the exception that cannot
-be covered that way — verifying `auth login` against real Club Plus and real
-Auth0 is a manual step, and the tests here do not stand in for it.
+be covered that way: `auth login` against real Club Plus and real Auth0 was
+verified by hand at v0.1.0, and the tests here do not stand in for repeating
+that whenever either flow changes.
