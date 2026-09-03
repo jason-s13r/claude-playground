@@ -9,7 +9,6 @@ use std::io::{self, Write};
 use serde::Serialize;
 
 use crate::out::{Out, View};
-use crate::table::table;
 
 #[derive(Copy, Clone, PartialEq, Eq, Debug, Serialize)]
 #[serde(rename_all = "lowercase")]
@@ -109,16 +108,45 @@ impl Report {
 }
 
 impl View for Report {
+    /// An aligned list, not a table.
+    ///
+    /// A table wants a header per column, and the status column has nothing to
+    /// call itself. Worse, the status is painted, and box-drawing measures the
+    /// escape codes as width -- which is what pushed every border out of line.
     fn text(&self, out: &mut Out) -> io::Result<()> {
-        let mut t = table(&["", "check", "detail"]);
+        let width = self
+            .checks
+            .iter()
+            .map(|c| c.name.chars().count())
+            .max()
+            .unwrap_or(0);
+        // Padding is computed from the unpainted text and written separately,
+        // for the same reason: the painted string is longer than it looks.
+        let status_width = self
+            .checks
+            .iter()
+            .map(|c| c.status.symbol().len())
+            .max()
+            .unwrap_or(0);
+
         for check in &self.checks {
-            let detail = match &check.hint {
-                Some(hint) => format!("{}\n{}", check.detail, out.dim(hint)),
-                None => check.detail.clone(),
-            };
-            t.add_row(vec![check.status.paint(out), check.name.clone(), detail]);
+            let symbol = check.status.symbol();
+            let gap = " ".repeat(status_width - symbol.len());
+            writeln!(
+                out,
+                "{}{gap}  {:<width$}  {}",
+                check.status.paint(out),
+                check.name,
+                check.detail
+            )?;
+            // Under the detail it belongs to, so it reads as a continuation
+            // rather than as another check.
+            if let Some(hint) = &check.hint {
+                let indent = " ".repeat(status_width + 2 + width + 2);
+                writeln!(out, "{indent}{}", out.dim(hint))?;
+            }
         }
-        writeln!(out, "{t}")
+        Ok(())
     }
 }
 
@@ -153,6 +181,27 @@ mod tests {
         assert!(text.contains("fail"));
         assert!(text.contains("account"));
         assert!(text.contains("gsnz auth login"));
+    }
+
+    #[test]
+    fn the_report_is_an_aligned_list_rather_than_a_table() {
+        // A table needs a header per column and the status column has nothing
+        // to call itself; worse, the painted status measures wider than it
+        // looks, which pushed every border out of line.
+        let mut report = Report::new();
+        report.push(Check::ok("version", "1.0.0"));
+        report.push(Check::warn("a much longer name", "none selected").with_hint("do this"));
+        let mut out = Out::buffer(Format::Text);
+        report.text(&mut out).unwrap();
+        let text = out.into_string();
+
+        assert!(!text.contains('┌') && !text.contains('│'), "{text}");
+        let lines: Vec<&str> = text.lines().collect();
+        // The details start at one column, whatever the status word's width.
+        let first = lines[0].find("1.0.0").unwrap();
+        assert_eq!(lines[1].find("none selected"), Some(first));
+        // And the hint sits under the detail it belongs to.
+        assert_eq!(lines[2].find("do this"), Some(first));
     }
 
     #[test]

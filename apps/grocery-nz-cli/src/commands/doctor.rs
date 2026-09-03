@@ -92,12 +92,23 @@ impl View for Doctor {
         if self.caps.is_empty() {
             return Ok(());
         }
+        // Only when there is something to report. Every cell being "yes" is
+        // a table that says nothing -- and the matrix exists to surface gaps,
+        // so no gaps means no matrix. It comes back on its own the day a shop
+        // cannot do something, which is the only day it is worth reading.
+        let gaps: Vec<&Feature> = FEATURES
+            .iter()
+            .filter(|(_, has)| self.caps.iter().any(|(_, caps)| !has(caps)))
+            .collect();
+        if gaps.is_empty() {
+            return Ok(());
+        }
         writeln!(out)?;
-        writeln!(out, "{}", out.heading("What each shop can do"))?;
+        writeln!(out, "{}", out.heading("What some shops cannot do"))?;
         let mut headers: Vec<&str> = vec!["Command"];
         headers.extend(self.caps.iter().map(|(id, _)| id.name()));
         let mut t = table(&headers);
-        for (name, has) in FEATURES {
+        for (name, has) in gaps {
             let mut cells = vec![Cell::new(name)];
             cells.extend(
                 self.caps

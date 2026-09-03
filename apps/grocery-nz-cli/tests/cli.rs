@@ -292,15 +292,26 @@ fn logging_out_of_a_shop_that_was_never_signed_in_is_not_an_error() {
 }
 
 #[test]
-fn doctor_prints_the_capability_matrix_before_anything_hits_it() {
+fn doctor_stays_quiet_about_capabilities_when_there_are_no_gaps() {
+    // The matrix exists to surface gaps. Every cell reading "yes" is a table
+    // that says nothing, so it is not printed at all -- it comes back on its
+    // own the day a shop cannot do something.
     Sandbox::new()
         .cmd()
         .arg("doctor")
         .assert()
         .success()
-        .stdout(contains("What each shop can do"))
-        .stdout(contains("orders previous"))
-        .stdout(contains("none selected"));
+        .stdout(contains("none selected"))
+        .stdout(contains("gsnz -b nw store set"))
+        .stdout(contains("cannot do").not())
+        .stdout(contains("orders previous").not());
+}
+
+#[test]
+fn doctor_reports_without_drawing_a_box() {
+    let out = Sandbox::new().cmd().arg("doctor").assert().success();
+    let text = String::from_utf8_lossy(&out.get_output().stdout).to_string();
+    assert!(!text.contains('┌'), "{text}");
 }
 
 #[test]
