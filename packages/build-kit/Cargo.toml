@@ -1,0 +1,35 @@
+[package]
+name = "build-kit"
+version = "0.0.0"
+edition = "2021"
+description = "Build provenance stamping and self-update for monorepo-released CLI tools"
+license = "MIT"
+publish = false
+
+[features]
+default = ["runtime"]
+# The runtime half: reading the stamp back, and replacing this binary with a
+# newer release. A build script wants none of it, hence the split.
+runtime = ["dep:net-kit", "dep:semver", "dep:sha2", "dep:tar", "dep:flate2", "dep:tokio"]
+# The build-script half: stamping provenance in. std only, so a build script
+# does not drag a TLS stack in behind it.
+emit = []
+
+[dependencies]
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+thiserror = "2"
+
+net-kit = { path = "../net-kit", version = "0.0.0", optional = true }
+semver = { version = "1", optional = true }
+sha2 = { version = "0.10", optional = true }
+tar = { version = "0.4", optional = true }
+flate2 = { version = "1", optional = true }
+tokio = { version = "1", features = ["fs"], optional = true }
+
+[dev-dependencies]
+tempfile = "3"
+wiremock = "0.6"
+flate2 = "1"
+tar = "0.4"
+tokio = { version = "1", features = ["macros", "rt-multi-thread"] }

@@ -21,3 +21,13 @@ spaces:
     autoVersion:
       enabled: true
       range: caret
+
+# The first cross-project dependencies in the repo. Each consumer also declares
+# a path dependency carrying a version in its own Cargo.toml; this block is what
+# orders the builds and propagates a library's bump onward.
+#
+# The library-to-library edges are the ones that are easy to forget and
+# expensive to omit: without them, releasing net-kit rewrites only the app's
+# range and leaves the api crates pinned to a version that no longer exists.
+dependencies:
+  build-kit: [net-kit]
