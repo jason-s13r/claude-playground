@@ -1,154 +1,93 @@
-//! `fsnz orders` -- past orders, what was in them, and what to buy again.
+//! `orders` -- the history, one order, and what to restock.
 
-use anyhow::{bail, Result};
+use cli_kit::{emit, Out, View};
+use gsnz_core::{OrderFilter, OrderLine};
+use gsnz_ui::{OrderDetail, OrderList};
+use serde::Serialize;
+use std::io::Write;
 
-use crate::api::Client;
 use crate::app::App;
-use crate::banner::Banner;
-use crate::cli::OrdersCommand;
-use crate::commands::io::print_json;
-use crate::domain::order::Source;
-use crate::output::{self, plural};
+use crate::cli::OrderAction;
+use crate::error::{AppError, AppResult};
 
-/// Order history, like the cart, belongs to an account rather than a store, so
-/// every one of these needs a logged-in token.
-pub async fn run(app: &App, banner: Banner, cmd: &OrdersCommand) -> Result<()> {
-    let (client, _) = app.client(banner, false, true).await?;
-
-    match cmd {
-        OrdersCommand::List { limit, source } => list(app, banner, &client, *limit, *source).await,
-        OrdersCommand::Show { order, source } => show(app, banner, &client, order, *source).await,
-        OrdersCommand::Previous {
+pub async fn run(app: &App, action: OrderAction) -> AppResult<()> {
+    let handle = app.handle()?;
+    let mut out = app.out();
+    match action {
+        OrderAction::List { limit, filter } => {
+            let orders = handle.orders(filter, limit).await?;
+            emit(
+                &mut out,
+                &OrderList::new(&orders).next("Show one: fsnz orders show <number>"),
+            )?;
+        }
+        OrderAction::Show { order } => {
+            let id = match position(&order) {
+                // A position is resolved against the list rather than against a
+                // cached one: a stale cache would show the wrong order, and the
+                // extra call costs less than that mistake.
+                Some(n) => {
+                    let orders = handle.orders(OrderFilter::All, n).await?;
+                    orders
+                        .get(n as usize - 1)
+                        .map(|o| o.id.clone())
+                        .ok_or_else(|| {
+                            AppError::usage(format!(
+                                "there is no order {n}: the history has {}",
+                                orders.len()
+                            ))
+                        })?
+                }
+                None => order,
+            };
+            let detail = handle.order(&id).await?;
+            emit(&mut out, &OrderDetail(&detail))?;
+        }
+        OrderAction::Previous {
             limit,
             include_cart,
-        } => previous(app, banner, &client, *limit, !*include_cart).await,
-    }
-}
-
-async fn list(
-    app: &App,
-    banner: Banner,
-    client: &Client,
-    limit: u32,
-    source: Option<Source>,
-) -> Result<()> {
-    let page = client.orders(limit, source).await?;
-
-    if app.json {
-        print_json(&serde_json::json!({
-            "banner": banner.id(),
-            "source": source,
-            "count": page.orders.len(),
-            "total_available": page.total,
-            "orders": page.orders,
-        }));
-        return Ok(());
-    }
-
-    if page.orders.is_empty() {
-        let kind = source
-            .map(|s| format!("{} ", s.label()))
-            .unwrap_or_default();
-        println!("No {kind}orders on this {} account.", banner.name());
-        return Ok(());
-    }
-
-    output::print_orders(&page.orders, banner);
-    if page.total as usize > page.orders.len() {
-        println!(
-            "showing {} of {} orders; raise --limit for more.",
-            page.orders.len(),
-            page.total
-        );
-    }
-    Ok(())
-}
-
-async fn show(
-    app: &App,
-    banner: Banner,
-    client: &Client,
-    reference: &str,
-    source: Option<Source>,
-) -> Result<()> {
-    let (id, source) = resolve(client, reference, source).await?;
-    let order = client.order(&id, source).await?;
-
-    if app.json {
-        print_json(&serde_json::to_value(&order).unwrap_or(serde_json::Value::Null));
-        return Ok(());
-    }
-    output::print_order(&order, banner);
-    Ok(())
-}
-
-async fn previous(
-    app: &App,
-    banner: Banner,
-    client: &Client,
-    limit: u32,
-    exclude_cart: bool,
-) -> Result<()> {
-    let lines = client.previous_purchases(limit, exclude_cart).await?;
-
-    if app.json {
-        print_json(&serde_json::json!({
-            "banner": banner.id(),
-            "count": lines.len(),
-            "products": lines,
-        }));
-        return Ok(());
-    }
-
-    if lines.is_empty() {
-        println!("Nothing bought before on this {} account.", banner.name());
-        return Ok(());
-    }
-    output::print_previous(&lines, banner);
-    Ok(())
-}
-
-/// Turn what someone typed into an order id and the endpoint to read it from.
-///
-/// Real ids are 150 characters of path, so nobody is going to type one: a small
-/// number is read as a position in `fsnz orders list` instead, which costs one
-/// extra request to look up. Positions shift as new orders arrive, which is
-/// fine for the terminal and why `--json` prints the ids.
-async fn resolve(
-    client: &Client,
-    reference: &str,
-    source: Option<Source>,
-) -> Result<(String, Source)> {
-    if let Some(position) = as_position(reference) {
-        if position == 0 {
-            bail!("positions start at 1; `fsnz orders list` numbers them");
+        } => {
+            let lines = handle.previous_purchases(limit, !include_cart).await?;
+            emit(&mut out, &Previous { lines: &lines })?;
         }
-        let page = client.orders(position, source).await?;
-        let Some(order) = page.orders.get(position as usize - 1) else {
-            bail!(
-                "there is no order {position}: this account has {} order{}",
-                page.total,
-                plural(page.total as usize)
-            );
-        };
-        return Ok((
-            order.id.clone(),
-            source.unwrap_or_else(|| order.resolved_source()),
-        ));
     }
-    Ok((
-        reference.to_string(),
-        source.unwrap_or_else(|| Source::infer(reference)),
-    ))
+    Ok(())
 }
 
-/// A short number is a position; anything longer is an id, even an all-digit
-/// one, because positions never run that high.
-fn as_position(reference: &str) -> Option<u32> {
-    if reference.len() > 3 {
-        return None;
+/// `orders show 3` means the third row of `orders list`.
+///
+/// Only a small bare number counts: Foodstuffs order ids are long digit strings
+/// and treating one as a position would fetch somebody else's order.
+fn position(arg: &str) -> Option<u32> {
+    let n: u32 = arg.parse().ok()?;
+    (arg.len() <= 2 && n >= 1).then_some(n)
+}
+
+#[derive(Serialize)]
+struct Previous<'a> {
+    lines: &'a [OrderLine],
+}
+
+impl View for Previous<'_> {
+    fn text(&self, out: &mut Out) -> std::io::Result<()> {
+        if self.lines.is_empty() {
+            return writeln!(out, "Nothing bought before.");
+        }
+        for line in self.lines {
+            let price = line
+                .total_cents
+                .map(gsnz_core::dollars)
+                .unwrap_or_else(|| "-".into());
+            let sku = out.dim(&line.sku);
+            writeln!(out, "{price:>9}  {}  {sku}", line.name)?;
+        }
+        Ok(())
     }
-    reference.parse::<u32>().ok()
+
+    fn json(&self) -> cli_kit::serde_json::Value {
+        // The bare array, so `fsnz orders previous --json | jq '.[0]'` works.
+        cli_kit::serde_json::to_value(self.lines).unwrap_or(cli_kit::serde_json::Value::Null)
+    }
 }
 
 #[cfg(test)]
@@ -156,11 +95,14 @@ mod tests {
     use super::*;
 
     #[test]
-    fn short_numbers_are_positions_and_long_ones_are_ids() {
-        assert_eq!(as_position("1"), Some(1));
-        assert_eq!(as_position("16"), Some(16));
-        assert_eq!(as_position("0"), Some(0), "caught later, with a message");
-        assert_eq!(as_position("1234567890"), None, "an all-digit order id");
-        assert_eq!(as_position("region/fsni/banner/NW"), None);
+    fn a_long_digit_string_is_an_order_id_not_a_position() {
+        // Foodstuffs ids look like this. Reading one as a position would fetch
+        // an entirely different order.
+        assert_eq!(position("3"), Some(3));
+        assert_eq!(position("12"), Some(12));
+        assert_eq!(position("100"), None);
+        assert_eq!(position("2409281234"), None);
+        assert_eq!(position("0"), None);
+        assert_eq!(position("WW-123"), None);
     }
 }

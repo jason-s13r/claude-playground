@@ -1,27 +1,33 @@
 # foodstuffs-nz-cli
 
-Search New World and PAK'nSAVE from the terminal. Modelled on
-[`woolies-nz-cli`](https://github.com/mcinteerj/woolies-nz-cli).
+Search, compare and shop New World and PAK'nSAVE from the terminal.
 
 Both banners are Foodstuffs NZ and run the same platform, so one client drives
 both. That is what makes `compare` possible: one query priced at both chains.
-
-The other half of the duopoly is [`woolworths-nz-cli`](../woolworths-nz-cli),
-built the same way against a different API. `compare` does not reach across to
-it: the two companies share no SKUs, so there is nothing to join the rows on.
 
 > **Not affiliated with Foodstuffs New Zealand, New World or PAK'nSAVE.** There
 > is no public API. This calls the same undocumented endpoints their websites
 > call from the browser, and can break whenever they change something. Use at
 > your own risk.
 
-## Status
+## How it is built
 
-Verified against a real account: `auth login`, `auth status`, `stores`,
-`search`, `compare`, and `cart list` at both banners. Cart writes (`add`,
-`update`, `remove`, `clear`) are implemented but untested against the live API.
-So is `orders`, whose in-store half is built from a recorded session; the online
-half shares the endpoint's shape but no online order was there to try it on.
+`fsnz` is a thin front end. The parts worth reading are in `packages/`:
+
+| Crate | What it holds |
+| --- | --- |
+| [`gsnz-core`](../../packages/gsnz-core) | the grocery domain: one `Product`, `Cart`, `Order`, `Store`, and the `Retailer` trait |
+| [`fsnz-api`](../../packages/fsnz-api) | the Foodstuffs edge API and the Club Plus login, in its own vendor-shaped types |
+| [`cli-kit`](../../packages/cli-kit) + [`gsnz-ui`](../../packages/gsnz-ui) | tables, `--json`, and the grocery renderers |
+| [`net-kit`](../../packages/net-kit) | the browser-fingerprinted HTTP client, the cookie jar and the credential store |
+| [`build-kit`](../../packages/build-kit) | the build stamp and `fsnz update` |
+
+What is left in `src/` is the part that is genuinely this program: reading the
+environment once, resolving flags against config, adapting `fsnz-api` types to
+`gsnz-core`, and turning a failure into an exit code.
+
+[`grocery-nz-cli`](../grocery-nz-cli) (`gsnz`) is the same architecture with
+Woolworths added as a second `Retailer`; `fsnz` is the Foodstuffs-only slice.
 
 ## Install
 
@@ -43,46 +49,33 @@ Releases publish `linux-x86_64` and `darwin-arm64` binaries. On anything else
 `fsnz update` says what the release does have and leaves the binary alone;
 build from source instead.
 
-## Device verification
-
-Club Plus holds a login from a device it does not recognise and emails a
-one-time code. `fsnz auth login` asks for it:
-
-```
-Club Plus wants to verify this device and has sent a code to you@example.com (EMAIL_OTP).
-Verification code:
-```
-
-Nothing is stored until the code is accepted, so an interrupted verification
-leaves no half-finished login behind.
-
-The code cannot be a flag -- it does not exist until the login that demands it
-has been made -- so where there is no terminal it is read from stdin:
-
-```bash
-printf '%s\n' "$CODE" | fsnz auth login --email you@example.com --password-command 'pass clubplus'
-```
-
 ## Quick start
 
 Prices, specials and stock are per store. Pick one first.
 
 ```bash
 fsnz auth login --email you@example.com      # once; no browser needed
-fsnz stores wellington                  # find a store
-fsnz store set "New World Thorndon"     # remember it
-fsnz search milk
-fsnz search milk --size 2L --limit 5
-fsnz specials --limit 40
-fsnz browse "Fruit & Vegetables"
+fsnz -b nw stores wellington                 # find a store
+fsnz -b nw store set "New World Thorndon"    # remember it
+fsnz -b nw search milk
+fsnz -b nw search milk --size 2L --limit 5
+fsnz -b nw specials --limit 40
+fsnz -b nw browse "Fruit & Vegetables"
+```
+
+`-b`/`--banner` takes `nw` or `pns`. Set a default so bare commands have a
+banner:
+
+```bash
+fsnz use nw                     # or: fsnz config set banner nw
+fsnz search milk                # now talks to New World
 ```
 
 The other banner:
 
 ```bash
-fsnz --banner pns stores wellington
-fsnz --banner pns store set "PAK'nSAVE Kilbirnie"
-fsnz --banner pns search milk
+fsnz -b pns store set "PAK'nSAVE Kilbirnie"
+fsnz -b pns search milk
 ```
 
 With a store set at both:
@@ -98,22 +91,20 @@ fsnz compare milk
 │ Anchor Blue Milk          ┆ 1l    ┆ $3.73     ┆ $3.57  ←  ┆ $0.16      │
 │ Anchor Blue Milk          ┆ 2l    ┆ $5.79     ┆ $5.69  ←  ┆ $0.10      │
 │ Pams Value Standard Milk  ┆ 3l    ┆ $7.19     ┆ $7.11  ←  ┆ $0.08      │
-│ Pams Value Standard Milk  ┆ 1l    ┆ $3.16     ┆ $3.14  ←  ┆ $0.02      │
 │ Anchor Calci + Trim Milk  ┆ 1l    ┆ $3.79     ┆ —         ┆            │
 └───────────────────────────┴───────┴───────────┴───────────┴────────────┘
-
-7 products compared, 4 found at both. ← marks the cheaper banner.
 ```
 
 Products found at both come first, biggest price gap at the top. `—` means the
 product was not in that banner's results, which is not the same as unavailable.
-Rows are joined on SKU, which the two banners share.
+Rows are joined on SKU, which the two banners share; `--strict` drops rows that
+were paired by description instead.
 
 Every command takes `--json`:
 
 ```bash
-fsnz --json specials --limit 200 | jq -r '.products[] | select(.price < 3) | .name'
-fsnz --json compare bread | jq -r '.rows[] | select(.cheapest == "paknsave") | .title'
+fsnz --json -b nw specials --limit 200 | jq -r '.products[] | select(.price_cents < 300) | .name'
+fsnz --json compare bread | jq -r '.rows[]'
 ```
 
 ## Commands
@@ -123,159 +114,80 @@ fsnz --json compare bread | jq -r '.rows[] | select(.cheapest == "paknsave") | .
 | `search <query>` | Find products. `--limit`, `--size`, `--specials`, `--sort` |
 | `specials` | Everything currently on promotion at your store |
 | `browse <department>` | List a whole department, e.g. `"Fruit & Vegetables"` |
-| `compare <query>` | The same search at both banners, side by side |
+| `departments [query]` | The department tree, or the subtree under one node |
+| `compare <query>` | The same search at both banners, side by side. `--strict` |
 | `stores [query]` | List stores, optionally filtered by name |
 | `store show\|set\|clear` | Show, choose or forget the store to price against |
+| `use [banner]` | Show or set the default banner |
+| `config list\|get\|set\|unset\|path` | Read and change the settings file |
 | `cart list` | Show the cart, its lines and the estimated total |
-| `cart add <sku> [qty]` | Add to the cart; grams for weight-priced items |
+| `cart add <sku> [qty]` | Add to the cart; `--unit kg` for weight-priced items |
 | `cart update <sku> <qty>` | Set a quantity outright; `0` removes the line |
 | `cart remove <sku>` | Remove a product |
 | `cart clear --force` | Empty the cart |
-| `orders list` | Past orders, newest first. `--limit`, `--source` |
+| `orders list` | Past orders, newest first. `--limit`, `--filter` |
 | `orders show <#\|id>` | One order and what was in it |
 | `orders previous` | What you have bought before, for buying it again |
 | `auth login` / `auth logout` | Sign in through Club Plus; forget the session |
-| `auth status` | Session, renewal and each banner's token; exits non-zero without one |
-| `auth refresh` | Mint fresh tokens, replacing the cached ones |
+| `auth status` | Who is signed in, and for how much longer |
+| `auth refresh` | Renew the session without a full sign-in |
+| `auth import <cookies.txt>` | Seed a session from a browser's Netscape cookies |
 | `doctor` | Check config, token and connectivity; exits non-zero if unhealthy |
 | `completions [shell]` | Print a completion script; the shell defaults to `$SHELL` |
 | `update` | Install the newest release. `--check` reports without installing |
 
-Global flags: `--banner`, `--store`, `--token`, `--json`.
+Global flags: `-b`/`--banner`, `--json`. `--store` is taken only by the
+commands that quote a price (`search`, `specials`, `browse`, `compare`,
+`departments`).
 
-`fsnz -V` names the build; `fsnz --version` gives the whole provenance.
-
-## Shell completions
-
-`fsnz completions` writes a completion script to stdout for `bash`, `zsh`,
-`fish`, `powershell` or `elvish`, inferring the shell from `$SHELL` when you do
-not name one. Try it for a session:
-
-```bash
-source <(fsnz completions bash)
-source <(fsnz completions zsh)    # after compinit has run
-```
-
-In zsh the script calls `compdef`, which does not exist until `compinit` has
-run -- sourcing before that fails with `command not found: compdef`. Any zshrc
-that already sets up completion (oh-my-zsh included) has run it by then.
-
-To keep it, put the script where the shell looks:
-
-```bash
-fsnz completions bash > ~/.local/share/bash-completion/completions/fsnz
-fsnz completions zsh  > "${fpath[1]}/_fsnz"      # any directory on $fpath
-fsnz completions fish > ~/.config/fish/completions/fsnz.fish
-```
-
-The script lists commands and flags only; it does not complete store names or
-SKUs, which would mean a request per keystroke.
-
-## Updating
-
-`fsnz update` looks for the newest `foodstuffs-nz-cli/vX.Y.Z` tag in the
-releases of the monorepo this lives in. It cannot use GitHub's own
-`releases/latest`, which answers with the newest release of *any* project in
-the repository.
-
-```console
-$ fsnz update --check
-fsnz 0.1.1 -> 0.2.0 available
-  https://github.com/jason-s13r/claude-playground/releases/tag/foodstuffs-nz-cli/v0.2.0
-  run `fsnz update` to install foodstuffs-nz-cli-0.2.0-linux-x86_64.tar.gz
-```
-
-`--check` exits non-zero when there is something newer, so it can gate a script
-the way `doctor` does. A preview is only ever mentioned, never counted, so it
-cannot flip that exit code.
-
-Which releases are on offer follows from the running version, and nothing is
-remembered between runs:
-
-| Running | `fsnz update` moves to |
-| ------- | ---------------------- |
-| a stable release | the newest stable release |
-| a prerelease | the newest stable, if one is ahead; otherwise the next preview |
-
-So a preview build walks forward through the previews and rejoins the stable
-channel as soon as a stable release passes it.
-
-```console
-$ fsnz update --pre-release      # newest release of either channel
-$ fsnz update 0.1.4-rc.2         # exactly that one; `v` optional
-$ fsnz update 0.1.3              # explicit downgrade
-```
-
-Naming a version does not pin anything: the next plain `fsnz update` follows
-the table above from wherever that left the binary.
-
-Installing downloads the tarball built for this machine, checks it against the
-release's `SHA256SUMS` and refuses to go on if it does not match, then replaces
-the running binary in place. That needs write access to the directory the
-binary lives in -- a `/usr/local/bin` install wants `sudo`; `~/.local/bin` and
-`~/.cargo/bin` do not, which is also what to use on an immutable distro like
-Bazzite or Silverblue. Nothing else on the machine is touched.
-
-The Linux binary is built on Ubuntu 24.04 and links glibc dynamically, so it
-runs on any distro with glibc 2.39 or newer -- current Fedora, Arch, Debian 13,
-and the Fedora-derived immutable desktops. Older distros should build from
-source. The macOS binary is unsigned; `fsnz update` is unaffected, but a copy
-downloaded through a browser needs `xattr -d com.apple.quarantine fsnz` before
-it will run.
-
-Afterwards `fsnz --version` says where the binary came from:
-
-```console
-$ fsnz --version
-fsnz 0.2.0
-commit     9f2c1ab34 (2026-08-30)
-source     jason-s13r/claude-playground, release tag foodstuffs-nz-cli/v0.2.0
-built by   GitHub Actions, from the release workflow
-build      release, x86_64-unknown-linux-gnu, rustc 1.94.0
-binary     /home/you/.local/bin/fsnz
-installed  by `fsnz update` from foodstuffs-nz-cli/v0.2.0 on 2026-08-30
-```
-
-A binary built from a working tree says so instead, down to whether the tree
-had uncommitted changes in it. The install record is a small file at
-`~/.local/state/foodstuffs-nz-cli/install.json`; deleting it only removes the
-last line.
+`fsnz -V` names the build; `fsnz --version` gives the whole provenance and the
+version of every library it was compiled against.
 
 ## Configuration
 
-`~/.config/foodstuffs-nz-cli/config.toml` (written by `store set`, mode 0600):
+`~/.config/foodstuffs-nz-cli/config.toml` (written by `store set` / `config
+set`, mode 0600, only the keys that were changed):
 
 ```toml
-banner = "paknsave"          # default banner when --banner is not given
+banner = "paknsave"          # default banner when -b is not given
+
+[auth]
 password_command = "..."     # prints the Club Plus password; never written here
-store_password = true        # keep the password in the credential store (default)
+store_password = true         # keep the password in the credential store (default)
+
+[compare]
+match = "normalised"          # or "exact" -- pair only on shared product code
+
+[output]
+color = "auto"                # auto | always | never
 
 [newworld]
 store_id = "..."
 
 [paknsave]
 store_id = "..."
-token_command = "..."        # shell command printing a token on stdout
+token_command = "..."        # shell command printing a bearer token on stdout
 ```
+
+`fsnz config list` prints every key, its value and what it does.
 
 Cached tokens live in `~/.local/state/foodstuffs-nz-cli/`.
 
-Environment overrides, all optional:
+Environment overrides, all optional and all beating the config file:
 
 | Variable | Purpose |
 | --- | --- |
 | `FSNZ_BANNER` | Default banner |
 | `FSNZ_NEWWORLD_STORE_ID`, `FSNZ_PAKNSAVE_STORE_ID` | Store, without touching the config file |
-| `FSNZ_TOKEN` | Use this token instead of minting one (single-banner commands) |
-| `FSNZ_NEWWORLD_TOKEN`, `FSNZ_PAKNSAVE_TOKEN` | Per-banner tokens, required by `compare` |
-| `FSNZ_EMAIL` | Default Club Plus email for `fsnz auth login` |
+| `FSNZ_NEWWORLD_TOKEN`, `FSNZ_PAKNSAVE_TOKEN` | A bearer token supplied outright, per banner |
 | `FSNZ_SECRET_BACKEND` | `keyring` or `file`, overriding auto-detection |
 | `FSNZ_NEWWORLD_API`, `FSNZ_PAKNSAVE_API` | Move the API base URL |
 | `FSNZ_NEWWORLD_ORIGIN`, `FSNZ_PAKNSAVE_ORIGIN` | Move the storefront URL |
-| `FSNZ_CLUBPLUS_API`, `FSNZ_CLUBPLUS_LOGIN` | Move the Club Plus endpoints |
+| `FSNZ_CLUBPLUS_API`, `FSNZ_CLUBPLUS_ORIGIN` | Move the Club Plus endpoints |
 | `FSNZ_CONFIG_DIR`, `FSNZ_STATE_DIR` | Relocate config and state |
 | `FSNZ_UPDATE_API` | Move the GitHub API base used by `fsnz update` |
 | `GITHUB_TOKEN`, `GH_TOKEN` | Raise the rate limit on `fsnz update`; sent to github.com only |
+| `NO_COLOR` | Disable colour whatever the config says |
 
 ## Logging in
 
@@ -285,137 +197,92 @@ Foodstuffs accounts sit behind Club Plus. No browser is needed:
 fsnz auth login --email you@example.com
 ```
 
-Four calls: fetch the login API's public bearer token; exchange email and
-password for a Club Plus session; mint a single-use code scoped to one banner;
-swap that code for the banner's token. The result is checked at both banners,
-since one account covers both, and both tokens are cached.
+Club Plus may hold a login from a device it does not recognise and email a
+one-time code; `fsnz auth login` asks for it. Nothing is stored until the code
+is accepted, so an interrupted verification leaves no half-finished login
+behind. The code cannot be a flag -- it does not exist until the login that
+demands it has been made -- so where there is no terminal it is read from
+stdin:
 
-### Staying logged in
-
-The Club Plus session lasts about 30 minutes -- the same clock as the banner
-tokens minted from it -- so it is renewed automatically rather than asked for
-again. Any command needing an account token renews the session first if it has
-aged out, via `POST {clubplus api}/user/login/refresh`.
-
-That endpoint **rotates** the refresh token: the reply carries a replacement and
-the one just sent stops working. `fsnz` writes the replacement to the credential
-store before using the session, because losing it is what ends a session. It
-also means a refresh token used elsewhere invalidates the stored one.
-
-Once that happens the refresh token is no help, so `fsnz` signs in again from a
-password instead -- `password_command` if one is configured, otherwise the copy
-`auth login` kept in the credential store. This is what lets a cron job or a
-long-running script keep working: a spent refresh token costs one extra login
-rather than a prompt. It cannot answer a device verification code, so a login
-Club Plus decides to challenge still needs `fsnz auth login` at a keyboard.
-
-`fsnz auth status` shows where things stand without making a request:
-
-```
-Club Plus
-  account      you@example.com
-  stored in    the system credential store
-  session      valid for 24m
-  renewal      automatic, from the refresh token then the stored password
-  linked to    MNW
-
-New World
-  token        cached, expires in 24m
-  scope        MNW; cart available
-  linked       yes
-
-PAK'nSAVE
-  token        none cached; minted on next use
-  linked       no
+```bash
+printf '%s\n' "$CODE" | fsnz auth login --email you@example.com --password-command 'pass clubplus'
 ```
 
-`scope` is the token's own `banner` claim, and it is the one worth checking: a
-`NAT` token is accepted by the cart endpoints and answers with an empty cart
-belonging to nobody. `linked` reports the session's `linkedAccounts` claim as-is
--- it does **not** predict whether a banner works, since an account listing
-`MNW` alone still reads its PAK'nSAVE cart back fine.
+One Club Plus account covers both banners, so `fsnz auth login` is a single
+prompt and signs in at both. `fsnz auth status` shows where things stand
+without making a request:
 
-The session is kept in the operating system's credential store (Keychain,
-Credential Manager, Secret Service). Where there is none it falls back to a
-0600 file and says so.
+```
+New World   signed in you@example.com
+  expires in 24m
+PAK'nSAVE   signed in you@example.com
+  expires in 24m
+```
 
-**The password is stored too**, alongside the session, so a login that can no
-longer be refreshed renews itself unattended. It is a plaintext password in the
-credential store, which is a heavier thing to hold than a half-hour session --
-`fsnz auth logout` removes it with everything else, and either of these keeps it
-out of the store entirely:
+### Staying signed in
+
+The Club Plus session lasts about 30 minutes. Any command needing an account
+token renews it first if it has aged out. That refresh **rotates** the refresh
+token, so `fsnz` writes the replacement to the credential store before using
+the session -- losing it is what ends a session, and a refresh token used
+elsewhere invalidates the stored one.
+
+Once the refresh token is spent, `fsnz` signs in again from a password instead
+-- `[auth] password_command` if one is configured, otherwise the copy `auth
+login` kept in the credential store. That is what lets a cron job keep working:
+a spent refresh token costs one extra login rather than a prompt. It cannot
+answer a device-verification code, so a challenged login still needs `fsnz auth
+login` at a keyboard.
+
+**The password is stored by default**, alongside the session. It is a
+plaintext password in the credential store, which is a heavier thing to hold
+than a half-hour session -- `fsnz auth logout` removes it with everything else,
+and either of these keeps it out of the store entirely:
 
 ```bash
 fsnz auth login --email you@example.com --no-store-password
 ```
 
 ```toml
+[auth]
 store_password = false                                          # every login
 password_command = "op read op://Personal/Club Plus/password"   # renew from a manager instead
 ```
 
-`password_command` is used in preference to the stored copy wherever it is set,
-so a password manager stays the source of truth. It is also the only way to log
-in with no terminal to prompt on -- and `--no-store-password` is what stops that
-one-off from leaving a copy behind.
+`fsnz auth refresh` renews the session now rather than on next use. `fsnz auth
+logout` drops the session, the cookies and the stored password -- it ignores
+`-b`, because there is one Club Plus session behind both banners.
 
-`fsnz auth refresh` throws the cached tokens away and mints replacements. It
-reports what it minted rather than printing them: no command prints a token in
-human output, so a JWT never lands in scrollback or shell history by accident.
-Scripts that genuinely need the value read it from the JSON:
+### Without signing in
+
+The read APIs only need a bearer token, which can be supplied directly:
 
 ```bash
-fsnz --json auth status | jq -r '.banners.newworld.token'
+export FSNZ_NEWWORLD_TOKEN='<value>'      # New World
+export FSNZ_PAKNSAVE_TOKEN='<value>'      # PAK'nSAVE
 ```
 
-That reads the cache without minting, so it is `null` until something has
-warmed it -- `fsnz auth refresh` first if you need a value there and then.
+or as `[newworld] token_command` / `[paknsave] token_command` in the config.
+Get one from DevTools → Application → Cookies → `fs-user-token`; it lasts about
+30 minutes. Tokens are scoped to one banner: the API rejects a New World token
+presented with a PAK'nSAVE store, and a mis-scoped token answers the cart
+endpoints with an empty cart belonging to nobody.
 
-One account covers both banners, so `auth` works across both by default:
-`login` proves the session at each, `refresh` mints for each, and `status`
-reports each. `-b` narrows any of them to the banner it names.
-
-```bash
-fsnz auth refresh              # both banners
-fsnz -b pns auth refresh       # PAK'nSAVE only
-```
-
-`refresh` treats the banners independently: one failing is reported against
-that banner and the other still mints, so it only exits non-zero when every
-banner failed. `auth logout` is the exception to all of this and ignores `-b`
--- there is a single Club Plus session behind both banners, so there is no
-half of it to drop.
-
-`fsnz doctor` shows who is logged in and where the session is kept.
-
-### Without logging in
-
-The read APIs only need a token, which can be supplied directly:
-
-```bash
-export FSNZ_TOKEN='<value>'                    # one banner
-export FSNZ_NEWWORLD_TOKEN='...'               # both, for `compare`
-export FSNZ_PAKNSAVE_TOKEN='...'
-```
-
-Get one from DevTools → Application → Cookies → `fs-user-token`. It lasts about
-30 minutes.
-
-Tokens are scoped to one banner: the API rejects a New World token presented
-with a PAK'nSAVE store. `--token`/`FSNZ_TOKEN` therefore applies only to
-commands talking to a single banner; `compare` and `doctor` need the per-banner
-variables.
+`fsnz auth import cookies.txt` seeds a session from a Netscape `cookies.txt`
+exported from a browser signed in to the banner.
 
 ## The cart
 
-Needs `fsnz auth login`: a cart belongs to an account, not a store.
+Needs `fsnz auth login`: a cart belongs to an account, not a store. `fsnz -b nw
+store set` also binds that store to the account's cart, which is what makes
+`cart add` work.
 
 ```bash
-fsnz cart add 5039956-EA-000          # one broccoli
-fsnz cart add 5101189-KGM-000 300     # 300g of beef mince
-fsnz cart update 5034758-EA-000 2
-fsnz cart remove 5107154-EA-000
-fsnz cart list
+fsnz -b nw cart add 5039956-EA-000          # one broccoli
+fsnz -b nw cart add 5101189-KGM-000 0.3 --unit kg    # 300g of beef mince
+fsnz -b nw cart update 5034758-EA-000 2
+fsnz -b nw cart remove 5107154-EA-000
+fsnz -b nw cart list
 ```
 
 ```
@@ -423,24 +290,17 @@ fsnz cart list
 │ Qty  ┆ Product               ┆ SKU             ┆ Line total │
 ╞══════╪═══════════════════════╪═════════════════╪════════════╡
 │ 1    ┆ Broccoli              ┆ 5039956-EA-000  ┆ $1.79      │
-│ 300g ┆ NZ Premium Beef Mince ┆ 5101189-KGM-000 ┆ $7.20      │
+│ 0.3kg┆ NZ Premium Beef Mince ┆ 5101189-KGM-000 ┆ $7.20      │
 └──────┴───────────────────────┴─────────────────┴────────────┘
   Subtotal                   $8.99
   Bag fee                    $1.50
   Estimated total           $10.49
 ```
 
-Weight-priced produce takes its quantity in **grams**, inferred from the SKU:
-`-KGM-` is sold by the kilogram, `-EA-` by the each. So `cart add <kgm sku>`
-refuses to guess a quantity, while `cart add <ea sku>` defaults to one.
-`--unit units|weight` overrides the inference.
-
-`cart add` tops up what is already in the cart; `cart update` sets the quantity
-outright. Every mutation prints the resulting cart.
-
-The cart carries its own store, separate from the one `fsnz store set` prices
-against. `fsnz` reports a mismatch rather than reconciling it, and does not bind
-the cart's store.
+Weight-priced produce (`-KGM-` in the SKU) is counted in kilograms with `--unit
+kg`; counted items (`-EA-`) default to one. `cart add` tops up what is already
+there; `cart update` sets the quantity outright. Every mutation prints the
+resulting cart.
 
 ## Past orders
 
@@ -449,79 +309,34 @@ together: orders placed online, and till receipts from shopping in a store,
 which Foodstuffs links to the account through Club Plus.
 
 ```bash
-fsnz orders list
-fsnz orders list --limit 50 --source in-store
-fsnz orders show 1
-fsnz orders previous
-```
-
-```
-New World — 4 orders
-
-┌───┬──────────────────┬────────────────────┬──────────┬────────┐
-│ # ┆ Placed           ┆ Store              ┆ Where    ┆ Total  │
-╞═══╪══════════════════╪════════════════════╪══════════╪════════╡
-│ 1 ┆ 2026-08-01 16:00 ┆ New World Thorndon ┆ in store ┆ $16.20 │
-│ 2 ┆ 2026-07-01 16:00 ┆ New World Thorndon ┆ in store ┆ $58.30 │
-│ 3 ┆ 2026-06-01 16:00 ┆ New World Thorndon ┆ in store ┆ $24.95 │
-│ 4 ┆ 2026-05-01 16:00 ┆ New World Thorndon ┆ in store ┆ $71.05 │
-└───┴──────────────────┴────────────────────┴──────────┴────────┘
-Show one: fsnz orders show <#>
+fsnz -b nw orders list
+fsnz -b nw orders list --limit 50 --filter in-store
+fsnz -b nw orders show 1
+fsnz -b nw orders previous
 ```
 
 Order ids are 150 characters of path, so `orders show` takes the number from
-that listing instead. Positions are relative to the listing, so they shift as
-new orders arrive; `--json` carries the real ids, and `orders show` accepts one
-of those too.
+the listing instead. Positions shift as new orders arrive; `--json` carries the
+real ids, and `orders show` accepts one of those too.
 
-```
-$ fsnz orders show 1
-New World Thorndon
-
-Placed 2026-08-01 16:00 · in store
-Id: region/fsni/banner/NW/customer/1234567890/salesstaginglink/_S_000001234_...
-
-┌─────┬─────────────────────────────────────────┬────────────────┬────────────┐
-│ Qty ┆ Product                                 ┆ SKU            ┆ Line total │
-╞═════╪═════════════════════════════════════════╪════════════════╪════════════╡
-│ 2   ┆ Whittaker's Creamy Milk Chocolate Block ┆ 5011234-EA-000 ┆ $13.00     │
-│ 1   ┆ Pams Wholegrain Toast Bread             ┆ 5019876-EA-000 ┆ $3.20      │
-└─────┴─────────────────────────────────────────┴────────────────┴────────────┘
-  Total                     $16.20
-
-2 lines, $16.20
-```
-
-An online order carries more: its status, timeslot, delivery address and the
-fees, which are why its lines do not add up to the total on their own.
+An online order carries more than an in-store one: its status, timeslot,
+delivery address and the fees, which are why its lines do not add up to the
+total on their own.
 
 `orders previous` is the site's "buy it again": what this account has bought
-before, with what it cost at the time, not today. Products already in the cart
-are left out unless `--include-cart` says otherwise.
-
-```
-┌─────┬─────────────────────────────────────────┬─────────────────┬───────────┐
-│ Qty ┆ Product                                 ┆ SKU             ┆ Last paid │
-╞═════╪═════════════════════════════════════════╪═════════════════╪═══════════╡
-│ 1kg ┆ Pams Whole Almonds                      ┆ 5101234-KGM-000 ┆ $32.00    │
-│ 1   ┆ Whittaker's Creamy Milk Chocolate Block ┆ 5011234-EA-000  ┆ $6.50     │
-└─────┴─────────────────────────────────────────┴─────────────────┴───────────┘
-What it cost last time, not today. Buy one again: fsnz cart add <sku>
-```
-
-The SKUs are the ones `fsnz cart add` takes, so a past order is a shopping list.
+before, with what it cost at the time. The SKUs are the ones `fsnz cart add`
+takes, so a past order is a shopping list.
 
 ## What is not implemented
 
 **Checkout.** Timeslot reservation and order placement are deliberately absent:
-they spend real money. The endpoints are known if that changes.
-
-Shopping lists are exposed by the API but not implemented.
+they spend real money. Shopping lists are exposed by the API but not
+implemented.
 
 ## When Foodstuffs changes something
 
-These endpoints are undocumented and unversioned, so expect breakage. Two things
-make it survivable without a new release:
+These endpoints are undocumented and unversioned, so expect breakage. Two
+things make it survivable without a new release:
 
 - **Every field is optional.** A renamed field becomes a missing column, not a
   failed command.
@@ -529,17 +344,18 @@ make it survivable without a new release:
   client at whatever the site is using now.
 
 Start with `fsnz doctor`, which separates "token problem" from "API problem"
-from "store not selected".
+from "store not selected", and prints the version of `fsnz-api` that is
+compiled in -- the part that breaks when the API moves.
 
 ## Development
 
 ```bash
 dispat run check --since all -p foodstuffs-nz-cli   # fmt, clippy, build, test
 cargo test
-cargo run --quiet -- search milk
+cargo run --quiet -- -b nw search milk
 ```
 
-The tests run the real binary against a mock Foodstuffs (`wiremock`) with
-`FSNZ_*_API`/`FSNZ_*_ORIGIN` pointed at it, so the whole path — token minting
-and caching, request bodies, response parsing, rendering, exit codes — is
-covered without touching the network.
+The tests here are fast: flag precedence, the refusals, exit codes and the
+shape of `--json`, none of them touching the network. Wire behaviour -- token
+minting and caching, request bodies, response parsing -- is tested in
+[`fsnz-api`](../../packages/fsnz-api) against its own mock server.

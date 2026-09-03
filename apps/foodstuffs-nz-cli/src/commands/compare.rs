@@ -1,88 +1,106 @@
-//! `fsnz compare` -- the same search run at both banners, side by side.
+//! `compare` -- the reason this binary exists.
+//!
+//! The join itself is [`gsnz_core::pair`], because it is pure logic over
+//! products, shared with the combined tool. What is here is the fan-out, the
+//! flags, and reporting the banners that could not answer.
 
-use anyhow::Result;
+use cli_kit::emit;
+use gsnz_core::{Error, RetailerId, Search, SearchBy};
+use gsnz_ui::CompareTable;
 
-use crate::api;
 use crate::app::App;
-use crate::banner::Banner;
-use crate::cli::ListArgs;
-use crate::commands::io::print_json;
-use crate::commands::products::apply_size_filter;
-use crate::domain::compare::pair;
-use crate::domain::Product;
-use crate::output;
+use crate::cli::Listing;
+use crate::config::MatchMode;
+use crate::error::{AppError, AppResult};
+use crate::retailers::Handle;
 
-pub async fn run(app: &App, query: &str, specials_only: bool, args: &ListArgs) -> Result<()> {
-    let banners = Banner::ALL;
-
-    // Both stores have to be resolvable before either request goes out, so a
-    // half-finished comparison never gets printed.
-    let store_ids: Vec<String> = banners
-        .iter()
-        .map(|b| app.store_id(*b))
-        .collect::<Result<_>>()?;
-
-    let mut sides: Vec<Vec<Product>> = Vec::new();
-    for (banner, store_id) in banners.iter().zip(&store_ids) {
-        let (client, _) = app.client(*banner, false, true).await?;
-        let filters = api::filters(store_id, specials_only, None);
-        let result = client
-            .collect(store_id, query, &filters, args.limit, &args.sort)
-            .await?;
-        sides.push(apply_size_filter(result.products, args.size.as_deref()));
+pub async fn run(app: &App, query: String, flags: Listing, strict: bool) -> AppResult<()> {
+    let span = app.compare_span();
+    if span.len() < 2 {
+        return Err(AppError::usage(
+            "comparing needs both banners: drop `-b`, or name them as `-b nw,pns`",
+        ));
     }
+    let (handles, mut failures) = app.handles(&span);
 
-    let rows = pair(&sides);
+    let search = Search {
+        by: SearchBy::Query(query),
+        specials_only: flags.specials,
+        limit: flags.limit,
+        size: flags.size,
+        sort: flags.sort,
+    };
+    let (sides, more) = fan_out(&handles, &search).await;
+    failures.extend(more);
 
-    if app.json {
-        let json_rows: Vec<serde_json::Value> = rows
-            .iter()
-            .map(|row| {
-                let prices: serde_json::Map<String, serde_json::Value> = banners
-                    .iter()
-                    .zip(&row.sides)
-                    .map(|(b, side)| {
-                        (
-                            b.id().to_string(),
-                            match side {
-                                Some(p) => {
-                                    serde_json::to_value(p).unwrap_or(serde_json::Value::Null)
-                                }
-                                None => serde_json::Value::Null,
-                            },
-                        )
-                    })
-                    .collect();
-                serde_json::json!({
-                    "title": row.title,
-                    "size": row.size,
-                    "found_at_both": row.matched(),
-                    "difference": row.saving().map(|c| c as f64 / 100.0),
-                    "cheapest": row.cheapest().map(|i| banners[i].id()),
-                    "banners": prices,
-                })
-            })
-            .collect();
-        let stores_json: serde_json::Map<String, serde_json::Value> = banners
-            .iter()
-            .zip(&store_ids)
-            .map(|(b, s)| (b.id().to_string(), serde_json::Value::String(s.clone())))
-            .collect();
-        print_json(&serde_json::json!({
-            "query": query,
-            "banners": banners.iter().map(|b| b.id()).collect::<Vec<_>>(),
-            "stores": stores_json,
-            "count": json_rows.len(),
-            "rows": json_rows,
-        }));
-        return Ok(());
+    // A banner that answered nothing still gets a column: an empty one says
+    // "not stocked here", which a missing column does not.
+    let shown: Vec<RetailerId> = handles.iter().map(|h| h.id()).collect();
+    let allow_normalised = !strict && app.config.compare.r#match == MatchMode::Normalised;
+    let rows = gsnz_core::pair(&sides, allow_normalised);
+
+    emit(
+        &mut app.out(),
+        &CompareTable {
+            retailers: &shown,
+            rows: &rows,
+        },
+    )?;
+
+    // On stderr, so a shop being down does not corrupt `--json` output that a
+    // script is reading -- and so it is still seen when one is not.
+    for (id, e) in &failures {
+        eprintln!("fsnz: {id} could not be included: {e}");
     }
-
-    if rows.is_empty() {
-        println!("No products found for '{query}' at either banner.");
-        return Ok(());
-    }
-
-    output::print_comparison(&banners, &rows);
     Ok(())
+}
+
+/// Both banners at once. One failure does not sink the rest: a lapsed session
+/// at one banner must not hide the other's price.
+async fn fan_out(
+    handles: &[Handle],
+    search: &Search,
+) -> (Vec<Vec<gsnz_core::Product>>, Vec<(RetailerId, Error)>) {
+    let results = futures_join(handles, search).await;
+    let mut sides = Vec::with_capacity(results.len());
+    let mut failures = Vec::new();
+    for (id, result) in results {
+        match result {
+            Ok(found) => sides.push(found.products),
+            Err(e) => {
+                sides.push(Vec::new());
+                failures.push((id, e));
+            }
+        }
+    }
+    (sides, failures)
+}
+
+/// Concurrent without a `futures` dependency: one task per banner, and
+/// `tokio::join!` needs a fixed arity this does not have.
+async fn futures_join(
+    handles: &[Handle],
+    search: &Search,
+) -> Vec<(RetailerId, gsnz_core::Result<gsnz_core::SearchResult>)> {
+    let mut tasks = Vec::with_capacity(handles.len());
+    for handle in handles {
+        let handle = handle.clone();
+        let search = search.clone();
+        tasks.push(tokio::spawn(async move {
+            (handle.id(), handle.search(&search).await)
+        }));
+    }
+    let mut out = Vec::with_capacity(tasks.len());
+    for task in tasks {
+        match task.await {
+            Ok(result) => out.push(result),
+            // A panicked task is a bug here, not upstream, and saying so beats
+            // reporting it as the shop being unavailable.
+            Err(e) => out.push((
+                RetailerId::NewWorld,
+                Err(Error::Other(format!("a search task failed: {e}"))),
+            )),
+        }
+    }
+    out
 }

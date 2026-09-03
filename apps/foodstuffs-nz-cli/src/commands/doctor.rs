@@ -1,181 +1,248 @@
-//! `fsnz doctor` -- one pass over config, credentials and connectivity.
+//! `doctor` -- what is set up, and whether it works.
+//!
+//! Two halves. The header is what the tool decided before talking to anyone:
+//! where its files are, which banner is the default. Then one section per
+//! banner, ending in a live call, because "configured" and "working" are
+//! different claims and only the second is worth much.
 
-use anyhow::Result;
+use cli_kit::{emit, human_duration, Out, View};
+use gsnz_core::{AuthStatus, Caps, Fact, RetailerId};
+use serde::Serialize;
+use std::io::Write;
 use std::time::Duration;
 
 use crate::app::App;
-use crate::auth;
-use crate::banner::Banner;
-use crate::build;
-use crate::commands::io::{human_duration, print_json};
-use crate::output;
+use crate::error::AppResult;
+use crate::retailers::BANNERS;
 
-/// Exits non-zero if anything is misconfigured or unreachable, so it can gate a
-/// script.
-pub async fn run(app: &App) -> Result<bool> {
-    let mut healthy = true;
-    let login = auth::load(&app.secrets).ok().flatten();
-    let config_file = app.paths.config_file();
-    let config_present = config_file.exists();
-    let mut report = Vec::new();
+/// One row of the capability matrix: the command a person would run, and how
+/// to ask a banner whether it can.
+type Feature = (&'static str, fn(&Caps) -> bool);
 
-    for banner in Banner::ALL {
-        let endpoints = banner.endpoints();
-        let mut entry = serde_json::Map::new();
-        entry.insert("storefront".into(), endpoints.origin.clone().into());
-        entry.insert("api".into(), endpoints.api.clone().into());
+/// Named as the commands they gate, so a "no" reads as an answer rather than
+/// as jargon.
+const FEATURES: [Feature; 5] = [
+    ("departments", |c| c.departments),
+    ("orders show", |c| c.order_detail),
+    ("orders previous", |c| c.previous_purchases),
+    ("auth refresh", |c| c.refresh_session),
+    ("auth import", |c| c.import_cookies),
+];
 
-        let store_id = app.config.store_id(banner, app.store_flag.as_deref());
-        entry.insert(
-            "store_id".into(),
-            store_id
-                .clone()
-                .map(serde_json::Value::String)
-                .unwrap_or(serde_json::Value::Null),
-        );
-        if store_id.is_none() {
-            healthy = false;
-        }
+pub async fn run(app: &App) -> AppResult<()> {
+    let mut shops = Vec::new();
+    for id in BANNERS {
+        shops.push(examine(app, id).await);
+    }
 
-        match app.client(banner, false, false).await {
-            Ok((_client, guest)) => {
-                entry.insert("token".into(), guest.source.describe().into());
-                entry.insert(
-                    "token_expires_in_seconds".into(),
-                    guest
-                        .expires_in()
-                        .map(|d| serde_json::Value::from(d.as_secs()))
-                        .unwrap_or(serde_json::Value::Null),
-                );
-                match _client.stores().await {
-                    Ok(stores) => {
-                        entry.insert("api_reachable".into(), true.into());
-                        entry.insert("stores_returned".into(), stores.len().into());
-                        if let Some(id) = &store_id {
-                            let name = stores.iter().find(|s| &s.id == id).map(|s| s.name.clone());
-                            if name.is_none() {
-                                healthy = false;
-                            }
-                            entry.insert(
-                                "store_name".into(),
-                                name.map(serde_json::Value::String)
-                                    .unwrap_or(serde_json::Value::Null),
-                            );
-                        }
-                    }
-                    Err(e) => {
-                        healthy = false;
-                        entry.insert("api_reachable".into(), false.into());
-                        entry.insert("error".into(), format!("{e:#}").into());
-                    }
-                }
+    let report = Doctor {
+        // Named, because a report gets pasted into a bug and "0.1.0" alone
+        // does not say what of.
+        version: format!("fsnz {}", crate::build::short_version()),
+        config_file: format!(
+            "{} ({})",
+            app.config_file.display(),
+            if app.config_file.exists() {
+                "present"
+            } else {
+                "not written yet"
             }
-            Err(e) => {
-                healthy = false;
-                entry.insert("token".into(), serde_json::Value::Null);
-                entry.insert("error".into(), format!("{e:#}").into());
-            }
-        }
-        report.push((banner, entry));
-    }
-
-    if app.json {
-        let banners: serde_json::Map<String, serde_json::Value> = report
-            .iter()
-            .map(|(b, e)| (b.id().to_string(), serde_json::Value::Object(e.clone())))
-            .collect();
-        print_json(&serde_json::json!({
-            "version": crate::build::VERSION,
-            "build": build::json(),
-            "config_file": config_file,
-            "config_present": config_present,
-            "state_dir": app.paths.state_dir,
-            "default_banner": app.config.default_banner().map(|b| b.id().to_string()).unwrap_or_default(),
-            "logged_in_as": login.as_ref().map(|l| l.email.clone()),
-            "credential_store": app.secrets.backend().describe(),
-            "healthy": healthy,
-            "banners": banners,
-        }));
-        return Ok(healthy);
-    }
-
-    println!("fsnz {}", build::short_version());
-    println!(
-        "config file  {} ({})",
-        config_file.display(),
-        if config_present { "present" } else { "missing" }
-    );
-    println!("state dir    {}", app.paths.state_dir.display());
-    if let Ok(b) = app.config.default_banner() {
-        println!("default      {}", b.name());
-    }
-    match &login {
-        Some(l) => println!(
-            "login        {} (in {})",
-            l.email,
-            app.secrets.backend().describe()
         ),
-        None => println!("login        none; run `fsnz auth login`"),
+        state_dir: app.paths.state_dir.display().to_string(),
+        default: app.config.retailer.map(|r| r.name().to_string()),
+        secrets: net_kit::Backend::detect().describe().to_string(),
+        shops,
+    };
+    let healthy = report.healthy();
+    emit(&mut app.out(), &report)?;
+    // The report already said which shop failed and why, so this only carries
+    // the code -- `doctor` in a script should not need its output parsed.
+    if healthy {
+        Ok(())
+    } else {
+        Err(crate::error::AppError::Reported(1))
     }
-
-    for (banner, entry) in &report {
-        println!("\n{}", banner.name());
-        println!("  storefront   {}", str_field(entry, "storefront"));
-        println!("  api          {}", str_field(entry, "api"));
-        match entry.get("store_id").and_then(|v| v.as_str()) {
-            Some(id) => {
-                let name = entry.get("store_name").and_then(|v| v.as_str());
-                match name {
-                    Some(n) => println!("  store        {id} ({n})"),
-                    None => println!("  store        {id}"),
-                }
-            }
-            None => println!(
-                "  store        not set; run `fsnz --banner {} stores <town>`",
-                banner.id()
-            ),
-        }
-        match entry.get("token").and_then(|v| v.as_str()) {
-            Some(src) => {
-                let secs = entry
-                    .get("token_expires_in_seconds")
-                    .and_then(|v| v.as_u64());
-                match secs {
-                    Some(s) => println!(
-                        "  token        ok, {src}, expires in {}",
-                        human_duration(Duration::from_secs(s))
-                    ),
-                    None => println!("  token        ok, {src}"),
-                }
-            }
-            None => println!("  token        FAILED"),
-        }
-        match entry.get("api_reachable").and_then(|v| v.as_bool()) {
-            Some(true) => {
-                let n = entry
-                    .get("stores_returned")
-                    .and_then(|v| v.as_u64())
-                    .unwrap_or(0);
-                println!(
-                    "  api          ok, {n} store{} returned",
-                    output::plural(n as usize)
-                );
-            }
-            _ => println!("  api          FAILED"),
-        }
-        if let Some(err) = entry.get("error").and_then(|v| v.as_str()) {
-            println!("  error        {err}");
-        }
-    }
-
-    println!();
-    println!("{}", if healthy { "healthy" } else { "unhealthy" });
-    Ok(healthy)
 }
 
-fn str_field(map: &serde_json::Map<String, serde_json::Value>, key: &str) -> String {
-    map.get(key)
-        .and_then(|v| v.as_str())
-        .unwrap_or("")
-        .to_string()
+async fn examine(app: &App, id: RetailerId) -> Shop {
+    let store_id = app.config.retailer(id).store_id.clone();
+    let handle = match app.registry.get(id) {
+        Ok(handle) => handle,
+        Err(e) => {
+            return Shop {
+                retailer: id,
+                facts: Vec::new(),
+                store: Some(format!("cannot be set up: {e}")),
+                login: None,
+                api: Err(e.to_string()),
+                caps: Caps::default(),
+                healthy: false,
+            }
+        }
+    };
+
+    let auth = handle.auth_status().await.ok();
+    // One cheap call that needs no account and no store, so it says whether
+    // the chain works even for a shop nobody has signed into.
+    let stores = handle.stores(None, u32::MAX).await;
+    let api = match &stores {
+        Ok(found) => Ok(format!("{} stores returned", found.len())),
+        Err(e) => Err(e.to_string()),
+    };
+    // The store list is already in hand, so naming the selected one costs
+    // nothing extra.
+    let store = store_id.map(|id| {
+        match stores
+            .as_ref()
+            .ok()
+            .and_then(|all| all.iter().find(|s| s.id == id))
+        {
+            Some(store) => format!("{id} ({})", store.name),
+            None => id,
+        }
+    });
+
+    Shop {
+        retailer: id,
+        facts: handle.facts(),
+        store,
+        healthy: api.is_ok(),
+        api,
+        login: auth,
+        caps: handle.caps(),
+    }
+}
+
+#[derive(Serialize)]
+struct Doctor {
+    version: String,
+    config_file: String,
+    state_dir: String,
+    default: Option<String>,
+    secrets: String,
+    shops: Vec<Shop>,
+}
+
+#[derive(Serialize)]
+struct Shop {
+    retailer: RetailerId,
+    facts: Vec<Fact>,
+    store: Option<String>,
+    login: Option<AuthStatus>,
+    api: Result<String, String>,
+    caps: Caps,
+    healthy: bool,
+}
+
+/// The label column, wide enough for the longest label any shop uses.
+const LABEL: usize = 14;
+
+impl Doctor {
+    /// Reachability only. A shop nobody has signed into is not a fault: most
+    /// of this tool works signed out.
+    fn healthy(&self) -> bool {
+        self.shops.iter().all(|s| s.healthy)
+    }
+}
+
+impl View for Doctor {
+    fn text(&self, out: &mut Out) -> std::io::Result<()> {
+        writeln!(out, "{}", self.version)?;
+        line(out, "config file", &self.config_file)?;
+        line(out, "state dir", &self.state_dir)?;
+        line(
+            out,
+            "default",
+            self.default.as_deref().unwrap_or("none set"),
+        )?;
+        line(out, "secrets", &self.secrets)?;
+
+        for shop in &self.shops {
+            writeln!(out)?;
+            writeln!(out, "{}", out.heading(shop.retailer.name()))?;
+            for fact in &shop.facts {
+                indented(out, fact.label, &fact.value)?;
+            }
+            if let Some(store) = &shop.store {
+                indented(out, "store", store)?;
+            } else {
+                indented(out, "store", &out.warn("none selected"))?;
+            }
+            indented(out, "login", &describe_login(out, shop.login.as_ref()))?;
+            // Not "api": that label is already a hostname above, and the same
+            // word for a setting and for a result reads as a contradiction
+            // when one says a URL and the other says "ok".
+            match &shop.api {
+                Ok(detail) => {
+                    indented(out, "reachable", &format!("{}, {detail}", out.good("yes")))?
+                }
+                Err(e) => indented(out, "reachable", &format!("{}, {e}", out.bad("no")))?,
+            }
+        }
+
+        gaps(out, &self.shops)?;
+
+        writeln!(out)?;
+        writeln!(
+            out,
+            "{}",
+            if self.healthy() {
+                out.good("healthy")
+            } else {
+                out.bad("not healthy")
+            }
+        )
+    }
+}
+
+fn line(out: &mut Out, label: &str, value: &str) -> std::io::Result<()> {
+    writeln!(out, "{label:<LABEL$} {value}")
+}
+
+fn indented(out: &mut Out, label: &str, value: &str) -> std::io::Result<()> {
+    writeln!(out, "  {label:<width$} {value}", width = LABEL - 2)
+}
+
+fn describe_login(out: &Out, status: Option<&AuthStatus>) -> String {
+    let Some(status) = status else {
+        return out.bad("could not be read").to_string();
+    };
+    if !status.signed_in {
+        return out.dim("signed out").to_string();
+    }
+    let who = status.account.as_deref().unwrap_or("signed in");
+    match (status.expires_in, &status.detail) {
+        (Some(secs), _) => format!(
+            "{who}, expires in {}",
+            human_duration(Duration::from_secs(secs))
+        ),
+        (None, Some(detail)) => format!("{who}, {detail}"),
+        (None, None) => who.to_string(),
+    }
+}
+
+/// Only the commands some shop cannot do.
+///
+/// The matrix exists to surface gaps. Every cell reading "yes" is a table that
+/// says nothing, so with no gaps there is nothing to print -- and it comes back
+/// on its own the day a shop cannot do something.
+fn gaps(out: &mut Out, shops: &[Shop]) -> std::io::Result<()> {
+    let missing: Vec<&Feature> = FEATURES
+        .iter()
+        .filter(|(_, has)| shops.iter().any(|s| !has(&s.caps)))
+        .collect();
+    if missing.is_empty() {
+        return Ok(());
+    }
+    writeln!(out)?;
+    writeln!(out, "{}", out.heading("Not available everywhere"))?;
+    for (name, has) in missing {
+        let yes: Vec<&str> = shops
+            .iter()
+            .filter(|s| has(&s.caps))
+            .map(|s| s.retailer.name())
+            .collect();
+        indented(out, name, &format!("only {}", yes.join(", ")))?;
+    }
+    Ok(())
 }

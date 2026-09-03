@@ -1,163 +1,133 @@
-//! `fsnz update` -- check for a newer release, and install it.
+//! `update` -- replacing this binary with a newer release.
 
-use anyhow::{bail, Result};
+use cli_kit::{emit, Out, View};
+use serde::Serialize;
+use std::io::Write;
 
 use crate::app::App;
-use crate::build;
-use crate::commands::io::print_json;
-use crate::update::{self, Release};
+use crate::error::{AppError, AppResult};
 
-/// Returns false when a newer release exists and was not installed, so
-/// `fsnz update --check` can gate a script the way `doctor` does.
-pub async fn run(app: &App, want: Option<&str>, check: bool, pre: bool) -> Result<bool> {
-    let current = update::current()?;
-    let releases = update::releases(&app.http).await?;
+pub async fn run(app: &App, version: Option<String>, check: bool, pre: bool) -> AppResult<()> {
+    let stamp = crate::build::stamp();
+    let current = build_kit::update::parse_version(stamp.version)?;
+    let mut source = build_kit::update::Source::new(stamp.repo, "foodstuffs-nz-cli", stamp.version)
+        .with_token(app.env.github_token.clone());
+    if let Some(api) = &app.env.update_api {
+        source = source.with_api_base(api.clone());
+    }
 
-    let target = match want {
+    let http = net_kit::http::build(net_kit::ClientSpec::new(
+        net_kit::wreq_util::Profile::Chrome137,
+        net_kit::wreq::redirect::Policy::limited(10),
+    ))
+    .map_err(|e| AppError::usage(format!("building the HTTP client: {e}")))?;
+
+    let releases = build_kit::update::releases(&http, &source).await?;
+    let wanted = match &version {
         Some(text) => {
-            let version = update::parse_version(text)?;
-            let Some(found) = update::find(&releases, &version) else {
-                bail!("no release {version} was published; `fsnz update --check` says what is");
-            };
-            Some(found)
+            let want = build_kit::update::parse_version(text)?;
+            build_kit::update::find(&releases, &want).ok_or_else(|| {
+                AppError::usage(format!("there is no foodstuffs-nz-cli release {want}"))
+            })?
         }
-        None => update::pick(&releases, &current, pre),
-    };
-
-    // Only worth saying when it is not already where this is heading.
-    let preview = update::newest_preview(&releases, &current)
-        .filter(|p| target.map(|t| t.version != p.version).unwrap_or(true));
-    let preview_line = |p: Option<&Release>| {
-        if let Some(p) = p {
-            println!(
-                "  preview {} available: `fsnz update --pre-release`",
-                p.version
-            );
-        }
-    };
-
-    let Some(release) = target else {
-        if app.json {
-            print_json(&serde_json::json!({
-                "current": current.to_string(),
-                "latest": null,
-                "preview": preview.map(|p| p.version.to_string()),
-                "update_available": false,
-                "installed": false,
-            }));
-        } else if releases.is_empty() {
-            println!("{current} has no published releases yet");
-        } else {
-            println!("fsnz {current} is the latest release");
-            preview_line(preview);
-        }
-        return Ok(true);
-    };
-
-    // An explicit version is a move to make even when it goes backwards.
-    let available = release.version != current;
-    let asset = release.asset_for_host();
-
-    if check || !available {
-        if app.json {
-            print_json(&report(&current, release, available, false, preview));
-        } else if available {
-            let how = if release.version < current {
-                " (downgrade)"
-            } else {
-                " available"
-            };
-            println!("fsnz {current} -> {}{how}", release.version);
-            println!("  {}", release.url);
-            let cmd = match want {
-                Some(_) => format!("fsnz update {}", release.version),
-                None if pre => "fsnz update --pre-release".to_string(),
-                None => "fsnz update".to_string(),
-            };
-            match asset {
-                Some(a) => println!("  run `{cmd}` to install {}", a.name),
-                None => println!("  {}", no_asset_for_host(release)),
+        None => match build_kit::update::pick(&releases, &current, pre) {
+            Some(release) => release,
+            None => {
+                let mut out = app.out();
+                let preview = build_kit::update::newest_preview(&releases, &current);
+                emit(
+                    &mut out,
+                    &Outcome {
+                        current: stamp.version.to_string(),
+                        available: None,
+                        installed: false,
+                        note: preview.map(|r| {
+                            format!(
+                                "{} is available as a pre-release: fsnz update --pre-release",
+                                r.version
+                            )
+                        }),
+                    },
+                )?;
+                return Ok(());
             }
-            preview_line(preview);
-        } else {
-            println!("fsnz {current} is already installed");
-            preview_line(preview);
+        },
+    };
+
+    if check {
+        emit(
+            &mut app.out(),
+            &Outcome {
+                current: stamp.version.to_string(),
+                available: Some(wanted.version.to_string()),
+                installed: false,
+                note: None,
+            },
+        )?;
+        return Ok(());
+    }
+
+    let target = build_kit::exe_path().ok_or_else(|| {
+        AppError::usage("cannot tell where this binary is, so there is nothing to replace")
+    })?;
+    let asset = wanted.asset_for_host().ok_or_else(|| {
+        AppError::usage(format!(
+            "release {} has no build for this platform ({})",
+            wanted.version,
+            build_kit::update::host_platforms().join(" or ")
+        ))
+    })?;
+    let json = app.out().is_json();
+    let path = build_kit::update::install(&http, &source, wanted, asset, &target, &|step: &str| {
+        // Progress goes to stderr, and not at all under --json: a script
+        // reading the document should not have to filter it out.
+        if !json {
+            eprintln!("fsnz: {step}");
         }
-        return Ok(!available);
-    }
-
-    let Some(asset) = asset else {
-        bail!(
-            "fsnz {} is available, but {}\n  {}",
-            release.version,
-            no_asset_for_host(release),
-            release.url
-        );
-    };
-
-    // Nothing stops this from replacing a `cargo build` binary -- it is the
-    // file on disk either way -- but it is worth saying out loud, because the
-    // next `cargo build` will quietly put the local one back.
-    if !app.json && build::PROFILE == "debug" {
-        println!("note: replacing a locally built (debug) binary with a release build");
-    }
-
-    if !app.json {
-        println!("updating fsnz {current} -> {}", release.version);
-    }
-    let report_step: &dyn Fn(&str) = if app.json {
-        &|_: &str| {}
-    } else {
-        &|step: &str| println!("{step}")
-    };
-    let path = update::install(&app.http, release, asset, &app.paths, report_step).await?;
-
-    if app.json {
-        print_json(&report(&current, release, true, true, preview));
-    } else {
-        println!("installed fsnz {} to {}", release.version, path.display());
-        println!("release notes: {}", release.url);
-    }
-    Ok(true)
-}
-
-/// What is on offer when nothing was built for this machine. The release
-/// workflow builds on the platforms it is configured for, which need not
-/// include the one asking.
-fn no_asset_for_host(release: &Release) -> String {
-    let built = release.platforms();
-    let host = update::host_platforms()
-        .first()
-        .cloned()
-        .unwrap_or_default();
-    if built.is_empty() {
-        format!("it publishes no binaries. Build from source, or install with `cargo install`. (host: {host})")
-    } else {
-        format!(
-            "there is no {host} binary in it; the release has {}. \
-             Build from source, or install with `cargo install`.",
-            built.join(", ")
-        )
-    }
-}
-
-fn report(
-    current: &semver::Version,
-    release: &Release,
-    available: bool,
-    installed: bool,
-    preview: Option<&Release>,
-) -> serde_json::Value {
-    serde_json::json!({
-        "current": current.to_string(),
-        "latest": release.version.to_string(),
-        "preview": preview.map(|p| p.version.to_string()),
-        "tag": release.tag,
-        "url": release.url,
-        "update_available": available,
-        "installed": installed,
-        "platform": update::host_platforms().first(),
-        "asset": release.asset_for_host().map(|a| a.name.clone()),
-        "binary": build::exe_path().map(|p| p.display().to_string()),
     })
+    .await?;
+    // Recorded so `--version` can say where this binary came from, and so a
+    // later `update` knows it manages this file.
+    build_kit::Install {
+        version: wanted.version.to_string(),
+        tag: wanted.tag.clone(),
+        url: wanted.url.clone(),
+        asset: asset.name.clone(),
+        path,
+        installed_at: build_kit::now(),
+    }
+    .save(&app.paths)?;
+
+    emit(
+        &mut app.out(),
+        &Outcome {
+            current: stamp.version.to_string(),
+            available: Some(wanted.version.to_string()),
+            installed: true,
+            note: None,
+        },
+    )?;
+    Ok(())
+}
+
+#[derive(Serialize)]
+struct Outcome {
+    current: String,
+    available: Option<String>,
+    installed: bool,
+    note: Option<String>,
+}
+
+impl View for Outcome {
+    fn text(&self, out: &mut Out) -> std::io::Result<()> {
+        match (&self.available, self.installed) {
+            (Some(v), true) => writeln!(out, "Updated {} to {v}.", self.current)?,
+            (Some(v), false) => writeln!(out, "{v} is available; running {}.", self.current)?,
+            (None, _) => writeln!(out, "{} is the newest release.", self.current)?,
+        }
+        if let Some(note) = &self.note {
+            writeln!(out, "{}", out.dim(note))?;
+        }
+        Ok(())
+    }
 }

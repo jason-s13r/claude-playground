@@ -2,7 +2,7 @@
 name = "foodstuffs-nz-cli"
 version = "0.4.0"
 edition = "2021"
-description = "Unofficial CLI for New World and PAK'nSAVE (Foodstuffs NZ) product search"
+description = "Unofficial CLI for New World and PAK'nSAVE (Foodstuffs NZ)"
 license = "MIT"
 
 [[bin]]
@@ -10,33 +10,35 @@ name = "fsnz"
 path = "src/main.rs"
 
 [dependencies]
-anyhow = "1"
-base64 = "0.22"
+async-trait = "0.1"
+thiserror = "2"
 clap = { version = "4", features = ["derive", "env"] }
 clap_complete = "4"
-comfy-table = "7"
-directories = "6"
-flate2 = "1"
-owo-colors = { version = "4", features = ["supports-colors"] }
-keyring = "4"
-rpassword = "7"
-uuid = { version = "1", features = ["v4"] }
-# reqwest with a browser TLS and HTTP/2 fingerprint. Not swappable for reqwest:
-# see src/http.rs.
-wreq = { version = "0.16", features = ["json", "cookies", "gzip", "brotli"] }
-wreq-util = "0.2"
-semver = "1"
 serde = { version = "1", features = ["derive"] }
-serde_json = "1"
-sha2 = "0.10"
-shell-words = "1"
-tar = "0.4"
 tokio = { version = "1", features = ["macros", "rt-multi-thread", "process", "fs"] }
 toml = "0.9"
+uuid = { version = "1", features = ["v4"] }
+
+build-kit = { path = "../../packages/build-kit", version = "^0.1.0" }
+cli-kit = { path = "../../packages/cli-kit", version = "^0.2.0" }
+fsnz-api = { path = "../../packages/fsnz-api", version = "^0.2.0" }
+gsnz-core = { path = "../../packages/gsnz-core", version = "^0.2.0" }
+gsnz-ui = { path = "../../packages/gsnz-ui", version = "^0.2.0" }
+net-kit = { path = "../../packages/net-kit", version = "^0.1.0" }
+
+# The stamping half only. Its runtime deps -- the whole HTTP stack -- have no
+# business being built before the crate itself is.
+#
+# One line rather than a [build-dependencies.build-kit] sub-table: dispat
+# rewrites the version of an inline entry on release and does not see the
+# sub-table form, which left this pinned to a version that no longer existed.
+[build-dependencies]
+build-kit = { path = "../../packages/build-kit", version = "^0.1.0", default-features = false, features = ["emit"] }
 
 [dev-dependencies]
 assert_cmd = "2"
 predicates = "3"
+serde_json = "1"
 tempfile = "3"
 wiremock = "0.6"
 

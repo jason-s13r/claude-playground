@@ -1,264 +1,342 @@
-//! Command-line surface.
+//! The flags, and nothing else. Parsing is separated from doing so that
+//! `--help` is readable as one file and no command function has to know how it
+//! was reached.
 
-use clap::{Args, Parser, Subcommand};
-use clap_complete::Shell;
+use clap::{Parser, Subcommand};
 
-use crate::banner::Banner;
-use crate::domain::order::Source;
+use gsnz_core::{OrderFilter, RetailerId, Sort};
 
 #[derive(Parser, Debug)]
 #[command(
     name = "fsnz",
+    about = "Search, compare and shop New World and PAK'nSAVE NZ",
     version = crate::build::short_version(),
     long_version = crate::build::long_version(),
-    about = "Unofficial CLI for New World and PAK'nSAVE (Foodstuffs NZ)",
-    long_about = "Search products, specials and stores at New World and PAK'nSAVE.\n\n\
-Prices and stock are per store. Select a store before searching.\n\n  \
-fsnz auth login --email you@example.com\n  \
-fsnz stores wellington\n  \
-fsnz store set \"NW Thorndon\"\n  \
-fsnz search milk\n  \
-fsnz compare milk\n\
-fsnz orders list\n\n\
-Not affiliated with Foodstuffs New Zealand. Calls undocumented endpoints; may break\n\
-without notice."
+    disable_help_subcommand = true
 )]
 pub struct Cli {
-    /// Banner: newworld/nw or paknsave/pns
-    #[arg(short, long, global = true, env = "FSNZ_BANNER")]
-    pub banner: Option<Banner>,
+    /// Which banner to talk to: nw or pns.
+    ///
+    /// Defaults to `banner` in the config file. `compare` takes a list --
+    /// `-b nw,pns` -- and every other command takes exactly one.
+    #[arg(
+        short = 'b',
+        long = "banner",
+        global = true,
+        env = "FSNZ_BANNER",
+        value_delimiter = ','
+    )]
+    pub banner: Vec<RetailerId>,
 
-    /// Store to price against, overriding the saved one
-    #[arg(long, global = true, value_name = "STORE_ID")]
-    pub store: Option<String>,
-
-    /// Token to use instead of minting one
-    #[arg(long, global = true, env = "FSNZ_TOKEN", hide_env_values = true)]
-    pub token: Option<String>,
-
-    /// Emit JSON instead of formatted text
+    /// Print machine-readable JSON instead of a table.
     #[arg(long, global = true)]
     pub json: bool,
 
-    /// Absent when `fsnz` is run bare, which prints the help instead.
     #[command(subcommand)]
-    pub command: Option<Command>,
+    pub command: Command,
+}
+
+/// The command that would fix a failure, spelled for this binary.
+///
+/// `gsnz_core` names the remedy and refuses to name the command: the same
+/// failure is `fsnz -b nw auth login` here and `gsnz -b nw auth login` in the
+/// combined tool this shares a domain with, and a domain crate that knew
+/// either would be wrong for the other.
+pub fn advice(error: &crate::error::AppError) -> Option<String> {
+    use gsnz_core::Remedy;
+    let crate::error::AppError::Domain(domain) = error else {
+        return None;
+    };
+    let shop = domain
+        .retailer()
+        .map(|r| format!("-b {} ", r.short()))
+        .unwrap_or_default();
+    Some(match domain.remedy()? {
+        Remedy::SignIn => format!("run `fsnz {shop}auth login`"),
+        Remedy::RefreshSession => format!("run `fsnz {shop}auth refresh`"),
+        Remedy::SelectStore => format!("run `fsnz {shop}store set <id or name>`"),
+    })
+}
+
+/// The parser, in one place so `completions` generates for exactly what runs.
+pub fn command() -> clap::Command {
+    <Cli as clap::CommandFactory>::command()
+}
+
+impl Cli {
+    /// The `--store` this run was given, wherever it was given.
+    ///
+    /// Only four commands take one -- a store is what prices are quoted
+    /// against, and nothing else in here quotes a price -- but the adapter is
+    /// built before the command runs, so it has to be found from up here.
+    pub fn store(&self) -> Option<&str> {
+        match &self.command {
+            Command::Search { listing, .. }
+            | Command::Specials { listing }
+            | Command::Browse { listing, .. }
+            | Command::Compare { listing, .. } => listing.store.as_deref(),
+            Command::Departments { store, .. } => store.as_deref(),
+            _ => None,
+        }
+    }
 }
 
 #[derive(Subcommand, Debug)]
 pub enum Command {
-    /// Search for products
+    /// Search a banner's catalogue.
     Search {
-        /// What to search for, e.g. "blue milk"
         query: String,
         #[command(flatten)]
-        list: ListArgs,
-        /// Only show products currently on special
-        #[arg(long)]
-        specials: bool,
+        listing: Listing,
     },
 
-    /// List what is on special
+    /// Everything currently on promotion.
     Specials {
         #[command(flatten)]
-        list: ListArgs,
+        listing: Listing,
     },
 
-    /// List a whole department, e.g. "Fruit & Vegetables"
+    /// List a department's products.
+    ///
+    /// Takes a department name; `fsnz departments` lists them.
     Browse {
-        /// Top-level department name as the site spells it
         department: String,
         #[command(flatten)]
-        list: ListArgs,
-        /// Only show products currently on special
-        #[arg(long)]
-        specials: bool,
+        listing: Listing,
     },
 
-    /// Compare a search across New World and PAK'nSAVE
+    /// The department tree.
+    Departments {
+        /// Show only the subtree under a department.
+        query: Option<String>,
+        /// How many levels to print.
+        #[arg(long, default_value_t = 2)]
+        depth: u32,
+        /// Use this store for this command only, without saving it.
+        #[arg(long, value_name = "ID")]
+        store: Option<String>,
+    },
+
+    /// Find a store.
+    Stores {
+        /// Filter by name, suburb or city.
+        query: Option<String>,
+        #[arg(long, default_value_t = 20)]
+        limit: u32,
+    },
+
+    /// Set the banner that commands use when `-b` is not given.
+    ///
+    /// Shorthand for `fsnz config set banner <BANNER>`. With no argument it
+    /// says which banner is current.
+    Use { banner: Option<RetailerId> },
+
+    /// Read and change the settings file.
+    Config {
+        #[command(subcommand)]
+        action: ConfigAction,
+    },
+
+    /// Show or change which store prices are quoted against.
+    Store {
+        #[command(subcommand)]
+        action: StoreAction,
+    },
+
+    /// The same products at both banners, side by side.
+    ///
+    /// Spans New World and PAK'nSAVE unless `-b` names fewer. Rows matched by
+    /// description rather than by product code are marked; `--strict` drops
+    /// them.
     Compare {
-        /// What to search for
         query: String,
         #[command(flatten)]
-        list: ListArgs,
-        /// Only compare products on special at one banner or the other
+        listing: Listing,
+        /// Pair only products that share a product code.
         #[arg(long)]
-        specials: bool,
+        strict: bool,
     },
 
-    /// List stores, optionally filtered by name
-    Stores {
-        /// Only show stores whose name contains this
-        query: Option<String>,
+    /// What is in the shopping cart, and changing it.
+    Cart {
+        #[command(subcommand)]
+        action: CartAction,
     },
 
-    /// Show or choose the store to price against
-    #[command(subcommand)]
-    Store(StoreCommand),
+    /// Past orders.
+    Orders {
+        #[command(subcommand)]
+        action: OrderAction,
+    },
 
-    /// Manage the shopping cart; requires `fsnz auth login`
-    #[command(subcommand)]
-    Cart(CartCommand),
+    /// Signing in, and the four ways a session ends.
+    Auth {
+        #[command(subcommand)]
+        action: AuthAction,
+    },
 
-    /// Look through past orders; requires `fsnz auth login`
-    #[command(subcommand)]
-    Orders(OrdersCommand),
-
-    /// Sign in to Club Plus, sign out, and inspect tokens
-    #[command(subcommand)]
-    Auth(AuthCommand),
-
-    /// Check configuration, credentials and connectivity
+    /// What is set up, and what each banner can do.
     Doctor,
 
-    /// Print a shell completion script for fsnz
-    Completions {
-        /// Shell to generate for; inferred from $SHELL when omitted
-        #[arg(value_name = "SHELL")]
-        shell: Option<Shell>,
-    },
-
-    /// Check for a newer release of fsnz, and install it
+    /// Replace this binary with a newer release.
     Update {
-        /// Version to install, e.g. `0.1.4-rc.2`; a leading `v` is optional.
-        /// Installs exactly that release, downgrades included.
+        /// A specific version, rather than the newest.
         version: Option<String>,
-        /// Report what is available without installing anything. Exits
-        /// non-zero when there is a newer release, so it can gate a script.
+        /// Report what is available without installing it.
         #[arg(long)]
         check: bool,
-        /// Take the newest release even when it is a preview.
+        /// Consider pre-releases.
         #[arg(long)]
         pre_release: bool,
     },
+
+    /// Print a shell completion script.
+    Completions {
+        /// bash, zsh, fish, elvish or powershell. Guessed from $SHELL if left off.
+        shell: Option<String>,
+    },
+}
+
+/// The flags every product listing takes. `search`, `specials` and `browse`
+/// differ only in what selects the products, so they share this.
+#[derive(clap::Args, Debug, Clone)]
+pub struct Listing {
+    /// Use this store for this command only, without saving it.
+    #[arg(long, value_name = "ID")]
+    pub store: Option<String>,
+
+    /// How many products to return.
+    #[arg(long, default_value_t = 20)]
+    pub limit: u32,
+
+    /// Keep only products whose size matches, e.g. `2l`, `500g`.
+    #[arg(long)]
+    pub size: Option<String>,
+
+    /// relevance, popularity, price-asc, price-desc or name-asc.
+    #[arg(long, default_value = "relevance")]
+    pub sort: Sort,
+
+    /// Keep only products on promotion.
+    #[arg(long)]
+    pub specials: bool,
 }
 
 #[derive(Subcommand, Debug)]
-pub enum AuthCommand {
-    /// Log in through Club Plus
+pub enum ConfigAction {
+    /// Every setting, its value, and what it does.
+    List,
+    /// Print one value, and nothing else.
+    Get { key: String },
+    /// Change one value. Refused now if it will not parse.
+    Set { key: String, value: String },
+    /// Put one setting back to its default.
+    Unset { key: String },
+    /// Where the file is.
+    Path,
+}
+
+#[derive(Subcommand, Debug)]
+pub enum AuthAction {
+    /// Sign in.
     Login {
-        /// Club Plus email address; prompted for when omitted
-        #[arg(long, env = "FSNZ_EMAIL")]
+        #[arg(long)]
         email: Option<String>,
-        /// Shell command printing the password on stdout. Overrides
-        /// password_command in the config file.
-        #[arg(long, value_name = "COMMAND")]
+        /// A command that prints the password, for a password manager.
+        #[arg(long)]
         password_command: Option<String>,
-        /// Do not keep the password in the credential store
-        ///
-        /// It is kept by default so a session that can no longer be refreshed
-        /// renews itself without a prompt. Without it, an unattended run stops
-        /// working once the refresh token lapses. A configured
-        /// password_command is used instead and never copied.
+        /// Do not keep the password, so a lapsed session that can no longer be
+        /// renewed has to be signed into again by hand.
         #[arg(long)]
         no_store_password: bool,
     },
-
-    /// Forget the stored login and any cached tokens
-    Logout,
-
-    /// Mint a fresh token, replacing the cached one
+    /// Seed a session from a browser's Netscape cookies.txt.
+    Import {
+        #[arg(value_name = "COOKIES_FILE")]
+        file: std::path::PathBuf,
+    },
+    /// Renew the session without a full sign-in, where that is possible.
     Refresh,
-
-    /// Show the Club Plus session and each banner's token state
+    /// Who is signed in, and for how much longer.
     Status,
+    /// Forget the session, the cookies and any stored password.
+    Logout,
 }
 
 #[derive(Subcommand, Debug)]
-pub enum CartCommand {
-    /// Show what is in the cart
+pub enum CartAction {
+    /// What is in it.
     List,
-    /// Add a product, or increase its quantity
+    /// Add to a line, or start one.
     Add {
-        /// Product SKU, as printed by `fsnz search`
         sku: String,
-        /// Quantity; grams for weight-priced items. Defaults to 1 for counted items
-        quantity: Option<u32>,
-        /// Sale type, overriding the inference from the SKU
-        #[arg(long, value_name = "units|weight")]
-        unit: Option<String>,
+        /// How many, or how many kilograms with `--unit kg`.
+        #[arg(default_value = "1")]
+        quantity: f64,
+        #[command(flatten)]
+        unit: Unit,
     },
-    /// Set a product's quantity outright
+    /// Set a line to an exact quantity. Zero removes it.
     Update {
-        /// Product SKU
         sku: String,
-        /// New quantity; grams for weight-priced items. Zero removes the line
-        quantity: u32,
-        /// Sale type, overriding the inference from the SKU
-        #[arg(long, value_name = "units|weight")]
-        unit: Option<String>,
+        quantity: f64,
+        #[command(flatten)]
+        unit: Unit,
     },
-    /// Remove a product entirely
-    Remove {
-        /// Product SKU
-        sku: String,
-    },
-    /// Empty the cart
+    /// Take a line out.
+    Remove { sku: String },
+    /// Empty it.
     Clear {
-        /// Required; cannot be undone
+        /// Required: this cannot be undone.
         #[arg(long)]
         force: bool,
     },
 }
 
+/// How a quantity is counted, where the product code does not already say.
+#[derive(clap::Args, Debug, Clone)]
+pub struct Unit {
+    /// The quantity is kilograms rather than a count.
+    #[arg(long = "unit", value_name = "kg", num_args = 0..=1, default_missing_value = "kg")]
+    pub kg: Option<String>,
+}
+
+impl Unit {
+    pub fn is_weight(&self) -> bool {
+        self.kg.is_some()
+    }
+}
+
 #[derive(Subcommand, Debug)]
-pub enum OrdersCommand {
-    /// List past orders, most recent first
+pub enum OrderAction {
+    /// Recent orders, newest first.
     List {
-        /// Maximum orders to return
-        #[arg(long, default_value_t = 20, value_parser = clap::value_parser!(u32).range(1..=500))]
+        #[arg(long, default_value_t = 20)]
         limit: u32,
-        /// Only show one kind of order: online or in-store
-        #[arg(long, value_name = "online|in-store")]
-        source: Option<Source>,
+        /// all, active, past, online or in-store.
+        #[arg(long, default_value = "all")]
+        filter: OrderFilter,
     },
-
-    /// Show one order and what was in it
-    Show {
-        /// Position in `fsnz orders list`, or a whole order id
-        #[arg(value_name = "POSITION_OR_ID")]
-        order: String,
-        /// Where the order came from, when the id alone does not say
-        #[arg(long, value_name = "online|in-store")]
-        source: Option<Source>,
-    },
-
-    /// List what this account has bought before, for buying it again
+    /// One order and what was in it.
+    ///
+    /// Takes an order id, or its position in `orders list`.
+    Show { order: String },
+    /// Products bought before, for restocking.
     Previous {
-        /// Maximum products to return
-        #[arg(long, default_value_t = 20, value_parser = clap::value_parser!(u32).range(1..=500))]
+        #[arg(long, default_value_t = 20)]
         limit: u32,
-        /// Keep products that are already in the cart, which are hidden by default
+        /// Include products already in the cart.
         #[arg(long)]
         include_cart: bool,
     },
 }
 
 #[derive(Subcommand, Debug)]
-pub enum StoreCommand {
-    /// Show the currently selected store
+pub enum StoreAction {
+    /// What is selected now.
     Show,
-    /// Select a store by id, or by a fragment of its name
-    Set {
-        /// Store id, or part of the store's name
-        store: String,
-    },
-    /// Forget the selected store
+    /// Select a store by id, or by enough of its name to be unambiguous.
+    Set { store: String },
+    /// Forget the selected store.
     Clear,
-}
-
-/// Options shared by every command that returns a product list.
-#[derive(Args, Debug, Clone)]
-pub struct ListArgs {
-    /// Maximum products to return
-    #[arg(long, default_value_t = 20, value_parser = clap::value_parser!(u32).range(1..=500))]
-    pub limit: u32,
-
-    /// Keep products whose size or name contains this, e.g. 2L
-    #[arg(long)]
-    pub size: Option<String>,
-
-    /// Sort order, passed to the API verbatim
-    #[arg(long, default_value = crate::api::DEFAULT_SORT)]
-    pub sort: String,
 }
