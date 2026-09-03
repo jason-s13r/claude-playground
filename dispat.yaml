@@ -34,3 +34,4 @@ dependencies:
   gsnz-ui: [gsnz-core, cli-kit]
   fsnz-api: [net-kit]
   wwnz-api: [net-kit]
+  grocery-nz-cli: [gsnz-core, gsnz-ui, cli-kit, net-kit, fsnz-api, wwnz-api, build-kit]
