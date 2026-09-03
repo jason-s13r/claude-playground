@@ -116,6 +116,16 @@ pub struct Caps {
     pub server_side_store: bool,
 }
 
+/// How a login asks for a code it was challenged for.
+///
+/// A callback rather than a second command, because the token the challenge
+/// hands back only means anything inside the exchange that produced it: split
+/// across two runs of the binary it would have to be written to disk, and a
+/// half-finished login is not a thing worth persisting.
+///
+/// `Send + Sync` because it is held across the awaits of the login flow.
+pub type CodePrompt<'a> = &'a (dyn Fn(&str) -> std::io::Result<String> + Send + Sync);
+
 #[derive(Clone, Debug, Serialize)]
 pub struct AuthStatus {
     pub retailer: RetailerId,
@@ -149,6 +159,9 @@ pub trait Retailer: Send + Sync {
     async fn orders(&self, filter: OrderFilter, max: u32) -> Result<Vec<OrderSummary>>;
     async fn auth_status(&self) -> Result<AuthStatus>;
     async fn logout(&self) -> Result<bool>;
+    /// Sign in from scratch. `code` is called only if the retailer challenges
+    /// the attempt, with the method it named.
+    async fn login(&self, email: &str, password: &str, code: CodePrompt<'_>) -> Result<AuthStatus>;
 
     async fn departments(&self) -> Result<Vec<Department>> {
         Err(Error::unsupported(self.id(), "departments"))

@@ -10,8 +10,8 @@ pub mod convert;
 
 use async_trait::async_trait;
 use gsnz_core::{
-    AuthStatus, Caps, Cart, Change, Department, Error, Order, OrderFilter, OrderLine, OrderSummary,
-    Result, Retailer, RetailerId, Search, SearchBy, SearchResult, Sort, Store,
+    AuthStatus, Caps, Cart, Change, CodePrompt, Department, Error, Order, OrderFilter, OrderLine,
+    OrderSummary, Result, Retailer, RetailerId, Search, SearchBy, SearchResult, Sort, Store,
 };
 use net_kit::{wreq, Paths, Secrets};
 use wwnz_api::{Endpoints, Session, StoredSession};
@@ -27,6 +27,7 @@ pub struct Woolworths {
     /// A `--store` given for this run. Recorded rather than applied: see
     /// [`Woolworths::no_store_override`].
     store_override: Option<String>,
+    debug: bool,
 }
 
 pub struct Setup {
@@ -35,6 +36,9 @@ pub struct Setup {
     pub secrets: Secrets,
     pub password: Option<net_kit::password::Source>,
     pub store_override: Option<String>,
+    /// Narrate the login flow on stderr. Injected rather than read here: no
+    /// library in this tree reads the environment.
+    pub debug: bool,
 }
 
 impl Woolworths {
@@ -51,6 +55,7 @@ impl Woolworths {
             secrets: setup.secrets,
             password: setup.password,
             store_override: setup.store_override,
+            debug: setup.debug,
         })
     }
 
@@ -401,6 +406,27 @@ impl Retailer for Woolworths {
                 }
             )),
         })
+    }
+
+    async fn login(
+        &self,
+        email: &str,
+        password: &str,
+        _code: CodePrompt<'_>,
+    ) -> Result<AuthStatus> {
+        // Auth0 challenges nothing this flow can answer, so the prompt is
+        // unused rather than optional: a challenge here fails the login.
+        let debug = self.debug;
+        let trace = move |step: &str, detail: &str| {
+            if debug {
+                eprintln!("gsnz: auth {step}: {detail}");
+            }
+        };
+        let session = wwnz_api::auth::login(&self.endpoints, email, password, &trace)
+            .await
+            .map_err(|e| self.err(e))?;
+        self.save_session(Some(email.to_string()), &session)?;
+        self.auth_status().await
     }
 
     async fn refresh_session(&self) -> Result<AuthStatus> {

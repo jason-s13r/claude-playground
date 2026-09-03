@@ -244,3 +244,72 @@ fn woolworths_has_no_till_receipts_and_says_so() {
         .code(4)
         .stderr(contains("till-receipt").and(contains("-b nw")));
 }
+
+#[test]
+fn auth_status_answers_for_every_shop_when_none_is_named() {
+    Sandbox::new()
+        .cmd()
+        .args(["auth", "status"])
+        .assert()
+        .success()
+        .stdout(contains("New World"))
+        .stdout(contains("PAK'nSAVE"))
+        .stdout(contains("Woolworths"))
+        .stdout(contains("signed out"));
+}
+
+#[test]
+fn auth_status_json_is_an_array_a_script_can_index() {
+    let out = Sandbox::new()
+        .cmd()
+        .args(["--json", "auth", "status", "-b", "ww"])
+        .assert()
+        .success();
+    let value: serde_json::Value =
+        serde_json::from_slice(&out.get_output().stdout).expect("valid JSON");
+    assert_eq!(value[0]["retailer"], "woolworths");
+    assert_eq!(value[0]["signed_in"], false);
+}
+
+#[test]
+fn importing_a_file_that_is_not_there_says_what_the_file_should_be() {
+    Sandbox::new()
+        .cmd()
+        .args(["-b", "ww", "auth", "import", "/nonexistent/cookies.txt"])
+        .assert()
+        .code(2)
+        .stderr(contains("cookies.txt"));
+}
+
+#[test]
+fn logging_out_of_a_shop_that_was_never_signed_in_is_not_an_error() {
+    Sandbox::new()
+        .cmd()
+        .args(["-b", "nw", "auth", "logout"])
+        .assert()
+        .success()
+        .stdout(contains("Was not signed in"));
+}
+
+#[test]
+fn doctor_prints_the_capability_matrix_before_anything_hits_it() {
+    Sandbox::new()
+        .cmd()
+        .arg("doctor")
+        .assert()
+        .success()
+        .stdout(contains("What each shop can do"))
+        .stdout(contains("orders previous"))
+        .stdout(contains("none selected"));
+}
+
+#[test]
+fn doctor_says_where_state_lives_so_a_broken_setup_can_be_found() {
+    let sandbox = Sandbox::new();
+    let out = sandbox.cmd().arg("doctor").assert().success();
+    let text = String::from_utf8_lossy(&out.get_output().stdout).to_string();
+    assert!(
+        text.contains(&sandbox.home.path().display().to_string()),
+        "{text}"
+    );
+}

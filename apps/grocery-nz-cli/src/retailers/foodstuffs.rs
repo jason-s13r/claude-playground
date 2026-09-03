@@ -14,8 +14,8 @@ use std::sync::Arc;
 use async_trait::async_trait;
 use fsnz_api::{Banner, ClubPlusEndpoints, Endpoints};
 use gsnz_core::{
-    AuthStatus, Caps, Cart, Change, Department, Error, Order, OrderFilter, OrderLine, OrderSummary,
-    Result, Retailer, RetailerId, Search, SearchBy, SearchResult, Sort, Store,
+    AuthStatus, Caps, Cart, Change, CodePrompt, Department, Error, Order, OrderFilter, OrderLine,
+    OrderSummary, Result, Retailer, RetailerId, Search, SearchBy, SearchResult, Sort, Store,
 };
 use net_kit::{wreq, Jar, Paths, Secrets};
 
@@ -318,6 +318,43 @@ impl Retailer for Foodstuffs {
                 .into(),
             ),
         })
+    }
+
+    async fn login(&self, email: &str, password: &str, code: CodePrompt<'_>) -> Result<AuthStatus> {
+        let device_id = fsnz_api::auth::device_id(&self.paths).map_err(|e| self.err(e))?;
+        let cfg = self.clubplus_config(&device_id);
+        let session = match fsnz_api::auth::login(&cfg, email, password)
+            .await
+            .map_err(|e| self.err(e))?
+        {
+            fsnz_api::auth::Login::Complete(session) => session,
+            fsnz_api::auth::Login::ChallengeRequired(challenge) => {
+                // The challenge tokens authorise nothing else and are never
+                // stored, so the code has to be answered inside this call.
+                let typed = code(&challenge.method)
+                    .map_err(|e| Error::Other(format!("reading the verification code: {e}")))?;
+                fsnz_api::auth::clubplus::complete_challenge(&cfg, &challenge, &typed)
+                    .await
+                    .map_err(|e| self.err(e))?
+            }
+        };
+        fsnz_api::auth::session::save(
+            &self.secrets,
+            &fsnz_api::auth::StoredLogin {
+                email: email.to_string(),
+                access_token: session.access_token,
+                refresh_token: session.refresh_token,
+                refreshed_at_ms: Some(net_kit::jwt::now_ms()),
+            },
+        )
+        .map_err(|e| self.err(e))?;
+        // A token cached against the previous account would otherwise be
+        // reused, and it answers with that account's cart.
+        for guest in [true, false] {
+            let _ =
+                std::fs::remove_file(fsnz_api::token::cache_file(&self.paths, self.banner, guest));
+        }
+        self.auth_status().await
     }
 
     async fn refresh_session(&self) -> Result<AuthStatus> {

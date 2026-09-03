@@ -25,6 +25,7 @@ pub const APP: &str = "grocery-nz-cli";
 pub struct App {
     pub config: Config,
     pub config_file: PathBuf,
+    pub paths: Paths,
     pub env: Overrides,
     pub registry: Registry,
     /// What `-b` named. A list, because `compare` spans several; every other
@@ -71,10 +72,21 @@ impl App {
             selected: cli.retailer.clone(),
             config,
             config_file,
+            paths,
             env,
             format,
             color,
         })
+    }
+
+    /// The credential store one shop's secrets are filed in. Per family, not
+    /// per shop: one Club Plus login covers both Foodstuffs banners.
+    pub fn secrets(&self, id: RetailerId) -> Secrets {
+        Secrets::new(
+            format!("{APP}.{}", family(id)),
+            backend(self.env.secret_backend.as_deref()),
+            &self.paths.state_dir,
+        )
     }
 
     pub fn out(&self) -> Out {
@@ -218,6 +230,7 @@ impl Factory {
                     // per-run override is a thing this shop cannot do -- which
                     // the adapter says outright rather than ignoring.
                     store_override: self.store.clone(),
+                    debug: self.env.debug_auth,
                 })?))
             }
         }

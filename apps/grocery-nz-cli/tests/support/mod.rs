@@ -9,10 +9,14 @@ use tempfile::TempDir;
 /// Every variable `gsnz` reads. Listed rather than filtered by prefix so that
 /// adding one to `src/env.rs` without adding it here is a test that fails, not
 /// a test that quietly starts depending on the developer's shell.
-pub const READS: [&str; 17] = [
+pub const READS: [&str; 21] = [
     "GSNZ_CONFIG_DIR",
     "GSNZ_STATE_DIR",
     "GSNZ_SECRET_BACKEND",
+    "GSNZ_UPDATE_API",
+    "GSNZ_DEBUG_AUTH",
+    "GITHUB_TOKEN",
+    "GH_TOKEN",
     "GSNZ_RETAILER",
     "GSNZ_TOKEN",
     "GSNZ_NEWWORLD_ORIGIN",

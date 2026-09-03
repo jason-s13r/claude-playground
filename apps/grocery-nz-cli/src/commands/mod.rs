@@ -2,13 +2,16 @@
 //! was given, and nothing else: no command reads the environment, opens the
 //! config file or decides how to render.
 
+pub mod auth;
 pub mod cart;
 pub mod compare;
 pub mod completions;
 pub mod departments;
+pub mod doctor;
 pub mod listing;
 pub mod orders;
 pub mod stores;
+pub mod update;
 
 use crate::app::App;
 use crate::cli::Command;
@@ -40,6 +43,13 @@ pub async fn run(app: &App, command: Command) -> AppResult<()> {
         Command::Orders { action } => orders::run(app, action).await,
         Command::Stores { query, limit } => stores::list(app, query, limit).await,
         Command::Store { action } => stores::store(app, action).await,
+        Command::Auth { action } => auth::run(app, action).await,
+        Command::Doctor => doctor::run(app).await,
+        Command::Update {
+            version,
+            check,
+            pre_release,
+        } => update::run(app, version, check, pre_release).await,
         Command::Completions { shell } => completions::run(app, shell),
     }
 }

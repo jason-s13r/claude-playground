@@ -122,6 +122,27 @@ pub enum Command {
         action: OrderAction,
     },
 
+    /// Signing in, and the four ways a session ends.
+    Auth {
+        #[command(subcommand)]
+        action: AuthAction,
+    },
+
+    /// What is set up, and what each shop can do.
+    Doctor,
+
+    /// Replace this binary with a newer release.
+    Update {
+        /// A specific version, rather than the newest.
+        version: Option<String>,
+        /// Report what is available without installing it.
+        #[arg(long)]
+        check: bool,
+        /// Consider pre-releases.
+        #[arg(long)]
+        pre_release: bool,
+    },
+
     /// Print a shell completion script.
     Completions {
         /// bash, zsh, fish, elvish or powershell. Guessed from $SHELL if left off.
@@ -148,6 +169,33 @@ pub struct Listing {
     /// Keep only products on promotion.
     #[arg(long)]
     pub specials: bool,
+}
+
+#[derive(Subcommand, Debug)]
+pub enum AuthAction {
+    /// Sign in.
+    Login {
+        #[arg(long)]
+        email: Option<String>,
+        /// A command that prints the password, for a password manager.
+        #[arg(long)]
+        password_command: Option<String>,
+        /// Do not keep the password. A Woolworths session then cannot be
+        /// renewed at all, since its cookie is not refreshable.
+        #[arg(long)]
+        no_store_password: bool,
+    },
+    /// Seed a session from a browser's Netscape cookies.txt.
+    Import {
+        #[arg(value_name = "COOKIES_FILE")]
+        file: std::path::PathBuf,
+    },
+    /// Renew the session without a full sign-in, where that is possible.
+    Refresh,
+    /// Who is signed in, and for how much longer.
+    Status,
+    /// Forget the session, the cookies and any stored password.
+    Logout,
 }
 
 #[derive(Subcommand, Debug)]

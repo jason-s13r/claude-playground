@@ -10,7 +10,14 @@ scripts:
     - if cargo clippy --version >/dev/null 2>&1; then cargo clippy --all-targets -- -D warnings; else echo 'clippy not installed, skipping'; fi
     - cargo build
     - cargo test
+  release-build: ./release-build.sh
   sync-lock: cargo metadata --offline --format-version 1 >/dev/null 2>&1 || cargo metadata --format-version 1 >/dev/null
+flow:
+  build: release-build
+custom:
+  releasePlatforms:
+    - ubuntu-latest
+    - macos-14
 autoVersion:
   enabled: true
   range: caret

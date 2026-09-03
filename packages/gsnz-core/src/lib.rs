@@ -27,6 +27,6 @@ pub use error::{Error, Result};
 pub use money::dollars;
 pub use order::{Order, OrderFilter, OrderLine, OrderSummary};
 pub use product::{Product, SaleUnit};
-pub use retailer::{AuthStatus, Caps, Retailer, RetailerId};
+pub use retailer::{AuthStatus, Caps, CodePrompt, Retailer, RetailerId};
 pub use search::{Search, SearchBy, SearchResult, Sort};
 pub use store::{Store, StoreRef};

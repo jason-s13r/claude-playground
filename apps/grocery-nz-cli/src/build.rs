@@ -7,6 +7,12 @@
 
 include!(concat!(env!("OUT_DIR"), "/build_stamp.rs"));
 
+use build_kit::Stamp;
+
+pub fn stamp() -> &'static Stamp {
+    &STAMP
+}
+
 /// `0.4.0 (abc1234 2026-01-01)` -- what `--version` prints.
 ///
 /// Leaked once rather than rebuilt per call: clap wants a `&'static str`, and

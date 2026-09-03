@@ -18,6 +18,11 @@ pub struct Overrides {
     pub config_dir: Option<PathBuf>,
     pub state_dir: Option<PathBuf>,
     pub secret_backend: Option<String>,
+    pub update_api: Option<String>,
+    pub github_token: Option<String>,
+    /// Narrate the login flows on stderr. Nothing they print is a credential:
+    /// query strings are dropped and cookies appear by name only.
+    pub debug_auth: bool,
     pub no_color: bool,
     /// The login shell's path, which is how `completions` guesses which script
     /// to write when none is named.
@@ -53,6 +58,11 @@ impl Overrides {
             config_dir: path("GSNZ_CONFIG_DIR"),
             state_dir: path("GSNZ_STATE_DIR"),
             secret_backend: var("GSNZ_SECRET_BACKEND"),
+            update_api: var("GSNZ_UPDATE_API"),
+            // `gh` writes one and the Actions runner the other; either lifts
+            // the anonymous rate limit on the release list.
+            github_token: var("GITHUB_TOKEN").or_else(|| var("GH_TOKEN")),
+            debug_auth: flag("GSNZ_DEBUG_AUTH"),
             // Set at all, to anything, means no colour. That is what the
             // convention says, so an empty value is not an override.
             no_color: std::env::var_os("NO_COLOR").is_some(),
@@ -97,4 +107,10 @@ fn var(name: &str) -> Option<String> {
 
 fn path(name: &str) -> Option<PathBuf> {
     var(name).map(PathBuf::from)
+}
+
+/// Set to anything but a denial means on: `GSNZ_DEBUG_AUTH=1` and
+/// `GSNZ_DEBUG_AUTH=yes` should not need to be told apart.
+fn flag(name: &str) -> bool {
+    var(name).is_some_and(|v| !matches!(v.to_lowercase().as_str(), "0" | "false" | "no"))
 }
