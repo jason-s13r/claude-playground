@@ -4,7 +4,7 @@
 
 use clap::{Parser, Subcommand};
 
-use gsnz_core::{RetailerId, Sort};
+use gsnz_core::{OrderFilter, RetailerId, Sort};
 
 #[derive(Parser, Debug)]
 #[command(
@@ -16,10 +16,16 @@ use gsnz_core::{RetailerId, Sort};
 pub struct Cli {
     /// Which shop to talk to: nw, pns or ww.
     ///
-    /// Defaults to `retailer` in the config file. `compare` spans all three
-    /// regardless unless given a list.
-    #[arg(short = 'b', long = "retailer", global = true, env = "GSNZ_RETAILER")]
-    pub retailer: Option<RetailerId>,
+    /// Defaults to `retailer` in the config file. `compare` takes a list --
+    /// `-b nw,pns` -- and every other command takes exactly one.
+    #[arg(
+        short = 'b',
+        long = "retailer",
+        global = true,
+        env = "GSNZ_RETAILER",
+        value_delimiter = ','
+    )]
+    pub retailer: Vec<RetailerId>,
 
     /// Use this store for this command only, without saving it.
     #[arg(long, global = true, value_name = "ID")]
@@ -90,6 +96,32 @@ pub enum Command {
         action: StoreAction,
     },
 
+    /// The same products at every shop, side by side.
+    ///
+    /// Spans all three unless `-b` names fewer. Rows matched by description
+    /// rather than by product code are marked; `--strict` drops them.
+    Compare {
+        query: String,
+        #[command(flatten)]
+        listing: Listing,
+        /// Pair only products that share a product code, which across
+        /// catalogues means Woolworths appears in its own rows.
+        #[arg(long)]
+        strict: bool,
+    },
+
+    /// What is in the shopping cart, and changing it.
+    Cart {
+        #[command(subcommand)]
+        action: CartAction,
+    },
+
+    /// Past orders.
+    Orders {
+        #[command(subcommand)]
+        action: OrderAction,
+    },
+
     /// Print a shell completion script.
     Completions {
         /// bash, zsh, fish, elvish or powershell. Guessed from $SHELL if left off.
@@ -116,6 +148,74 @@ pub struct Listing {
     /// Keep only products on promotion.
     #[arg(long)]
     pub specials: bool,
+}
+
+#[derive(Subcommand, Debug)]
+pub enum CartAction {
+    /// What is in it.
+    List,
+    /// Add to a line, or start one.
+    Add {
+        sku: String,
+        /// How many, or how many kilograms with `--unit kg`.
+        #[arg(default_value = "1")]
+        quantity: f64,
+        #[command(flatten)]
+        unit: Unit,
+    },
+    /// Set a line to an exact quantity. Zero removes it.
+    Update {
+        sku: String,
+        quantity: f64,
+        #[command(flatten)]
+        unit: Unit,
+    },
+    /// Take a line out.
+    Remove { sku: String },
+    /// Empty it.
+    Clear {
+        /// Required: this cannot be undone.
+        #[arg(long)]
+        force: bool,
+    },
+}
+
+/// How a quantity is counted, where the product code does not already say.
+#[derive(clap::Args, Debug, Clone)]
+pub struct Unit {
+    /// The quantity is kilograms rather than a count.
+    #[arg(long = "unit", value_name = "kg", num_args = 0..=1, default_missing_value = "kg")]
+    pub kg: Option<String>,
+}
+
+impl Unit {
+    pub fn is_weight(&self) -> bool {
+        self.kg.is_some()
+    }
+}
+
+#[derive(Subcommand, Debug)]
+pub enum OrderAction {
+    /// Recent orders, newest first.
+    List {
+        #[arg(long, default_value_t = 20)]
+        limit: u32,
+        /// all, active, past, online or in-store.
+        #[arg(long, default_value = "all")]
+        filter: OrderFilter,
+    },
+    /// One order and what was in it.
+    ///
+    /// Takes an order id, or its position in `orders list`.
+    Show { order: String },
+    /// Products bought before, for restocking.
+    Previous {
+        #[arg(long, default_value_t = 20)]
+        limit: u32,
+        /// Include products already in the cart.
+        #[arg(long)]
+        include_cart: bool,
+    },
 }
 
 #[derive(Subcommand, Debug)]

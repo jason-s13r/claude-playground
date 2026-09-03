@@ -166,3 +166,81 @@ fn completions_name_the_shells_on_offer_when_the_shell_is_unknown() {
         .failure()
         .stderr(contains("bash|zsh|fish"));
 }
+
+#[test]
+fn compare_with_one_shop_is_refused_rather_than_run() {
+    // One column is not a comparison, and running it would look like it worked.
+    Sandbox::new()
+        .cmd()
+        .args(["-b", "nw", "compare", "milk"])
+        .assert()
+        .code(2)
+        .stderr(contains("at least two shops"));
+}
+
+#[test]
+fn compare_spans_the_shops_named_as_a_list() {
+    // Both Foodstuffs banners want a store, so reaching exit 5 proves the list
+    // parsed and both sides were built.
+    Sandbox::new()
+        .cmd()
+        .args(["-b", "nw,pns", "compare", "milk"])
+        .assert()
+        .success()
+        .stderr(contains("New World could not be included"))
+        .stderr(contains("PAK'nSAVE could not be included"));
+}
+
+#[test]
+fn a_shop_that_cannot_answer_does_not_take_the_others_down_with_it() {
+    // The whole point of reporting per-shop failures on stderr: the table
+    // still prints, and exit stays 0.
+    Sandbox::new()
+        .cmd()
+        .args(["--json", "-b", "nw,pns", "compare", "milk"])
+        .assert()
+        .success()
+        .stdout(contains("["));
+}
+
+#[test]
+fn more_than_one_shop_is_refused_for_a_command_that_needs_exactly_one() {
+    Sandbox::new()
+        .cmd()
+        .args(["-b", "nw,ww", "cart", "list"])
+        .assert()
+        .code(2)
+        .stderr(contains("only `compare` can span more than one"));
+}
+
+#[test]
+fn emptying_the_cart_takes_more_than_asking() {
+    Sandbox::new()
+        .cmd()
+        .args(["-b", "ww", "cart", "clear"])
+        .assert()
+        .code(2)
+        .stderr(contains("--force"));
+}
+
+#[test]
+fn a_cart_command_with_no_session_says_to_sign_in() {
+    // Exit 3 is "authenticate", distinct from 5 "pick a store".
+    Sandbox::new()
+        .cmd()
+        .args(["-b", "ww", "cart", "list"])
+        .assert()
+        .code(3)
+        .stderr(contains("auth login"));
+}
+
+#[test]
+fn woolworths_has_no_till_receipts_and_says_so() {
+    Sandbox::new()
+        .cmd()
+        .args(["-b", "ww", "orders", "list", "--filter", "in-store"])
+        .assert()
+        // 4, not 3: this is not something a login would fix.
+        .code(4)
+        .stderr(contains("till-receipt").and(contains("-b nw")));
+}

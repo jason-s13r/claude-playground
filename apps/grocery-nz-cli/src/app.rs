@@ -27,9 +27,9 @@ pub struct App {
     pub config_file: PathBuf,
     pub env: Overrides,
     pub registry: Registry,
-    /// What `-b` said, if anything. Separate from the config default so
-    /// `store set` can tell "this shop" from "the usual shop".
-    pub selected: Option<RetailerId>,
+    /// What `-b` named. A list, because `compare` spans several; every other
+    /// command insists on exactly one.
+    pub selected: Vec<RetailerId>,
     pub format: Format,
     pub color: bool,
 }
@@ -68,7 +68,7 @@ impl App {
 
         Ok(App {
             registry: Registry::new(move |id| factory.build(id)),
-            selected: cli.retailer.or(config.retailer),
+            selected: cli.retailer.clone(),
             config,
             config_file,
             env,
@@ -83,12 +83,54 @@ impl App {
 
     /// The one shop a per-retailer command talks to.
     pub fn retailer(&self) -> AppResult<RetailerId> {
-        self.selected.ok_or_else(|| {
-            AppError::usage(
-                "no shop selected: pass `-b nw`, `-b pns` or `-b ww`, or set one for good \
-                 with `gsnz -b <shop> store set <store>`",
-            )
-        })
+        match self.selected.as_slice() {
+            [one] => Ok(*one),
+            [] => self.config.retailer.ok_or_else(|| {
+                AppError::usage(
+                    "no shop selected: pass `-b nw`, `-b pns` or `-b ww`, or set one for good \
+                     with `gsnz -b <shop> store set <store>`",
+                )
+            }),
+            many => Err(AppError::usage(format!(
+                "-b names {} shops, and only `compare` can span more than one",
+                many.len()
+            ))),
+        }
+    }
+
+    /// The shops `compare` puts side by side.
+    ///
+    /// A `-b` list narrows it; otherwise the config decides, and its default is
+    /// all three. The single-shop default is deliberately *not* consulted: a
+    /// comparison with one column is not a comparison.
+    pub fn compare_span(&self) -> Vec<RetailerId> {
+        if !self.selected.is_empty() {
+            return self.selected.clone();
+        }
+        if self.config.compare.retailers.is_empty() {
+            return RetailerId::ALL.to_vec();
+        }
+        self.config.compare.retailers.clone()
+    }
+
+    /// Every retailer asked for, with the ones that could not be built reported
+    /// rather than raised.
+    ///
+    /// One lapsed session must not hide the other two shops' prices: a compare
+    /// with a gap in it is worth more than no compare at all.
+    pub fn handles(
+        &self,
+        ids: &[RetailerId],
+    ) -> (Vec<Handle>, Vec<(RetailerId, gsnz_core::Error)>) {
+        let mut handles = Vec::new();
+        let mut failures = Vec::new();
+        for &id in ids {
+            match self.registry.get(id) {
+                Ok(handle) => handles.push(handle),
+                Err(e) => failures.push((id, e)),
+            }
+        }
+        (handles, failures)
     }
 
     pub fn handle(&self) -> AppResult<Handle> {

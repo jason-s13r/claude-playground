@@ -31,9 +31,10 @@ pub async fn store(app: &App, action: StoreAction) -> AppResult<()> {
 /// Deliberately no network call: `store show` is what someone runs when a
 /// command has just failed, and it should answer even when the API will not.
 fn show(app: &App) -> AppResult<()> {
-    let shown = match app.selected {
-        Some(id) => vec![id],
-        None => RetailerId::ALL.to_vec(),
+    let shown = if app.selected.is_empty() {
+        RetailerId::ALL.to_vec()
+    } else {
+        app.selected.clone()
     };
     let selection = Selection {
         stores: shown
