@@ -1,5 +1,15 @@
 # Changelog
 
+## foodstuffs-nz-cli/v0.5.0 (2026-09-03)
+
+### Features
+
+- rebuild on the shared gsnz libraries
+  The hand-rolled HTTP, auth, domain and rendering code is replaced by a Foodstuffs-only fork of grocery-nz-cli's architecture:
+  gsnz-core, fsnz-api, cli-kit, gsnz-ui, net-kit and build-kit do the work.
+  No wwnz-api, no Woolworths.
+
+
 ## foodstuffs-nz-cli/v0.4.0 (2026-09-02)
 
 ### Features
