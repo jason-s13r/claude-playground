@@ -85,6 +85,23 @@ jobs:
 
       - uses: yohimik/dispat@v1
 
+      # dispat runs version, syncLock, build, publish per releasing package,
+      # in that order. This job is that build stage hoisted onto its own runner
+      # because nothing cross-compiles, so the two stages in front of it have to
+      # be run here as well. Without them the compile sees the previous
+      # versions: the app does not care, its stamp comes from
+      # DISPAT_NEW_VERSION, but a library reports itself with
+      # `env!("CARGO_PKG_VERSION")`, read from its manifest at compile time.
+      #
+      # Nothing is committed here. autoversion only rewrites manifests and runs
+      # syncLock; the release commit and the tags come from the finalize phase,
+      # in the release job, and that job versions its own fresh checkout. Both
+      # arrive at the same versions because both derive them from the same
+      # commit history at the same SHA, which the release concurrency group is
+      # what keeps true.
+      - name: dispat autoversion
+        run: dispat autoversion
+
       # Run on every platform being shipped, not just one. A tool that builds
       # on Linux and fails its tests on macOS should not get as far as a
       # published macOS binary. No --since here: the release window is exactly
