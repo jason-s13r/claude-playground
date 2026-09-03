@@ -1,0 +1,24 @@
+[package]
+name = "net-kit"
+version = "0.0.0"
+edition = "2021"
+description = "Shared process boundary for CLI tools: browser-emulating HTTP, cookies, credential storage, paths"
+license = "MIT"
+publish = false
+
+[dependencies]
+base64 = "0.22"
+directories = "6"
+keyring = "4"
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+shell-words = "1"
+thiserror = "2"
+tokio = { version = "1", features = ["process", "fs"] }
+toml = "0.9"
+wreq = { version = "0.16", features = ["json", "cookies", "form", "gzip", "brotli"] }
+wreq-util = "0.2"
+
+[dev-dependencies]
+tempfile = "3"
+tokio = { version = "1", features = ["macros", "rt-multi-thread"] }
