@@ -57,6 +57,8 @@ gsnz [-b nw|pns|ww] [--store ID] [--token T] [--json]
 ├── departments [QUERY]   [--depth]
 ├── compare <QUERY>       [--limit --size --sort --specials --strict]
 ├── stores [QUERY]        [--limit]
+├── use [SHOP]
+├── config  list | get <KEY> | set <KEY> <VALUE> | unset <KEY> | path
 ├── store   show | set <STORE> | clear
 ├── cart    list | add <SKU> [QTY] [--unit kg] | update <SKU> <QTY>
 │                | remove <SKU> | clear --force
@@ -157,6 +159,21 @@ store_id = "..."
 
 Precedence is flag, then environment, then this file, then the default. An
 unknown key is an error rather than a setting that silently does nothing.
+
+Nothing here has to be edited by hand:
+
+```bash
+gsnz use ww                              # the default shop
+gsnz config list                         # every setting, and what it does
+gsnz config set compare.retailers nw,ww
+gsnz config unset auth.password_command
+```
+
+A value is parsed before it is written, so a typo is refused at the point of
+making it rather than by the next command that reads it, and only settings that
+differ from their default are kept in the file. `store set` stays its own
+command because it is not a plain write: it resolves a name against the live
+store list, and on Woolworths it binds the cart server-side.
 
 ### Environment
 

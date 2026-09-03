@@ -91,6 +91,18 @@ pub enum Command {
         limit: u32,
     },
 
+    /// Set the shop that commands use when `-b` is not given.
+    ///
+    /// Shorthand for `gsnz config set retailer <SHOP>`. With no argument it
+    /// says which shop is current.
+    Use { retailer: Option<RetailerId> },
+
+    /// Read and change the settings file.
+    Config {
+        #[command(subcommand)]
+        action: ConfigAction,
+    },
+
     /// Show or change which store prices are quoted against.
     Store {
         #[command(subcommand)]
@@ -170,6 +182,20 @@ pub struct Listing {
     /// Keep only products on promotion.
     #[arg(long)]
     pub specials: bool,
+}
+
+#[derive(Subcommand, Debug)]
+pub enum ConfigAction {
+    /// Every setting, its value, and what it does.
+    List,
+    /// Print one value, and nothing else.
+    Get { key: String },
+    /// Change one value. Refused now if it will not parse.
+    Set { key: String, value: String },
+    /// Put one setting back to its default.
+    Unset { key: String },
+    /// Where the file is.
+    Path,
 }
 
 #[derive(Subcommand, Debug)]

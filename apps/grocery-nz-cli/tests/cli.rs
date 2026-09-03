@@ -412,3 +412,107 @@ fn an_email_for_more_than_one_account_is_refused_rather_than_reused() {
         .code(2)
         .stderr(contains("-b ww auth login"));
 }
+
+#[test]
+fn use_sets_the_default_shop_and_reads_it_back() {
+    let sandbox = Sandbox::new();
+    sandbox
+        .cmd()
+        .args(["use", "ww"])
+        .assert()
+        .success()
+        .stdout(contains("retailer = woolworths"));
+    sandbox
+        .cmd()
+        .arg("use")
+        .assert()
+        .success()
+        .stdout(contains("woolworths"));
+    // And it takes effect: Woolworths refuses a per-command --store.
+    sandbox
+        .cmd()
+        .args(["--store", "1", "search", "milk"])
+        .assert()
+        .code(4);
+}
+
+#[test]
+fn use_can_be_changed_again_unlike_the_old_store_set_side_effect() {
+    // Setting the default used to be possible exactly once, as a side effect
+    // of the first `store set`, and never again.
+    let sandbox = Sandbox::new();
+    sandbox.write_config("retailer = \"nw\"\n");
+    sandbox.cmd().args(["use", "ww"]).assert().success();
+    assert!(sandbox.read_config().contains("woolworths"));
+}
+
+#[test]
+fn the_config_file_keeps_only_what_was_changed() {
+    // It is still a file people edit by hand, and one listing every default
+    // cannot be skimmed.
+    let sandbox = Sandbox::new();
+    sandbox.cmd().args(["use", "ww"]).assert().success();
+    let text = sandbox.read_config();
+    assert!(text.contains("woolworths"), "{text}");
+    assert!(!text.contains("[output]"), "{text}");
+    assert!(!text.contains("[paknsave]"), "{text}");
+}
+
+#[test]
+fn config_get_prints_the_value_alone_so_it_can_be_captured() {
+    let sandbox = Sandbox::new();
+    sandbox.write_config("retailer = \"pns\"\n");
+    let out = sandbox
+        .cmd()
+        .args(["config", "get", "retailer"])
+        .assert()
+        .success();
+    assert_eq!(
+        String::from_utf8_lossy(&out.get_output().stdout).trim(),
+        "paknsave"
+    );
+}
+
+#[test]
+fn an_unset_value_leaves_stdout_empty_rather_than_saying_none() {
+    // `$(gsnz config get auth.password_command)` must be the empty string.
+    let out = Sandbox::new()
+        .cmd()
+        .args(["config", "get", "auth.password_command"])
+        .assert()
+        .success();
+    assert!(out.get_output().stdout.is_empty());
+}
+
+#[test]
+fn a_bad_value_never_reaches_the_file() {
+    let sandbox = Sandbox::new();
+    sandbox
+        .cmd()
+        .args(["config", "set", "retailer", "tesco"])
+        .assert()
+        .code(2)
+        .stderr(contains("nw, pns or ww"));
+    assert!(!sandbox.read_config().contains("tesco"));
+}
+
+#[test]
+fn config_list_covers_every_key_and_says_what_each_does() {
+    let out = Sandbox::new()
+        .cmd()
+        .args(["config", "list"])
+        .assert()
+        .success();
+    let text = String::from_utf8_lossy(&out.get_output().stdout).to_string();
+    for key in [
+        "retailer",
+        "compare.retailers",
+        "compare.match",
+        "auth.password_command",
+        "auth.store_password",
+        "output.color",
+        "woolworths.store_id",
+    ] {
+        assert!(text.contains(key), "no {key} in:\n{text}");
+    }
+}

@@ -9,7 +9,7 @@ use std::path::Path;
 
 use gsnz_core::RetailerId;
 
-use crate::error::AppResult;
+use crate::error::{AppError, AppResult};
 
 #[derive(Clone, Debug, Default, Serialize, Deserialize)]
 #[serde(default, deny_unknown_fields)]
@@ -17,15 +17,27 @@ pub struct Config {
     /// Which shop a bare command talks to. `gsnz -b ww` overrides it.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub retailer: Option<RetailerId>,
+    // Only written when changed. A file listing every default is one nobody
+    // can skim, and this is still a file people edit by hand.
+    #[serde(skip_serializing_if = "is_default")]
     pub compare: Compare,
+    #[serde(skip_serializing_if = "is_default")]
     pub auth: Auth,
+    #[serde(skip_serializing_if = "is_default")]
     pub output: Output,
+    #[serde(skip_serializing_if = "is_default")]
     pub newworld: Retailer,
+    #[serde(skip_serializing_if = "is_default")]
     pub paknsave: Retailer,
+    #[serde(skip_serializing_if = "is_default")]
     pub woolworths: Retailer,
 }
 
-#[derive(Clone, Debug, Serialize, Deserialize)]
+fn is_default<T: Default + PartialEq>(value: &T) -> bool {
+    *value == T::default()
+}
+
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(default, deny_unknown_fields)]
 pub struct Compare {
     /// Which shops a bare `gsnz compare` spans.
@@ -53,7 +65,7 @@ pub enum MatchMode {
     Normalised,
 }
 
-#[derive(Clone, Debug, Serialize, Deserialize)]
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(default, deny_unknown_fields)]
 pub struct Auth {
     /// A shell command that prints the password on stdout, for a password
@@ -75,7 +87,7 @@ impl Default for Auth {
     }
 }
 
-#[derive(Clone, Debug, Serialize, Deserialize)]
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(default, deny_unknown_fields)]
 pub struct Output {
     pub color: ColorChoice,
@@ -98,7 +110,7 @@ pub enum ColorChoice {
     Never,
 }
 
-#[derive(Clone, Debug, Default, Serialize, Deserialize)]
+#[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(default, deny_unknown_fields)]
 pub struct Retailer {
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -130,6 +142,196 @@ impl Config {
             RetailerId::Woolworths => &mut self.woolworths,
         }
     }
+}
+
+/// Every setting, as a dotted key.
+///
+/// The list is explicit rather than derived so that `config list` has an order
+/// worth reading, and so a key that is no longer real fails loudly instead of
+/// writing a field nothing reads.
+pub const KEYS: [&str; 12] = [
+    "retailer",
+    "compare.retailers",
+    "compare.match",
+    "auth.password_command",
+    "auth.store_password",
+    "output.color",
+    "newworld.store_id",
+    "newworld.token_command",
+    "paknsave.store_id",
+    "paknsave.token_command",
+    "woolworths.store_id",
+    "woolworths.token_command",
+];
+
+/// What a key means, for `config list`.
+pub fn describe(key: &str) -> &'static str {
+    match key {
+        "retailer" => "the shop a command talks to when -b is not given",
+        "compare.retailers" => "the shops `compare` puts side by side",
+        "compare.match" => {
+            "exact pairs only on product code; normalised also pairs on name and size"
+        }
+        "auth.password_command" => "a command that prints the password, for a password manager",
+        "auth.store_password" => {
+            "keep the password at login, so a lapsed session can renew unattended"
+        }
+        "output.color" => "auto, always or never",
+        _ if key.ends_with("store_id") => {
+            "the store prices are quoted against; `store set` resolves a name"
+        }
+        _ => "a command that prints a bearer token",
+    }
+}
+
+impl Config {
+    fn shop(key: &str) -> Option<(RetailerId, &str)> {
+        let (shop, field) = key.split_once('.')?;
+        let id = RetailerId::ALL.into_iter().find(|r| r.id() == shop)?;
+        Some((id, field))
+    }
+
+    /// The value as it would be written, or `None` when nothing is set.
+    pub fn get(&self, key: &str) -> AppResult<Option<String>> {
+        if !KEYS.contains(&key) {
+            return Err(unknown(key));
+        }
+        Ok(match key {
+            "retailer" => self.retailer.map(|r| r.id().to_string()),
+            "compare.retailers" => Some(
+                self.compare
+                    .retailers
+                    .iter()
+                    .map(|r| r.id())
+                    .collect::<Vec<_>>()
+                    .join(","),
+            ),
+            "compare.match" => Some(
+                match self.compare.r#match {
+                    MatchMode::Exact => "exact",
+                    MatchMode::Normalised => "normalised",
+                }
+                .into(),
+            ),
+            "auth.password_command" => self.auth.password_command.clone(),
+            "auth.store_password" => Some(self.auth.store_password.to_string()),
+            "output.color" => Some(
+                match self.output.color {
+                    ColorChoice::Auto => "auto",
+                    ColorChoice::Always => "always",
+                    ColorChoice::Never => "never",
+                }
+                .into(),
+            ),
+            _ => {
+                let (id, field) = Config::shop(key).ok_or_else(|| unknown(key))?;
+                let shop = self.retailer(id);
+                match field {
+                    "store_id" => shop.store_id.clone(),
+                    _ => shop.token_command.clone(),
+                }
+            }
+        })
+    }
+
+    /// Parse and store a value, so a bad one is refused now rather than at the
+    /// next command that reads it.
+    pub fn set(&mut self, key: &str, value: &str) -> AppResult<()> {
+        let value = value.trim();
+        match key {
+            "retailer" => self.retailer = Some(parse(value)?),
+            "compare.retailers" => {
+                let shops: Vec<RetailerId> = value
+                    .split(',')
+                    .map(str::trim)
+                    .filter(|s| !s.is_empty())
+                    .map(parse)
+                    .collect::<AppResult<_>>()?;
+                if shops.len() < 2 {
+                    return Err(AppError::usage(
+                        "comparing needs at least two shops, e.g. `nw,pns,ww`",
+                    ));
+                }
+                self.compare.retailers = shops;
+            }
+            "compare.match" => {
+                self.compare.r#match = match value.to_lowercase().as_str() {
+                    "exact" => MatchMode::Exact,
+                    "normalised" | "normalized" | "fuzzy" => MatchMode::Normalised,
+                    _ => return Err(AppError::usage("match takes `exact` or `normalised`")),
+                }
+            }
+            "auth.password_command" => self.auth.password_command = Some(value.to_string()),
+            "auth.store_password" => self.auth.store_password = boolean(value)?,
+            "output.color" => {
+                self.output.color = match value.to_lowercase().as_str() {
+                    "auto" => ColorChoice::Auto,
+                    "always" | "yes" | "on" => ColorChoice::Always,
+                    "never" | "no" | "off" => ColorChoice::Never,
+                    _ => return Err(AppError::usage("color takes `auto`, `always` or `never`")),
+                }
+            }
+            _ => {
+                let (id, field) = Config::shop(key).ok_or_else(|| unknown(key))?;
+                match field {
+                    "store_id" => self.retailer_mut(id).store_id = Some(value.to_string()),
+                    "token_command" if id == RetailerId::Woolworths => {
+                        // A Woolworths guest token comes from loading a page,
+                        // not from anything a command could print.
+                        return Err(AppError::usage(
+                            "Woolworths has no mintable token, so token_command does nothing                              there; sign in with `gsnz -b ww auth login`",
+                        ));
+                    }
+                    "token_command" => {
+                        self.retailer_mut(id).token_command = Some(value.to_string())
+                    }
+                    _ => return Err(unknown(key)),
+                }
+            }
+        }
+        Ok(())
+    }
+
+    /// Back to the default. Not the same as setting an empty string: an empty
+    /// `password_command` would be run and would fail.
+    pub fn unset(&mut self, key: &str) -> AppResult<()> {
+        match key {
+            "retailer" => self.retailer = None,
+            "compare.retailers" => self.compare.retailers = Compare::default().retailers,
+            "compare.match" => self.compare.r#match = MatchMode::default(),
+            "auth.password_command" => self.auth.password_command = None,
+            "auth.store_password" => self.auth.store_password = Auth::default().store_password,
+            "output.color" => self.output.color = ColorChoice::default(),
+            _ => {
+                let (id, field) = Config::shop(key).ok_or_else(|| unknown(key))?;
+                match field {
+                    "store_id" => self.retailer_mut(id).store_id = None,
+                    "token_command" => self.retailer_mut(id).token_command = None,
+                    _ => return Err(unknown(key)),
+                }
+            }
+        }
+        Ok(())
+    }
+}
+
+fn parse(value: &str) -> AppResult<RetailerId> {
+    value.parse().map_err(|e| AppError::usage(format!("{e}")))
+}
+
+fn boolean(value: &str) -> AppResult<bool> {
+    match value.to_lowercase().as_str() {
+        "true" | "yes" | "on" | "1" => Ok(true),
+        "false" | "no" | "off" | "0" => Ok(false),
+        _ => Err(AppError::usage(format!("{value:?} is not true or false"))),
+    }
+}
+
+fn unknown(key: &str) -> AppError {
+    AppError::usage(format!(
+        "no setting called {key:?}. Run `gsnz config list` for the {} there are.",
+        KEYS.len()
+    ))
 }
 
 #[cfg(test)]

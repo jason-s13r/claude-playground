@@ -6,6 +6,7 @@ pub mod auth;
 pub mod cart;
 pub mod compare;
 pub mod completions;
+pub mod config;
 pub mod departments;
 pub mod doctor;
 pub mod listing;
@@ -43,6 +44,8 @@ pub async fn run(app: &App, command: Command) -> AppResult<()> {
         Command::Orders { action } => orders::run(app, action).await,
         Command::Stores { query, limit } => stores::list(app, query, limit).await,
         Command::Store { action } => stores::store(app, action).await,
+        Command::Use { retailer } => config::use_shop(app, retailer),
+        Command::Config { action } => config::run(app, action),
         Command::Auth { action } => auth::run(app, action).await,
         Command::Doctor => doctor::run(app).await,
         Command::Update {
