@@ -17,10 +17,12 @@ than as a product that does not exist.
 question: *is it cheaper at the other one?* `gsnz` puts all three side by side,
 and targets one with `-b`.
 
-It is built on seven libraries in [`packages/`](../../packages), so the shared
-half — HTTP that is not scored as a bot, credentials, the self-update, the
-renderers — has one implementation rather than two drifting copies. The two
-existing CLIs are untouched; moving them onto these libraries is separate work.
+It is built on the seven libraries in [`packages/`](../../packages), so the
+shared half — HTTP that is not scored as a bot, credentials, the self-update,
+the renderers — has one implementation rather than several drifting copies.
+[`fsnz`](../foodstuffs-nz-cli) has since been rebuilt on those same libraries
+and is the Foodstuffs-only slice of this architecture; `wwnz` still predates
+them and carries its own copy.
 
 ## Install
 
