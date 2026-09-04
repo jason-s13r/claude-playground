@@ -20,9 +20,9 @@ and targets one with `-b`.
 It is built on the seven libraries in [`packages/`](../../packages), so the
 shared half — HTTP that is not scored as a bot, credentials, the self-update,
 the renderers — has one implementation rather than several drifting copies.
-[`fsnz`](../foodstuffs-nz-cli) has since been rebuilt on those same libraries
-and is the Foodstuffs-only slice of this architecture; `wwnz` still predates
-them and carries its own copy.
+[`fsnz`](../foodstuffs-nz-cli) and [`wwnz`](../woolworths-nz-cli) have since
+been rebuilt on those same libraries, and are the single-chain slices of this
+architecture.
 
 ## Install
 

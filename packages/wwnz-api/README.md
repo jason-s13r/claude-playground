@@ -118,6 +118,7 @@ Unit tests beside the code, and [`tests/client.rs`](tests/client.rs) against a
 `wiremock` stand-in that routes on the `op-name` query parameter the way the
 real endpoint distinguishes operations. Nothing touches the network.
 
-Used by [`grocery-nz-cli`](../../apps/grocery-nz-cli). Not published to
+Used by [`grocery-nz-cli`](../../apps/grocery-nz-cli) and
+[`woolworths-nz-cli`](../../apps/woolworths-nz-cli). Not published to
 crates.io; consumers declare a path dependency, as
 [`packages/README.md`](../README.md) describes.

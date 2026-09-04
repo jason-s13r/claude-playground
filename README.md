@@ -33,9 +33,9 @@ Two kinds of directory. [`apps/`](apps) holds the things that ship;
 | [`wwnz-api`](packages/wwnz-api) | The Woolworths GraphQL API and its Auth0 login flow, likewise |
 | [`build-kit`](packages/build-kit) | The provenance a binary stamps into itself at build time, and the self-update that replaces it |
 
-`gsnz` is built on all seven, `fsnz` on all but `wwnz-api`. `wwnz` came first
-and still carries its own copy of that ground — HTTP, secrets, tables, its own
-product and cart types — because it has not been moved onto the libraries yet.
+`gsnz` is built on all seven; `fsnz` and `wwnz` are the two single-chain slices
+of it, each dropping the API crate it does not speak. Nothing under `apps/`
+carries its own HTTP client, credential store or domain types any more.
 
 Those tables are for people. dispat and CI discover the projects themselves, so
 adding one means adding a directory and nothing else.

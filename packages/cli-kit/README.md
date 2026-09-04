@@ -83,6 +83,6 @@ re-exports `wreq`: a consumer building rows compiles against the same
 dispat run check --since all -p cli-kit
 ```
 
-Used by [`gsnz-ui`](../gsnz-ui) and both apps. Not published to crates.io;
+Used by [`gsnz-ui`](../gsnz-ui) and all three apps. Not published to crates.io;
 consumers declare a path dependency, as [`packages/README.md`](../README.md)
 describes.

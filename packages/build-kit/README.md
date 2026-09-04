@@ -109,5 +109,5 @@ dispat run check --since all -p build-kit
 emit` — because the build-script half is what a consumer's `build.rs` compiles,
 and nothing else would catch a runtime dependency leaking into it.
 
-Used by both apps. Not published to crates.io; consumers declare a path
+Used by all three apps. Not published to crates.io; consumers declare a path
 dependency, as [`packages/README.md`](../README.md) describes.

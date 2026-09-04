@@ -95,5 +95,7 @@ Unit tests beside the code for the wire shapes and the token logic;
 stand-in. Nothing in the suite touches the network — the one thing that cannot
 be covered that way is a real Club Plus login, which is verified by hand.
 
-Used by both apps. Not published to crates.io; consumers declare a path
-dependency, as [`packages/README.md`](../README.md) describes.
+Used by [`grocery-nz-cli`](../../apps/grocery-nz-cli) and
+[`foodstuffs-nz-cli`](../../apps/foodstuffs-nz-cli). Not published to
+crates.io; consumers declare a path dependency, as
+[`packages/README.md`](../README.md) describes.

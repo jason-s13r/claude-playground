@@ -95,6 +95,6 @@ dispat run check --since all -p gsnz-core
 Unit tests beside the code, no network and no fixtures — the crate cannot make
 a request.
 
-Used by [`gsnz-ui`](../gsnz-ui) and both apps. Not published to crates.io;
+Used by [`gsnz-ui`](../gsnz-ui) and all three apps. Not published to crates.io;
 consumers declare a path dependency, as [`packages/README.md`](../README.md)
 describes.

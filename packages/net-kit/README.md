@@ -4,7 +4,7 @@ The process boundary. HTTP that is not scored as a bot, cookies that survive a
 run, credentials that are not a plaintext file, and the paths those live under.
 
 Everything a CLI does that is not its own logic is here, so the two supermarket
-clients and the two apps in front of them share one implementation of the part
+clients and the three apps in front of them share one implementation of the part
 that is hardest to get right and easiest to get subtly wrong.
 
 ## The rule: this crate does not read the environment
@@ -96,5 +96,5 @@ against `tempfile`. Wire behaviour is tested in the crates that own a wire —
 [`fsnz-api`](../fsnz-api) and [`wwnz-api`](../wwnz-api).
 
 Used by [`build-kit`](../build-kit), [`fsnz-api`](../fsnz-api),
-[`wwnz-api`](../wwnz-api) and both apps. Not published to crates.io; consumers
+[`wwnz-api`](../wwnz-api) and all three apps. Not published to crates.io; consumers
 declare a path dependency, as [`packages/README.md`](../README.md) describes.

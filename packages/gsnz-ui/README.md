@@ -65,5 +65,5 @@ dispat run check --since all -p gsnz-ui
 Every renderer is unit-tested against `Out::buffer`, so the assertions are on
 the actual text and the actual JSON rather than on a process's stdout.
 
-Used by both apps. Not published to crates.io; consumers declare a path
+Used by all three apps. Not published to crates.io; consumers declare a path
 dependency, as [`packages/README.md`](../README.md) describes.
