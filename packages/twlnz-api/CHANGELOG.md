@@ -1,5 +1,21 @@
 # Changelog
 
+## twlnz-api/v0.1.1 (2026-09-04)
+
+### Fixes
+
+- stop carrying captured secrets in the test fixtures
+  The store fixture embedded The Warehouse's Google Maps key in three
+  mapEmbedURL values, which secret scanning flagged. Nothing parses that
+  field, nor the 33KB of rendered HTML beside it, so the fixture is cut to
+  the envelope and three invented records -- one of them closed and without
+  click and collect, so both states of each optional field are covered.
+
+  Also drops a captured csrf_token from the stock modal fixture, and stops
+  an assertion printing a signed add-to-cart url on failure, which CodeQL
+  read as logging a secret.
+
+
 ## twlnz-api/v0.1.0 (2026-09-04)
 
 ### Features

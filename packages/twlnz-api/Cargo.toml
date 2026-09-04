@@ -1,6 +1,6 @@
 [package]
 name = "twlnz-api"
-version = "0.1.0"
+version = "0.1.1"
 edition = "2021"
 description = "Client for The Warehouse NZ storefront: its listing, product, cart and store endpoints"
 license = "MIT"
