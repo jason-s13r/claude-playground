@@ -285,4 +285,7 @@ session can renew itself, given a password.
 
 `cargo test` touches no network. The fixtures under [`tests/fixtures`](tests/fixtures)
 are real responses from captures of the site, trimmed but not reshaped, so the
-tests pin the behaviour of the actual markup.
+tests pin the behaviour of the actual markup. Two are noted as exceptions in the
+test module's own doc — one built a case the capture never produced, and the
+store list keeps its real envelope around invented records, because the real
+ones embedded map URLs signed with The Warehouse's Google API key.

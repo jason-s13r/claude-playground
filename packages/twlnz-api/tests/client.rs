@@ -4,9 +4,12 @@
 //! reshaped, so these pin the behaviour of the actual markup rather than of
 //! something convenient. Nothing here touches the network.
 //!
-//! `cart-removed.json` is the one exception, and it says so: the capture only
-//! ever removed the last line, so the interesting case -- a removal that leaves
-//! a basket behind -- is the captured envelope with lines put back into it.
+//! Two exceptions, and they say so. `cart-removed.json` is the captured
+//! envelope with lines put back into it: the capture only ever removed the last
+//! line, so the interesting case -- a removal that leaves a basket behind --
+//! had to be built. And `stores-region.json` keeps the real envelope but its
+//! store records are invented, because the real ones carried Google Maps embed
+//! URLs signed with The Warehouse's own API key.
 
 use twlnz_api::{Client, Endpoints, Facet, Island, Pdp, Query, Session};
 use wiremock::matchers::{body_string_contains, method, path, query_param};
@@ -326,8 +329,12 @@ async fn stores_come_back_as_records_for_a_region() {
     let stores = client(&server).stores("Auckland").await.unwrap();
     assert_eq!(stores.len(), 3);
     assert!(stores.iter().all(|s| !s.id.is_empty()));
+    // Both states of each optional field, so a parse that hardcoded one would
+    // fail rather than pass by luck.
     assert!(stores.iter().any(|s| s.click_and_collect == Some(true)));
+    assert!(stores.iter().any(|s| s.click_and_collect == Some(false)));
     assert!(stores[0].hours_today.is_some());
+    assert!(stores.iter().any(|s| s.hours_today.is_none()));
 }
 
 #[tokio::test]
@@ -655,13 +662,14 @@ async fn a_saved_row_carries_the_token_that_puts_it_in_the_basket() {
     let client = signed_in(&server);
     let wishlist = client.wishlist().await.unwrap();
     let saved = &wishlist.items[0];
+    // The message says what is missing rather than printing the URL: it is a
+    // signed one, and a failing test should not put a token in the log.
     assert!(
         saved
             .add_to_cart
             .as_deref()
             .is_some_and(|u| u.contains("verify=")),
-        "{:?}",
-        saved.add_to_cart
+        "the saved row carries no signed add-to-cart url"
     );
 
     let cart = client.add_saved_to_cart(saved, 1).await.unwrap();
