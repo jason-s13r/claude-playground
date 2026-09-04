@@ -1,5 +1,37 @@
 # Changelog
 
+## grocery-nz-cli/v0.3.0 (2026-09-04)
+
+### Features
+
+- show release notes in update --check
+  A version number alone is not enough to decide whether to take an update, and
+  the release body was being dropped at the wire type.
+
+  `changelog()` returns every release being crossed, newest first, skipping
+  previews a stable build was never offered; a downgrade answers with the notes
+  of the version asked about. Under --json it is a `changelog` array.
+
+### Fixes
+
+- declare build-kit once
+  dispat rewrites one version range per manifest, so the [build-dependencies]
+  build-kit stayed at ^0.1.0 when the [dependencies] one moved to ^0.2.0 and the
+  release failed to select a version. Latent until build-kit's first bump.
+
+  A path dependency needs a version only to be publishable, so the second
+  declaration drops it rather than carrying a number nothing keeps honest.
+
+- rebuild so --version names the real library versions
+  grocery-nz-cli/v0.2.0 was released at 4395b4f, before 6d9520e taught the matrix runner to run the version stage ahead of the build. The libraries were compiled from unbumped manifests, and `env!("CARGO_PKG_VERSION")` stamped what they were replacing: the published binary reports gsnz-core, gsnz-ui, cli-kit and fsnz-api as 0.1.0, and all four were 0.2.0 in that release.
+
+  Nothing in this package changed; being built after 6d9520e is the fix.
+
+### Dependencies
+
+- build-kit: 0.1.0 -> 0.2.0
+
+
 ## grocery-nz-cli/v0.2.0 (2026-09-03)
 
 ### Features

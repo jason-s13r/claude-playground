@@ -1,5 +1,32 @@
 # Changelog
 
+## foodstuffs-nz-cli/v0.6.0 (2026-09-04)
+
+### Features
+
+- show release notes in update --check
+  A version number alone is not enough to decide whether to take an update, and
+  the release body was being dropped at the wire type.
+
+  `changelog()` returns every release being crossed, newest first, skipping
+  previews a stable build was never offered; a downgrade answers with the notes
+  of the version asked about. Under --json it is a `changelog` array.
+
+### Fixes
+
+- declare build-kit once
+  dispat rewrites one version range per manifest, so the [build-dependencies]
+  build-kit stayed at ^0.1.0 when the [dependencies] one moved to ^0.2.0 and the
+  release failed to select a version. Latent until build-kit's first bump.
+
+  A path dependency needs a version only to be publishable, so the second
+  declaration drops it rather than carrying a number nothing keeps honest.
+
+### Dependencies
+
+- build-kit: 0.1.0 -> 0.2.0
+
+
 ## foodstuffs-nz-cli/v0.5.0 (2026-09-03)
 
 ### Features

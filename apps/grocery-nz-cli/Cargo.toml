@@ -1,6 +1,6 @@
 [package]
 name = "grocery-nz-cli"
-version = "0.2.0"
+version = "0.3.0"
 edition = "2021"
 description = "Unofficial CLI across New World, PAK'nSAVE and Woolworths NZ"
 license = "MIT"
@@ -19,7 +19,7 @@ tokio = { version = "1", features = ["macros", "rt-multi-thread", "process", "fs
 toml = "0.9"
 uuid = { version = "1", features = ["v4"] }
 
-build-kit = { path = "../../packages/build-kit", version = "^0.1.0" }
+build-kit = { path = "../../packages/build-kit", version = "^0.2.0" }
 cli-kit = { path = "../../packages/cli-kit", version = "^0.2.0" }
 fsnz-api = { path = "../../packages/fsnz-api", version = "^0.2.0" }
 gsnz-core = { path = "../../packages/gsnz-core", version = "^0.2.0" }

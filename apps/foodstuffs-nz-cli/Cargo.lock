@@ -410,7 +410,7 @@ dependencies = [
 
 [[package]]
 name = "build-kit"
-version = "0.1.0"
+version = "0.2.0"
 dependencies = [
  "flate2",
  "net-kit",
@@ -903,7 +903,7 @@ checksum = "77ce24cb58228fbb8aa041425bb1050850ac19177686ea6e0f41a70416f56fdb"
 
 [[package]]
 name = "foodstuffs-nz-cli"
-version = "0.5.0"
+version = "0.6.0"
 dependencies = [
  "assert_cmd",
  "async-trait",

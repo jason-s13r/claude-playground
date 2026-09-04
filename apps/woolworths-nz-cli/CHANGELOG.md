@@ -1,5 +1,41 @@
 # Changelog
 
+## woolworths-nz-cli/v0.3.0 (2026-09-04)
+
+### Features
+
+- show release notes in update --check
+  A version number alone is not enough to decide whether to take an update, and
+  the release body was being dropped at the wire type.
+
+  `changelog()` returns every release being crossed, newest first, skipping
+  previews a stable build was never offered; a downgrade answers with the notes
+  of the version asked about. Under --json it is a `changelog` array.
+
+- rebuild on the shared gsnz libraries
+  The hand-rolled HTTP, auth, domain and rendering code is replaced by a Woolworths-only fork of grocery-nz-cli's architecture:
+  gsnz-core, wwnz-api, cli-kit, gsnz-ui, net-kit and build-kit do the work.
+  No fsnz-api, no Foodstuffs.
+
+  The surface moves with it. A 0.2 config file is refused rather than ignored: password_command and store_password are under [auth] now, and store_name is gone.
+  `--store` and WWNZ_STORE_ID no longer rebind the cart per run -- 0.2 did that on every listing command -- so `store set` is the only thing that binds it and `--store` is refused with that advice.
+  WWNZ_SESSION and WWNZ_EMAIL are dropped, `orders show` and `auth refresh` exist, `--unit kg` replaces `--unit KGM`, and `auth status --json` is the status object rather than a wrapper.
+
+### Fixes
+
+- declare build-kit once
+  dispat rewrites one version range per manifest, so the [build-dependencies]
+  build-kit stayed at ^0.1.0 when the [dependencies] one moved to ^0.2.0 and the
+  release failed to select a version. Latent until build-kit's first bump.
+
+  A path dependency needs a version only to be publishable, so the second
+  declaration drops it rather than carrying a number nothing keeps honest.
+
+### Dependencies
+
+- build-kit: 0.1.0 -> 0.2.0
+
+
 ## woolworths-nz-cli/v0.2.0 (2026-09-02)
 
 ### Features

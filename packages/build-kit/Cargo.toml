@@ -1,6 +1,6 @@
 [package]
 name = "build-kit"
-version = "0.1.0"
+version = "0.2.0"
 edition = "2021"
 description = "Build provenance stamping and self-update for monorepo-released CLI tools"
 license = "MIT"

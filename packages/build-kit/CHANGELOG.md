@@ -1,5 +1,18 @@
 # Changelog
 
+## build-kit/v0.2.0 (2026-09-04)
+
+### Features
+
+- show release notes in update --check
+  A version number alone is not enough to decide whether to take an update, and
+  the release body was being dropped at the wire type.
+
+  `changelog()` returns every release being crossed, newest first, skipping
+  previews a stable build was never offered; a downgrade answers with the notes
+  of the version asked about. Under --json it is a `changelog` array.
+
+
 ## build-kit/v0.1.0 (2026-09-03)
 
 ### Features
