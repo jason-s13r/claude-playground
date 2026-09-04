@@ -182,7 +182,8 @@ pub enum Command {
     Update {
         /// A specific version, rather than the newest.
         version: Option<String>,
-        /// Report what is available without installing it.
+        /// Report what is available, and its release notes, without
+        /// installing it.
         #[arg(long)]
         check: bool,
         /// Consider pre-releases.

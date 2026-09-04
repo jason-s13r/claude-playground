@@ -84,10 +84,17 @@ lists releases and picks the newest tag within one namespace itself.
 let src = update::Source::new("owner/repo", "grocery-nz-cli", STAMP.version);
 let releases = update::releases(&http, &src).await?;
 if let Some(release) = update::pick(&releases, &current, false) {
+    // Every release being crossed to get there, newest first, each with its
+    // notes -- what a `--check` prints before anything is downloaded.
+    let log = update::changelog(&releases, &current, release);
+
     let asset = release.asset_for_host().ok_or(...)?;
     update::install(&http, &src, release, asset, &exe, &report).await?;
 }
 ```
+
+`changelog` leaves out previews the caller was never offered: a stable build
+stepping over `1.1.0-rc.1` on its way to `1.1.0` did not cross that release.
 
 An install is deliberately paranoid, in this order: stage a temporary file
 *beside* the binary it will replace, so the final swap is a rename within one

@@ -41,6 +41,7 @@ pub async fn run(app: &App, version: Option<String>, check: bool, pre: bool) -> 
                         current: stamp.version.to_string(),
                         available: None,
                         installed: false,
+                        changelog: Vec::new(),
                         note: preview.map(|r| {
                             format!(
                                 "{} is available as a pre-release: fsnz update --pre-release",
@@ -62,6 +63,10 @@ pub async fn run(app: &App, version: Option<String>, check: bool, pre: bool) -> 
                 available: Some(wanted.version.to_string()),
                 installed: false,
                 note: None,
+                changelog: build_kit::update::changelog(&releases, &current, wanted)
+                    .into_iter()
+                    .map(Entry::from)
+                    .collect(),
             },
         )?;
         return Ok(());
@@ -105,6 +110,7 @@ pub async fn run(app: &App, version: Option<String>, check: bool, pre: bool) -> 
             available: Some(wanted.version.to_string()),
             installed: true,
             note: None,
+            changelog: Vec::new(),
         },
     )?;
     Ok(())
@@ -116,6 +122,27 @@ struct Outcome {
     available: Option<String>,
     installed: bool,
     note: Option<String>,
+    /// What `--check` found, newest first. Empty everywhere else: the notes
+    /// answer "should I take this?", which is only a question before the fact.
+    changelog: Vec<Entry>,
+}
+
+/// One release in that changelog.
+#[derive(Serialize)]
+struct Entry {
+    version: String,
+    url: String,
+    notes: String,
+}
+
+impl From<&build_kit::update::Release> for Entry {
+    fn from(release: &build_kit::update::Release) -> Entry {
+        Entry {
+            version: release.version.to_string(),
+            url: release.url.clone(),
+            notes: release.notes.clone(),
+        }
+    }
 }
 
 impl View for Outcome {
@@ -127,6 +154,23 @@ impl View for Outcome {
         }
         if let Some(note) = &self.note {
             writeln!(out, "{}", out.dim(note))?;
+        }
+        for entry in &self.changelog {
+            writeln!(out)?;
+            writeln!(out, "{}", out.heading(&entry.version))?;
+            if entry.notes.is_empty() {
+                writeln!(out, "  {}", out.dim("(no release notes)"))?;
+                continue;
+            }
+            // Indented under the heading; blank lines stay bare rather than
+            // becoming two spaces of trailing whitespace.
+            for line in entry.notes.lines() {
+                if line.trim().is_empty() {
+                    writeln!(out)?;
+                } else {
+                    writeln!(out, "  {line}")?;
+                }
+            }
         }
         Ok(())
     }

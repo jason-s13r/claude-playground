@@ -80,6 +80,8 @@ pub struct Release {
     pub url: String,
     pub assets: Vec<Asset>,
     pub prerelease: bool,
+    /// The release notes, as markdown. Empty when the release has none.
+    pub notes: String,
 }
 
 #[derive(Clone, Debug)]
@@ -93,6 +95,8 @@ struct WireRelease {
     tag_name: String,
     #[serde(default)]
     html_url: String,
+    #[serde(default)]
+    body: String,
     #[serde(default)]
     draft: bool,
     #[serde(default)]
@@ -202,6 +206,7 @@ pub async fn releases(http: &wreq::Client, src: &Source) -> Result<Vec<Release>>
                 version,
                 tag: r.tag_name,
                 url: r.html_url,
+                notes: notes(&r.body),
                 assets: r
                     .assets
                     .into_iter()
@@ -215,6 +220,12 @@ pub async fn releases(http: &wreq::Client, src: &Source) -> Result<Vec<Release>>
         .collect();
     out.sort_by(|a, b| b.version.cmp(&a.version));
     Ok(out)
+}
+
+/// GitHub returns a release body with CRLF endings and usually a trailing
+/// newline; a terminal wants neither.
+fn notes(body: &str) -> String {
+    body.replace("\r\n", "\n").trim().to_string()
 }
 
 /// The release to move to, or `None` when there is none.
@@ -240,6 +251,25 @@ pub fn newest_preview<'a>(releases: &'a [Release], current: &Version) -> Option<
     releases
         .iter()
         .find(|r| r.prerelease && r.version > *current)
+}
+
+/// Every release being crossed to reach `to`, newest first -- the changelog
+/// `--check` prints.
+///
+/// Previews are left out unless `to` is itself one: a stable build stepping
+/// over 1.1.0-rc.1 on its way to 1.1.0 was never offered that release, so its
+/// notes are not part of what changed.
+pub fn changelog<'a>(releases: &'a [Release], from: &Version, to: &'a Release) -> Vec<&'a Release> {
+    // An explicit downgrade crosses nothing. The notes of the version asked
+    // about are still the answer to what it is.
+    if to.version <= *from {
+        return vec![to];
+    }
+    releases
+        .iter()
+        .filter(|r| r.version > *from && r.version <= to.version)
+        .filter(|r| !r.prerelease || to.prerelease)
+        .collect()
 }
 
 /// A release by exact version, for an explicit `update <version>` -- including
@@ -494,6 +524,7 @@ mod tests {
             tag: tag.into(),
             url: format!("https://example.test/{tag}"),
             prerelease,
+            notes: format!("what changed in {tag}"),
             assets: assets
                 .iter()
                 .map(|name| Asset {
@@ -570,6 +601,59 @@ mod tests {
             Some("grocery-nz-cli/v1.0.0")
         );
         assert!(find(&releases, &v("3.0.0")).is_none());
+    }
+
+    #[test]
+    fn the_changelog_is_every_release_being_crossed() {
+        let releases = vec![
+            release("grocery-nz-cli/v1.3.0", false, &[]),
+            release("grocery-nz-cli/v1.2.0", false, &[]),
+            release("grocery-nz-cli/v1.1.0", false, &[]),
+            release("grocery-nz-cli/v1.0.0", false, &[]),
+        ];
+        let to = &releases[0];
+        let tags: Vec<&str> = changelog(&releases, &v("1.1.0"), to)
+            .iter()
+            .map(|r| r.tag.as_str())
+            .collect();
+        assert_eq!(
+            tags,
+            ["grocery-nz-cli/v1.3.0", "grocery-nz-cli/v1.2.0"],
+            "newest first, and the version already installed is not news"
+        );
+    }
+
+    #[test]
+    fn the_changelog_skips_previews_a_stable_build_was_never_offered() {
+        let releases = vec![
+            release("grocery-nz-cli/v1.1.0", false, &[]),
+            release("grocery-nz-cli/v1.1.0-rc.1", true, &[]),
+        ];
+        assert_eq!(changelog(&releases, &v("1.0.0"), &releases[0]).len(), 1);
+        // ...but a run heading for the preview itself sees it.
+        assert_eq!(changelog(&releases, &v("1.0.0"), &releases[1]).len(), 1);
+    }
+
+    #[test]
+    fn a_downgrade_still_says_what_the_version_asked_about_is() {
+        let releases = vec![
+            release("grocery-nz-cli/v2.0.0", false, &[]),
+            release("grocery-nz-cli/v1.0.0", false, &[]),
+        ];
+        let tags: Vec<&str> = changelog(&releases, &v("2.0.0"), &releases[1])
+            .iter()
+            .map(|r| r.tag.as_str())
+            .collect();
+        assert_eq!(tags, ["grocery-nz-cli/v1.0.0"]);
+    }
+
+    #[test]
+    fn release_notes_arrive_with_crlf_endings() {
+        assert_eq!(
+            notes("## Features\r\n\r\n* a thing\r\n"),
+            "## Features\n\n* a thing"
+        );
+        assert_eq!(notes(""), "");
     }
 
     #[test]

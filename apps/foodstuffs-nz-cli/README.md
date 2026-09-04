@@ -41,7 +41,7 @@ Or take a published build from
 tagged `foodstuffs-nz-cli/vX.Y.Z`. Once you have a binary it can replace itself:
 
 ```bash
-fsnz update --check     # is there a newer one?
+fsnz update --check     # is there a newer one, and what changed in it?
 fsnz update             # download it and swap it in
 ```
 

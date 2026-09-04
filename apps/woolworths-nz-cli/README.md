@@ -40,7 +40,7 @@ Or take a published build from
 tagged `woolworths-nz-cli/vX.Y.Z`. Once you have a binary it can replace itself:
 
 ```bash
-wwnz update --check     # is there a newer one?
+wwnz update --check     # is there a newer one, and what changed in it?
 wwnz update             # download it and swap it in
 ```
 
