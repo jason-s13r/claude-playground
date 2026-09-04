@@ -1,0 +1,977 @@
+{
+ "action": "Product-Variation",
+ "queryString": "dwvar_RM110166766-10M_color=GRN%20M&pid=RM110166766-10M&quantity=1&verify=1788496599-FSM%2BXUnCMdtnJ5Tli9w6a63DK7BASkwc5i31pzxswDc%3D",
+ "locale": "default",
+ "product": {
+  "channelType": [
+   "STORE"
+  ],
+  "maxProductQuantity": 50,
+  "shippingSize": "Standard",
+  "isDropship": false,
+  "isGiftCard": false,
+  "isDigitalGiftCard": false,
+  "masterProduct": "RM110166766",
+  "uuid": "fa77edb651534a360d77d06654",
+  "id": "RM110166766-8M",
+  "productName": "H&H Men's Regular Fit Crew Neck Tee",
+  "productType": "variationGroup",
+  "brand": "H&H",
+  "price": {
+   "sales": {
+    "value": 2.98,
+    "currency": "NZD",
+    "formatted": "$2.98",
+    "decimalPrice": "2.98"
+   },
+   "list": null
+  },
+  "images": {
+   "large": [
+    {
+     "alt": "H&H Men's Regular Fit Crew Neck Tee, Green Mid, hi-res",
+     "url": "https://www.thewarehouse.co.nz/dw/image/v2/BDMG_PRD/on/demandware.static/-/Sites-twl-master-catalog/default/dw837a3e26/images/hi-res/FE/F3/R3043935_10.jpg?sw=765&sh=765",
+     "title": "H&H Men's Regular Fit Crew Neck Tee, Green Mid"
+    },
+    {
+     "alt": "H&H Men's Regular Fit Crew Neck Tee, Green Mid, hi-res",
+     "url": "https://www.thewarehouse.co.nz/dw/image/v2/BDMG_PRD/on/demandware.static/-/Sites-twl-master-catalog/default/dwf270b6d1/images/hi-res/FE/F3/R3043935_11.jpg?sw=765&sh=765",
+     "title": "H&H Men's Regular Fit Crew Neck Tee, Green Mid"
+    },
+    {
+     "alt": "H&H Men's Regular Fit Crew Neck Tee, Green Mid, hi-res",
+     "url": "https://www.thewarehouse.co.nz/dw/image/v2/BDMG_PRD/on/demandware.static/-/Sites-twl-master-catalog/default/dwfc9abdff/images/hi-res/FE/F3/R3043935_13.jpg?sw=765&sh=765",
+     "title": "H&H Men's Regular Fit Crew Neck Tee, Green Mid"
+    },
+    {
+     "alt": "H&H Men's Regular Fit Crew Neck Tee, Green Mid, hi-res",
+     "url": "https://www.thewarehouse.co.nz/dw/image/v2/BDMG_PRD/on/demandware.static/-/Sites-twl-master-catalog/default/dw8fee90eb/images/hi-res/FE/F3/R3043935_20.jpg?sw=765&sh=765",
+     "title": "H&H Men's Regular Fit Crew Neck Tee, Green Mid"
+    },
+    {
+     "alt": "H&H Men's Regular Fit Crew Neck Tee, Green Mid, hi-res",
+     "url": "https://www.thewarehouse.co.nz/dw/image/v2/BDMG_PRD/on/demandware.static/-/Sites-twl-master-catalog/default/dw3693b110/images/hi-res/FE/F3/R3043935_21.jpg?sw=765&sh=765",
+     "title": "H&H Men's Regular Fit Crew Neck Tee, Green Mid"
+    }
+   ],
+   "small": [
+    {
+     "alt": "H&H Men's Regular Fit Crew Neck Tee, Green Mid, hi-res",
+     "url": "https://www.thewarehouse.co.nz/dw/image/v2/BDMG_PRD/on/demandware.static/-/Sites-twl-master-catalog/default/dw837a3e26/images/hi-res/FE/F3/R3043935_10.jpg?sw=208&sh=208",
+     "title": "H&H Men's Regular Fit Crew Neck Tee, Green Mid"
+    },
+    {
+     "alt": "H&H Men's Regular Fit Crew Neck Tee, Green Mid, hi-res",
+     "url": "https://www.thewarehouse.co.nz/dw/image/v2/BDMG_PRD/on/demandware.static/-/Sites-twl-master-catalog/default/dwf270b6d1/images/hi-res/FE/F3/R3043935_11.jpg?sw=208&sh=208",
+     "title": "H&H Men's Regular Fit Crew Neck Tee, Green Mid"
+    },
+    {
+     "alt": "H&H Men's Regular Fit Crew Neck Tee, Green Mid, hi-res",
+     "url": "https://www.thewarehouse.co.nz/dw/image/v2/BDMG_PRD/on/demandware.static/-/Sites-twl-master-catalog/default/dwfc9abdff/images/hi-res/FE/F3/R3043935_13.jpg?sw=208&sh=208",
+     "title": "H&H Men's Regular Fit Crew Neck Tee, Green Mid"
+    },
+    {
+     "alt": "H&H Men's Regular Fit Crew Neck Tee, Green Mid, hi-res",
+     "url": "https://www.thewarehouse.co.nz/dw/image/v2/BDMG_PRD/on/demandware.static/-/Sites-twl-master-catalog/default/dw8fee90eb/images/hi-res/FE/F3/R3043935_20.jpg?sw=208&sh=208",
+     "title": "H&H Men's Regular Fit Crew Neck Tee, Green Mid"
+    },
+    {
+     "alt": "H&H Men's Regular Fit Crew Neck Tee, Green Mid, hi-res",
+     "url": "https://www.thewarehouse.co.nz/dw/image/v2/BDMG_PRD/on/demandware.static/-/Sites-twl-master-catalog/default/dw3693b110/images/hi-res/FE/F3/R3043935_21.jpg?sw=208&sh=208",
+     "title": "H&H Men's Regular Fit Crew Neck Tee, Green Mid"
+    }
+   ]
+  },
+  "selectedQuantity": 1,
+  "minOrderQuantity": 1,
+  "maxOrderQuantity": 10,
+  "variationAttributes": [
+   {
+    "attributeId": "color",
+    "displayName": "Color",
+    "displayValue": "Green Mid",
+    "id": "color",
+    "swatchable": true,
+    "values": [
+     {
+      "id": "BGE",
+      "description": "Beige",
+      "displayValue": "Beige",
+      "value": "BGE",
+      "selected": false,
+      "selectable": true,
+      "enableVariantSelection": true,
+      "orderable": true,
+      "url": "/products/variation?dwvar_RM110166766-8M_color=BGE&pid=RM110166766-8M&quantity=1&verify=1788496607-oGV2MZ5b7%2Fvuy6xKHKBVnrXwt5C3PA0BABUNOEpSFYo%3D",
+      "images": {
+       "swatch": [
+        {
+         "alt": "Beige",
+         "url": "https://www.thewarehouse.co.nz/dw/image/v2/BDMG_PRD/on/demandware.static/-/Sites-twl-master-catalog/default/dwf064d006/images/hi-res/EB/80/R2994969_10.jpg?sw=96&sh=96",
+         "title": "Beige"
+        },
+        {
+         "alt": "Beige",
+         "url": "https://www.thewarehouse.co.nz/dw/image/v2/BDMG_PRD/on/demandware.static/-/Sites-twl-master-catalog/default/dw7c9bb4fc/images/hi-res/EB/80/R2994969_11.jpg?sw=96&sh=96",
+         "title": "Beige"
+        },
+        {
+         "alt": "Beige",
+         "url": "https://www.thewarehouse.co.nz/dw/image/v2/BDMG_PRD/on/demandware.static/-/Sites-twl-master-catalog/default/dwcb6259ed/images/hi-res/EB/80/R2994969_13.jpg?sw=96&sh=96",
+         "title": "Beige"
+        },
+        {
+         "alt": "Beige",
+         "url": "https://www.thewarehouse.co.nz/dw/image/v2/BDMG_PRD/on/demandware.static/-/Sites-twl-master-catalog/default/dw78044989/images/hi-res/EB/80/R2994969_20.jpg?sw=96&sh=96",
+         "title": "Beige"
+        },
+        {
+         "alt": "Beige",
+         "url": "https://www.thewarehouse.co.nz/dw/image/v2/BDMG_PRD/on/demandware.static/-/Sites-twl-master-catalog/default/dwe358f9de/images/hi-res/EB/80/R2994969_21.jpg?sw=96&sh=96",
+         "title": "Beige"
+        }
+       ]
+      }
+     },
+     {
+      "id": "BLU D",
+      "description": "Blue Dark",
+      "displayValue": "Blue Dark",
+      "value": "BLU D",
+      "selected": false,
+      "selectable": true,
+      "enableVariantSelection": true,
+      "orderable": true,
+      "url": "/products/variation?dwvar_RM110166766-8M_color=BLU%20D&pid=RM110166766-8M&quantity=1&verify=1788496607-wNQaIn%2F7cXlV6Y%2BtQoqkiNJEAwa7S%2BAFJ4GcseIKNjU%3D",
+      "images": {
+       "swatch": [
+        {
+         "alt": "Blue Dark",
+         "url": "https://www.thewarehouse.co.nz/dw/image/v2/BDMG_PRD/on/demandware.static/-/Sites-twl-master-catalog/default/dwfb9fea24/images/hi-res/1D/81/R3043977_10.jpg?sw=96&sh=96",
+         "title": "Blue Dark"
+        },
+        {
+         "alt": "Blue Dark",
+         "url": "https://www.thewarehouse.co.nz/dw/image/v2/BDMG_PRD/on/demandware.static/-/Sites-twl-master-catalog/default/dw1ba4726e/images/hi-res/1D/81/R3043977_11.jpg?sw=96&sh=96",
+         "title": "Blue Dark"
+        },
+        {
+         "alt": "Blue Dark",
+         "url": "https://www.thewarehouse.co.nz/dw/image/v2/BDMG_PRD/on/demandware.static/-/Sites-twl-master-catalog/default/dwcfd83dd2/images/hi-res/1D/81/R3043977_13.jpg?sw=96&sh=96",
+         "title": "Blue Dark"
+        },
+        {
+         "alt": "Blue Dark",
+         "url": "https://www.thewarehouse.co.nz/dw/image/v2/BDMG_PRD/on/demandware.static/-/Sites-twl-master-catalog/default/dwc94992ac/images/hi-res/1D/81/R3043977_20.jpg?sw=96&sh=96",
+         "title": "Blue Dark"
+        },
+        {
+         "alt": "Blue Dark",
+         "url": "https://www.thewarehouse.co.nz/dw/image/v2/BDMG_PRD/on/demandware.static/-/Sites-twl-master-catalog/default/dwc8b06099/images/hi-res/7D/51/R3077792_20.jpg?sw=96&sh=96",
+         "title": "Blue Dark"
+        },
+        {
+         "alt": "Blue Dark",
+         "url": "https://www.thewarehouse.co.nz/dw/image/v2/BDMG_PRD/on/demandware.static/-/Sites-twl-master-catalog/default/dwbf025cec/images/hi-res/1D/81/R3043977_21.jpg?sw=96&sh=96",
+         "title": "Blue Dark"
+        },
+        {
+         "alt": "Blue Dark",
+         "url": "https://www.thewarehouse.co.nz/dw/image/v2/BDMG_PRD/on/demandware.static/-/Sites-twl-master-catalog/default/dw86eb11e3/images/hi-res/7D/51/R3077792_21.jpg?sw=96&sh=96",
+         "title": "Blue Dark"
+        }
+       ]
+      }
+     },
+     {
+      "id": "BLU M",
+      "description": "Blue Mid",
+      "displayValue": "Blue Mid",
+      "value": "BLU M",
+      "selected": false,
+      "selectable": true,
+      "enableVariantSelection": true,
+      "orderable": false,
+      "url": "/products/variation?dwvar_RM110166766-8M_color=BLU%20M&pid=RM110166766-8M&quantity=1&verify=1788496607-bDh5Vw6CED%2BQ4zpCNX%2FhUfb2vLNSW5dqShEgNwBUFkM%3D",
+      "images": {
+       "swatch": [
+        {
+         "alt": "Blue Mid",
+         "url": "https://www.thewarehouse.co.nz/dw/image/v2/BDMG_PRD/on/demandware.static/-/Sites-twl-master-catalog/default/dw66f3b90d/images/hi-res/6E/D6/R3045235_10.jpg?sw=96&sh=96",
+         "title": "Blue Mid"
+        },
+        {
+         "alt": "Blue Mid",
+         "url": "https://www.thewarehouse.co.nz/dw/image/v2/BDMG_PRD/on/demandware.static/-/Sites-twl-master-catalog/default/dw1d91315b/images/hi-res/6E/D6/R3045235_11.jpg?sw=96&sh=96",
+         "title": "Blue Mid"
+        },
+        {
+         "alt": "Blue Mid",
+         "url": "https://www.thewarehouse.co.nz/dw/image/v2/BDMG_PRD/on/demandware.static/-/Sites-twl-master-catalog/default/dw42863bdb/images/hi-res/6E/D6/R3045235_13.jpg?sw=96&sh=96",
+         "title": "Blue Mid"
+        },
+        {
+         "alt": "Blue Mid",
+         "url": "https://www.thewarehouse.co.nz/dw/image/v2/BDMG_PRD/on/demandware.static/-/Sites-twl-master-catalog/default/dwbe3eeabc/images/hi-res/6E/D6/R3045235_20.jpg?sw=96&sh=96",
+         "title": "Blue Mid"
+        },
+        {
+         "alt": "Blue Mid",
+         "url": "https://www.thewarehouse.co.nz/dw/image/v2/BDMG_PRD/on/demandware.static/-/Sites-twl-master-catalog/default/dwcdb50a83/images/hi-res/6E/D6/R3045235_21.jpg?sw=96&sh=96",
+         "title": "Blue Mid"
+        }
+       ]
+      }
+     },
+     {
+      "id": "BRN D",
+      "description": "Brown Dark",
+      "displayValue": "Brown Dark",
+      "value": "BRN D",
+      "selected": false,
+      "selectable": true,
+      "enableVariantSelection": true,
+      "orderable": true,
+      "url": "/products/variation?dwvar_RM110166766-8M_color=BRN%20D&pid=RM110166766-8M&quantity=1&verify=1788496607-qTsCf8XOxZZ9e3f2Xr0PTGW4E0alWv98aAW6gfGAcbI%3D",
+      "images": {
+       "swatch": [
+        {
+         "alt": "Brown Dark",
+         "url": "https://www.thewarehouse.co.nz/dw/image/v2/BDMG_PRD/on/demandware.static/-/Sites-twl-master-catalog/default/dwc11e067d/images/hi-res/4A/8A/R3077782_20.jpg?sw=96&sh=96",
+         "title": "Brown Dark"
+        },
+        {
+         "alt": "Brown Dark",
+         "url": "https://www.thewarehouse.co.nz/dw/image/v2/BDMG_PRD/on/demandware.static/-/Sites-twl-master-catalog/default/dwd2e924c3/images/hi-res/4A/8A/R3077782_21.jpg?sw=96&sh=96",
+         "title": "Brown Dark"
+        }
+       ]
+      }
+     },
+     {
+      "id": "BRN L",
+      "description": "Brown Light",
+      "displayValue": "Brown Light",
+      "value": "BRN L",
+      "selected": false,
+      "selectable": true,
+      "enableVariantSelection": true,
+      "orderable": false,
+      "url": "/products/variation?dwvar_RM110166766-8M_color=BRN%20L&pid=RM110166766-8M&quantity=1&verify=1788496607-nlaty%2F5qmLRBmVEPqCMNmCqp9Aydo7PABfM4vKGFE7E%3D",
+      "images": {
+       "swatch": [
+        {
+         "alt": "Brown Light",
+         "url": "https://www.thewarehouse.co.nz/dw/image/v2/BDMG_PRD/on/demandware.static/-/Sites-twl-master-catalog/default/dw011a4a17/images/hi-res/F7/C4/R3022914_10.jpg?sw=96&sh=96",
+         "title": "Brown Light"
+        },
+        {
+         "alt": "Brown Light",
+         "url": "https://www.thewarehouse.co.nz/dw/image/v2/BDMG_PRD/on/demandware.static/-/Sites-twl-master-catalog/default/dw1ff78071/images/hi-res/F7/C4/R3022914_11.jpg?sw=96&sh=96",
+         "title": "Brown Light"
+        },
+        {
+         "alt": "Brown Light",
+         "url": "https://www.thewarehouse.co.nz/dw/image/v2/BDMG_PRD/on/demandware.static/-/Sites-twl-master-catalog/default/dwa971fc93/images/hi-res/F7/C4/R3022914_13.jpg?sw=96&sh=96",
+         "title": "Brown Light"
+        },
+        {
+         "alt": "Brown Light",
+         "url": "https://www.thewarehouse.co.nz/dw/image/v2/BDMG_PRD/on/demandware.static/-/Sites-twl-master-catalog/default/dw66c4315b/images/hi-res/F7/C4/R3022914_20.jpg?sw=96&sh=96",
+         "title": "Brown Light"
+        },
+        {
+         "alt": "Brown Light",
+         "url": "https://www.thewarehouse.co.nz/dw/image/v2/BDMG_PRD/on/demandware.static/-/Sites-twl-master-catalog/default/dwb80ddfa2/images/hi-res/F7/C4/R3022914_21.jpg?sw=96&sh=96",
+         "title": "Brown Light"
+        }
+       ]
+      }
+     },
+     {
+      "id": "BRN M",
+      "description": "Brown Mid",
+      "displayValue": "Brown Mid",
+      "value": "BRN M",
+      "selected": false,
+      "selectable": true,
+      "enableVariantSelection": true,
+      "orderable": true,
+      "url": "/products/variation?dwvar_RM110166766-8M_color=BRN%20M&pid=RM110166766-8M&quantity=1&verify=1788496607-%2FsoQzaElmtQ2XK80AqozaehWkSRYcJsduax74MmG0os%3D",
+      "images": {
+       "swatch": [
+        {
+         "alt": "Brown Mid",
+         "url": "https://www.thewarehouse.co.nz/dw/image/v2/BDMG_PRD/on/demandware.static/-/Sites-twl-master-catalog/default/dw25d3db47/images/hi-res/69/66/R3043955_10.jpg?sw=96&sh=96",
+         "title": "Brown Mid"
+        },
+        {
+         "alt": "Brown Mid",
+         "url": "https://www.thewarehouse.co.nz/dw/image/v2/BDMG_PRD/on/demandware.static/-/Sites-twl-master-catalog/default/dwdf89281d/images/hi-res/69/66/R3043955_11.jpg?sw=96&sh=96",
+         "title": "Brown Mid"
+        },
+        {
+         "alt": "Brown Mid",
+         "url": "https://www.thewarehouse.co.nz/dw/image/v2/BDMG_PRD/on/demandware.static/-/Sites-twl-master-catalog/default/dwa7c07cef/images/hi-res/69/66/R3043955_13.jpg?sw=96&sh=96",
+         "title": "Brown Mid"
+        },
+        {
+         "alt": "Brown Mid",
+         "url": "https://www.thewarehouse.co.nz/dw/image/v2/BDMG_PRD/on/demandware.static/-/Sites-twl-master-catalog/default/dwca8b38f4/images/hi-res/69/66/R3043955_20.jpg?sw=96&sh=96",
+         "title": "Brown Mid"
+        },
+        {
+         "alt": "Brown Mid",
+         "url": "https://www.thewarehouse.co.nz/dw/image/v2/BDMG_PRD/on/demandware.static/-/Sites-twl-master-catalog/default/dwb7f9a412/images/hi-res/69/66/R3043955_21.jpg?sw=96&sh=96",
+         "title": "Brown Mid"
+        }
+       ]
+      }
+     },
+     {
+      "id": "CHR/MARL-110166766-1",
+      "description": null,
+      "displayValue": "Charcoal/Marle",
+      "value": "CHR/MARL-110166766-1",
+      "selected": false,
+      "selectable": true,
+      "enableVariantSelection": true,
+      "orderable": true,
+      "url": "/products/variation?dwvar_RM110166766-8M_color=CHR%2FMARL-110166766-1&pid=RM110166766-8M&quantity=1&verify=1788496607-ZwbGKdSGNe7u1UK3XJD65WwfYDGdzXBOLjUn95uGRkk%3D",
+      "images": {
+       "swatch": [
+        {
+         "alt": "Charcoal/Marle",
+         "url": "/on/demandware.static/Sites-twl-Site/-/default/dwad408a1d/images/image-coming-soon.svg",
+         "title": "Charcoal/Marle"
+        }
+       ]
+      }
+     },
+     {
+      "id": "CHR/MARL-110166766-2",
+      "description": null,
+      "displayValue": "Charcoal/Marle charcoalma",
+      "value": "CHR/MARL-110166766-2",
+      "selected": false,
+      "selectable": true,
+      "enableVariantSelection": true,
+      "orderable": true,
+      "url": "/products/variation?dwvar_RM110166766-8M_color=CHR%2FMARL-110166766-2&pid=RM110166766-8M&quantity=1&verify=1788496607-Pcwh2SwlEWGeaz57uXpJz47fbk1vwwVFE6QJzYq%2F5hQ%3D",
+      "images": {
+       "swatch": [
+        {
+         "alt": "Charcoal/Marle charcoalma",
+         "url": "https://www.thewarehouse.co.nz/dw/image/v2/BDMG_PRD/on/demandware.static/-/Sites-twl-master-catalog/default/dw821170bf/images/hi-res/A8/F6/R3055736_20.jpg?sw=96&sh=96",
+         "title": "Charcoal/Marle charcoalma"
+        },
+        {
+         "alt": "Charcoal/Marle charcoalma",
+         "url": "https://www.thewarehouse.co.nz/dw/image/v2/BDMG_PRD/on/demandware.static/-/Sites-twl-master-catalog/default/dw2cad46b5/images/hi-res/A8/F6/R3055736_21.jpg?sw=96&sh=96",
+         "title": "Charcoal/Marle charcoalma"
+        }
+       ]
+      }
+     },
+     {
+      "id": "CRM",
+      "description": "Cream",
+      "displayValue": "Cream",
+      "value": "CRM",
+      "selected": false,
+      "selectable": true,
+      "enableVariantSelection": true,
+      "orderable": true,
+      "url": "/products/variation?dwvar_RM110166766-8M_color=CRM&pid=RM110166766-8M&quantity=1&verify=1788496607-Qt9YmUbRCGGdUIuGELlt5IotMLhi1dBvA6%2Bj%2BTmS5bM%3D",
+      "images": {
+       "swatch": [
+        {
+         "alt": "Cream",
+         "url": "https://www.thewarehouse.co.nz/dw/image/v2/BDMG_PRD/on/demandware.static/-/Sites-twl-master-catalog/default/dw2092d086/images/hi-res/76/A3/R3045223_10.jpg?sw=96&sh=96",
+         "title": "Cream"
+        },
+        {
+         "alt": "Cream",
+         "url": "https://www.thewarehouse.co.nz/dw/image/v2/BDMG_PRD/on/demandware.static/-/Sites-twl-master-catalog/default/dw17a4fa90/images/hi-res/76/A3/R3045223_11.jpg?sw=96&sh=96",
+         "title": "Cream"
+        },
+        {
+         "alt": "Cream",
+         "url": "https://www.thewarehouse.co.nz/dw/image/v2/BDMG_PRD/on/demandware.static/-/Sites-twl-master-catalog/default/dw29851039/images/hi-res/76/A3/R3045223_13.jpg?sw=96&sh=96",
+         "title": "Cream"
+        },
+        {
+         "alt": "Cream",
+         "url": "https://www.thewarehouse.co.nz/dw/image/v2/BDMG_PRD/on/demandware.static/-/Sites-twl-master-catalog/default/dw5f6a3851/images/hi-res/76/A3/R3045223_20.jpg?sw=96&sh=96",
+         "title": "Cream"
+        },
+        {
+         "alt": "Cream",
+         "url": "https://www.thewarehouse.co.nz/dw/image/v2/BDMG_PRD/on/demandware.static/-/Sites-twl-master-catalog/default/dw140e2247/images/hi-res/76/A3/R3045223_21.jpg?sw=96&sh=96",
+         "title": "Cream"
+        }
+       ]
+      }
+     },
+     {
+      "id": "GRN D",
+      "description": "Green Dark",
+      "displayValue": "Green Dark",
+      "value": "GRN D",
+      "selected": false,
+      "selectable": true,
+      "enableVariantSelection": true,
+      "orderable": true,
+      "url": "/products/variation?dwvar_RM110166766-8M_color=GRN%20D&pid=RM110166766-8M&quantity=1&verify=1788496607-3SLAlBfZu%2B7VGYaH48OZ4fG9PY4FP%2BmSFxubX3c94o0%3D",
+      "images": {
+       "swatch": [
+        {
+         "alt": "Green Dark",
+         "url": "https://www.thewarehouse.co.nz/dw/image/v2/BDMG_PRD/on/demandware.static/-/Sites-twl-master-catalog/default/dw0d2966e2/images/hi-res/82/F2/R3077762_20.jpg?sw=96&sh=96",
+         "title": "Green Dark"
+        },
+        {
+         "alt": "Green Dark",
+         "url": "https://www.thewarehouse.co.nz/dw/image/v2/BDMG_PRD/on/demandware.static/-/Sites-twl-master-catalog/default/dwa1527da0/images/hi-res/D7/52/R3077751_20.jpg?sw=96&sh=96",
+         "title": "Green Dark"
+        },
+        {
+         "alt": "Green Dark",
+         "url": "https://www.thewarehouse.co.nz/dw/image/v2/BDMG_PRD/on/demandware.static/-/Sites-twl-master-catalog/default/dw9bcca0d2/images/hi-res/82/F2/R3077762_21.jpg?sw=96&sh=96",
+         "title": "Green Dark"
+        },
+        {
+         "alt": "Green Dark",
+         "url": "https://www.thewarehouse.co.nz/dw/image/v2/BDMG_PRD/on/demandware.static/-/Sites-twl-master-catalog/default/dwafbcac75/images/hi-res/D7/52/R3077751_21.jpg?sw=96&sh=96",
+         "title": "Green Dark"
+        }
+       ]
+      }
+     },
+     {
+      "id": "GRN M",
+      "description": "Green Mid",
+      "displayValue": "Green Mid",
+      "value": "GRN M",
+      "selected": true,
+      "selectable": true,
+      "enableVariantSelection": true,
+      "orderable": false,
+      "url": "/products/variation?pid=RM110166766-8M&quantity=1&verify=1788496607-lHyYOlmQxK5RSFBlueaFuebTjSyNZs%2Bg2hQ21LVC1Wc%3D",
+      "images": {
+       "swatch": [
+        {
+         "alt": "Green Mid",
+         "url": "https://www.thewarehouse.co.nz/dw/image/v2/BDMG_PRD/on/demandware.static/-/Sites-twl-master-catalog/default/dw837a3e26/images/hi-res/FE/F3/R3043935_10.jpg?sw=96&sh=96",
+         "title": "Green Mid"
+        },
+        {
+         "alt": "Green Mid",
+         "url": "https://www.thewarehouse.co.nz/dw/image/v2/BDMG_PRD/on/demandware.static/-/Sites-twl-master-catalog/default/dwf270b6d1/images/hi-res/FE/F3/R3043935_11.jpg?sw=96&sh=96",
+         "title": "Green Mid"
+        },
+        {
+         "alt": "Green Mid",
+         "url": "https://www.thewarehouse.co.nz/dw/image/v2/BDMG_PRD/on/demandware.static/-/Sites-twl-master-catalog/default/dwfc9abdff/images/hi-res/FE/F3/R3043935_13.jpg?sw=96&sh=96",
+         "title": "Green Mid"
+        },
+        {
+         "alt": "Green Mid",
+         "url": "https://www.thewarehouse.co.nz/dw/image/v2/BDMG_PRD/on/demandware.static/-/Sites-twl-master-catalog/default/dw8fee90eb/images/hi-res/FE/F3/R3043935_20.jpg?sw=96&sh=96",
+         "title": "Green Mid"
+        },
+        {
+         "alt": "Green Mid",
+         "url": "https://www.thewarehouse.co.nz/dw/image/v2/BDMG_PRD/on/demandware.static/-/Sites-twl-master-catalog/default/dw3693b110/images/hi-res/FE/F3/R3043935_21.jpg?sw=96&sh=96",
+         "title": "Green Mid"
+        }
+       ]
+      }
+     },
+     {
+      "id": "GRY D",
+      "description": "Grey Dark",
+      "displayValue": "Grey Dark",
+      "value": "GRY D",
+      "selected": false,
+      "selectable": true,
+      "enableVariantSelection": true,
+      "orderable": false,
+      "url": "/products/variation?dwvar_RM110166766-8M_color=GRY%20D&pid=RM110166766-8M&quantity=1&verify=1788496607-H7A3RwLUzm4RD7TBbgddXNq34dVVaWLbV15AUazLfBY%3D",
+      "images": {
+       "swatch": [
+        {
+         "alt": "Grey Dark",
+         "url": "https://www.thewarehouse.co.nz/dw/image/v2/BDMG_PRD/on/demandware.static/-/Sites-twl-master-catalog/default/dwed14d2e4/images/hi-res/A2/1B/R3024874_10.jpg?sw=96&sh=96",
+         "title": "Grey Dark"
+        },
+        {
+         "alt": "Grey Dark",
+         "url": "https://www.thewarehouse.co.nz/dw/image/v2/BDMG_PRD/on/demandware.static/-/Sites-twl-master-catalog/default/dw5e2bcff7/images/hi-res/A2/1B/R3024874_11.jpg?sw=96&sh=96",
+         "title": "Grey Dark"
+        },
+        {
+         "alt": "Grey Dark",
+         "url": "https://www.thewarehouse.co.nz/dw/image/v2/BDMG_PRD/on/demandware.static/-/Sites-twl-master-catalog/default/dwc8eaa86b/images/hi-res/A2/1B/R3024874_13.jpg?sw=96&sh=96",
+         "title": "Grey Dark"
+        },
+        {
+         "alt": "Grey Dark",
+         "url": "https://www.thewarehouse.co.nz/dw/image/v2/BDMG_PRD/on/demandware.static/-/Sites-twl-master-catalog/default/dw7824c327/images/hi-res/A2/1B/R3024874_30.jpg?sw=96&sh=96",
+         "title": "Grey Dark"
+        },
+        {
+         "alt": "Grey Dark",
+         "url": "https://www.thewarehouse.co.nz/dw/image/v2/BDMG_PRD/on/demandware.static/-/Sites-twl-master-catalog/default/dwe7374e3f/images/hi-res/A2/1B/R3024874_31.jpg?sw=96&sh=96",
+         "title": "Grey Dark"
+        }
+       ]
+      }
+     },
+     {
+      "id": "PPL M",
+      "description": "Purple Mid",
+      "displayValue": "Purple Mid",
+      "value": "PPL M",
+      "selected": false,
+      "selectable": true,
+      "enableVariantSelection": true,
+      "orderable": false,
+      "url": "/products/variation?dwvar_RM110166766-8M_color=PPL%20M&pid=RM110166766-8M&quantity=1&verify=1788496607-eWNQ8sMfstpK9OhyqQZYFu7PFavw6AkpLb5Q%2Bq2H%2FwI%3D",
+      "images": {
+       "swatch": [
+        {
+         "alt": "Purple Mid",
+         "url": "https://www.thewarehouse.co.nz/dw/image/v2/BDMG_PRD/on/demandware.static/-/Sites-twl-master-catalog/default/dwe354d29b/images/hi-res/5D/43/R3024886_10.jpg?sw=96&sh=96",
+         "title": "Purple Mid"
+        },
+        {
+         "alt": "Purple Mid",
+         "url": "https://www.thewarehouse.co.nz/dw/image/v2/BDMG_PRD/on/demandware.static/-/Sites-twl-master-catalog/default/dwb9587e1d/images/hi-res/5D/43/R3024886_11.jpg?sw=96&sh=96",
+         "title": "Purple Mid"
+        },
+        {
+         "alt": "Purple Mid",
+         "url": "https://www.thewarehouse.co.nz/dw/image/v2/BDMG_PRD/on/demandware.static/-/Sites-twl-master-catalog/default/dw47d4c2c5/images/hi-res/5D/43/R3024886_13.jpg?sw=96&sh=96",
+         "title": "Purple Mid"
+        },
+        {
+         "alt": "Purple Mid",
+         "url": "https://www.thewarehouse.co.nz/dw/image/v2/BDMG_PRD/on/demandware.static/-/Sites-twl-master-catalog/default/dwe0b2b250/images/hi-res/5D/43/R3024886_20.jpg?sw=96&sh=96",
+         "title": "Purple Mid"
+        },
+        {
+         "alt": "Purple Mid",
+         "url": "https://www.thewarehouse.co.nz/dw/image/v2/BDMG_PRD/on/demandware.static/-/Sites-twl-master-catalog/default/dw8b3f9f88/images/hi-res/5D/43/R3024886_21.jpg?sw=96&sh=96",
+         "title": "Purple Mid"
+        }
+       ]
+      }
+     },
+     {
+      "id": "RED D",
+      "description": "Red Dark",
+      "displayValue": "Red Dark",
+      "value": "RED D",
+      "selected": false,
+      "selectable": true,
+      "enableVariantSelection": true,
+      "orderable": true,
+      "url": "/products/variation?dwvar_RM110166766-8M_color=RED%20D&pid=RM110166766-8M&quantity=1&verify=1788496607-bZYOo8g6X4PROmcK0tDIDjKexfLiQbF7MXRQ0xYv8LA%3D",
+      "images": {
+       "swatch": [
+        {
+         "alt": "Red Dark",
+         "url": "https://www.thewarehouse.co.nz/dw/image/v2/BDMG_PRD/on/demandware.static/-/Sites-twl-master-catalog/default/dw3757a2b2/images/hi-res/9C/88/R3004145_10.jpg?sw=96&sh=96",
+         "title": "Red Dark"
+        },
+        {
+         "alt": "Red Dark",
+         "url": "https://www.thewarehouse.co.nz/dw/image/v2/BDMG_PRD/on/demandware.static/-/Sites-twl-master-catalog/default/dw163f8f1b/images/hi-res/9C/88/R3004145_11.jpg?sw=96&sh=96",
+         "title": "Red Dark"
+        },
+        {
+         "alt": "Red Dark",
+         "url": "https://www.thewarehouse.co.nz/dw/image/v2/BDMG_PRD/on/demandware.static/-/Sites-twl-master-catalog/default/dwf524d86f/images/hi-res/9C/88/R3004145_13.jpg?sw=96&sh=96",
+         "title": "Red Dark"
+        },
+        {
+         "alt": "Red Dark",
+         "url": "https://www.thewarehouse.co.nz/dw/image/v2/BDMG_PRD/on/demandware.static/-/Sites-twl-master-catalog/default/dw3c1ceb09/images/hi-res/9C/88/R3004145_20.jpg?sw=96&sh=96",
+         "title": "Red Dark"
+        },
+        {
+         "alt": "Red Dark",
+         "url": "https://www.thewarehouse.co.nz/dw/image/v2/BDMG_PRD/on/demandware.static/-/Sites-twl-master-catalog/default/dw08c8cb36/images/hi-res/BA/71/R3077747_20.jpg?sw=96&sh=96",
+         "title": "Red Dark"
+        },
+        {
+         "alt": "Red Dark",
+         "url": "https://www.thewarehouse.co.nz/dw/image/v2/BDMG_PRD/on/demandware.static/-/Sites-twl-master-catalog/default/dw024ba1f5/images/hi-res/9C/88/R3004145_21.jpg?sw=96&sh=96",
+         "title": "Red Dark"
+        },
+        {
+         "alt": "Red Dark",
+         "url": "https://www.thewarehouse.co.nz/dw/image/v2/BDMG_PRD/on/demandware.static/-/Sites-twl-master-catalog/default/dwc901d19d/images/hi-res/BA/71/R3077747_21.jpg?sw=96&sh=96",
+         "title": "Red Dark"
+        }
+       ]
+      }
+     }
+    ],
+    "resetUrl": null
+   },
+   {
+    "attributeId": "size",
+    "displayName": "Size",
+    "displayValue": "",
+    "id": "size",
+    "swatchable": false,
+    "values": [
+     {
+      "id": "XS",
+      "description": "XS",
+      "displayValue": "XS",
+      "value": "XS",
+      "selected": false,
+      "selectable": false,
+      "enableVariantSelection": true,
+      "orderable": false,
+      "url": "/products/variation?dwvar_RM110166766-8M_color=GRN%20M&dwvar_RM110166766-8M_size=XS&pid=RM110166766-8M&quantity=1&verify=1788496607-HLlnADgQzDjRV5QznqkKG4EDQB8QiOgY0Mg9pNoA5%2Fg%3D"
+     },
+     {
+      "id": "S",
+      "description": "S",
+      "displayValue": "S",
+      "value": "S",
+      "selected": false,
+      "selectable": true,
+      "enableVariantSelection": true,
+      "orderable": false,
+      "url": "/products/variation?dwvar_RM110166766-8M_color=GRN%20M&dwvar_RM110166766-8M_size=S&pid=RM110166766-8M&quantity=1&verify=1788496607-1hLP7jBXk%2F44mUdsM3ZS4DLw74ogqSQivRPw6wrz%2BSM%3D"
+     },
+     {
+      "id": "M",
+      "description": "M",
+      "displayValue": "M",
+      "value": "M",
+      "selected": false,
+      "selectable": true,
+      "enableVariantSelection": true,
+      "orderable": false,
+      "url": "/products/variation?dwvar_RM110166766-8M_color=GRN%20M&dwvar_RM110166766-8M_size=M&pid=RM110166766-8M&quantity=1&verify=1788496607-EY3cNEGXJUpYCF3h4yp4a8CQ%2FD2NMWnwbMvx6dgMMvE%3D"
+     },
+     {
+      "id": "L",
+      "description": "L",
+      "displayValue": "L",
+      "value": "L",
+      "selected": false,
+      "selectable": false,
+      "enableVariantSelection": true,
+      "orderable": false,
+      "url": "/products/variation?dwvar_RM110166766-8M_color=GRN%20M&dwvar_RM110166766-8M_size=L&pid=RM110166766-8M&quantity=1&verify=1788496607-U4slhxClazhhGs%2BDxH54TulN8pAVuo3XwG8PN2tTxdc%3D"
+     },
+     {
+      "id": "XL",
+      "description": "XL",
+      "displayValue": "XL",
+      "value": "XL",
+      "selected": false,
+      "selectable": false,
+      "enableVariantSelection": true,
+      "orderable": false,
+      "url": "/products/variation?dwvar_RM110166766-8M_color=GRN%20M&dwvar_RM110166766-8M_size=XL&pid=RM110166766-8M&quantity=1&verify=1788496607-Ll0T38ILoBg8kRiAm08D4i1kLcPE8UYnQaC83mdzHMA%3D"
+     },
+     {
+      "id": "XXL",
+      "description": "2XL",
+      "displayValue": "2XL",
+      "value": "XXL",
+      "selected": false,
+      "selectable": false,
+      "enableVariantSelection": true,
+      "orderable": false,
+      "url": "/products/variation?dwvar_RM110166766-8M_color=GRN%20M&dwvar_RM110166766-8M_size=XXL&pid=RM110166766-8M&quantity=1&verify=1788496607-8fwDoxdRmmcdGXEcFmnRy71F96MyvvVXSWCBhxGOPVg%3D"
+     },
+     {
+      "id": "XXXL",
+      "description": "3XL",
+      "displayValue": "3XL",
+      "value": "XXXL",
+      "selected": false,
+      "selectable": false,
+      "enableVariantSelection": true,
+      "orderable": false,
+      "url": "/products/variation?dwvar_RM110166766-8M_color=GRN%20M&dwvar_RM110166766-8M_size=XXXL&pid=RM110166766-8M&quantity=1&verify=1788496607-XJjixWKPJJoSaQKgJS4Mn%2BF4TTIOGOwikApLq9HATlA%3D"
+     },
+     {
+      "id": "XXXXL",
+      "description": "4XL",
+      "displayValue": "4XL",
+      "value": "XXXXL",
+      "selected": false,
+      "selectable": true,
+      "enableVariantSelection": true,
+      "orderable": false,
+      "url": "/products/variation?dwvar_RM110166766-8M_color=GRN%20M&dwvar_RM110166766-8M_size=XXXXL&pid=RM110166766-8M&quantity=1&verify=1788496607-GbSZSFWL8pudbhCOvF81h9BUwQ6BRUcABxs4h878d1M%3D"
+     },
+     {
+      "id": "XXXXXL",
+      "description": "5XL",
+      "displayValue": "5XL",
+      "value": "XXXXXL",
+      "selected": false,
+      "selectable": false,
+      "enableVariantSelection": true,
+      "orderable": false,
+      "url": "/products/variation?dwvar_RM110166766-8M_color=GRN%20M&dwvar_RM110166766-8M_size=XXXXXL&pid=RM110166766-8M&quantity=1&verify=1788496607-PQXOPPzrXK52oPcdOUF8XVqgHpU6r3%2FLbebn56Id%2B7c%3D"
+     },
+     {
+      "id": "XXXXXXL",
+      "description": "6XL",
+      "displayValue": "6XL",
+      "value": "XXXXXXL",
+      "selected": false,
+      "selectable": false,
+      "enableVariantSelection": true,
+      "orderable": false,
+      "url": "/products/variation?dwvar_RM110166766-8M_color=GRN%20M&dwvar_RM110166766-8M_size=XXXXXXL&pid=RM110166766-8M&quantity=1&verify=1788496607-7rBHB9mGNVCGDIR0gB7UsT%2BKSoAbMJ3PzcXpJDhtyIc%3D"
+     }
+    ],
+    "resetUrl": "/products/variation?dwvar_RM110166766-8M_color=GRN%20M&dwvar_RM110166766-8M_size=&pid=RM110166766-8M&quantity=1&verify=1788496607-1hLP7jBXk%2F44mUdsM3ZS4DLw74ogqSQivRPw6wrz%2BSM%3D"
+   }
+  ],
+  "shortDescription": "H&amp;H Men's Regular Fit Crew Neck Tee",
+  "longDescription": "The H&amp;H Men's Regular Fit Plain Tee offers a comfortable and versatile option for everyday wear. Designed with a classic cut, it pairs effortlessly with jeans, shorts, or joggers, making it a reliable addition to your wardrobe. Crafted from soft, breathable fabric, it provides ease of movement throughout the day.\n<h3 class=\"product-features-title\">Features &amp; Benefits</h3>\n<ul>\n<li>Fabric - Grey Marle: 90% cotton, 10% viscose; Charcoal Marle: 60% cotton, 40% polyester; All Other Colours: 100% cotton</li>\n<li>Available in sizes XS - 6XL</li>\n<li>Round neck, short sleeves</li>\n<li>Care instructions (marle colourways): wash before wearing, wash with similar colours, gentle machine wash - warm, do not soak or bleach, line dry in shade, do not tumble dry, cool iron on reverse, do not dry clean</li>\n<li>Care instructions (all other colours): wash before wear, wash with similar colours, gentle machine wash - warm, do not allow to lay on itself while damp or wet, do not soak or bleach, line dry in shade, do not tumble dry, cool iron on reverse, dry cleanable</li>\n<li>By choosing our cotton products, you're supporting our investment in Better Cotton's mission. This product is sourced via a system of mass balance and therefore may not contain Better Cotton</li>\n</ul>",
+  "rating": 5,
+  "hasPromotionDetails": false,
+  "promotions": [],
+  "attributes": null,
+  "availability": {
+   "buttonLabelPDP": "Check in-store availability",
+   "onlineStockAvailable": false,
+   "productStatus": "FIND_IN_STORE",
+   "cartLabel": "In-store only",
+   "labelContext": null,
+   "onlineChannelOrderable": false,
+   "storeChannelOrderable": true,
+   "searchLabel": "Find in-store",
+   "productCardLabel": {
+    "wishlistMsg": "In-store only"
+   },
+   "renderedTemplate": "<p\nclass=\"product-card__stock-availability product-card__stock-availability--null \">\n<span class=\"product-card__stock-availability__icon\"></span>\n</p>",
+   "renderedBackorderMoreInfoTemplate": "",
+   "qtyInCart": 0
+  },
+  "available": false,
+  "options": [],
+  "quantities": {
+   "url": "/products/variation?pid=RM110166766-8M&verify=1788496607-BCJpvoJWAgTUlHZ5AXnMSS84%2F6rrzNHCAVCPsMAgmhU%3D"
+  },
+  "sizeChartId": "size-chart-mens-clothing",
+  "selectedProductUrl": "/p/hh-mens-regular-fit-crew-neck-tee/RM110166766-8M.html?dwvar_RM110166766-8M_color=GRN%20M&quantity=1",
+  "readyToOrder": false,
+  "online": true,
+  "pageTitle": null,
+  "pageDescription": null,
+  "pageKeywords": null,
+  "pageMetaTags": [
+   {},
+   {},
+   {},
+   {},
+   {},
+   {},
+   {}
+  ],
+  "template": null,
+  "isDeliveryInstall": false,
+  "deliveryAvailable": true,
+  "shippingOptions": [
+   {
+    "ID": "standardDelivery",
+    "displayName": "Standard delivery",
+    "description": null,
+    "estimatedArrivalTime": "Delivers in 2-5 business days",
+    "default": false,
+    "shippingMethodType": "delivery",
+    "storePickupEnabled": false,
+    "icon": "local_shipping",
+    "baseMethodID": "delivery",
+    "deliveryPromise": {
+     "deliveryPromiseText": "Estimated delivery in 2-4 business days",
+     "minDays": 2,
+     "maxDays": 4,
+     "availability": "NOT_AVAILABLE",
+     "estimatedCost": null,
+     "displayType": null
+    }
+   },
+   {
+    "ID": "standardCandC",
+    "displayName": "Click & Collect",
+    "description": null,
+    "estimatedArrivalTime": "Pickup in 2-4 business days",
+    "default": true,
+    "shippingMethodType": "pickup",
+    "storePickupEnabled": true,
+    "shortName": "Click & Collect",
+    "icon": "store_mall_directory",
+    "baseMethodID": "clickAndCollect",
+    "deliveryPromise": {
+     "deliveryPromiseText": "Ship to store. Estimated pickup in 2-4 business days.",
+     "minDays": 2,
+     "maxDays": 4,
+     "availability": "NOT_AVAILABLE",
+     "estimatedCost": null,
+     "displayType": null
+    }
+   }
+  ],
+  "badges": {
+   "qualified": [
+    {
+     "badgeClasses": "bottom right",
+     "badgeId": "badge_extendedsizes",
+     "badgeImageURL": "/on/demandware.static/-/Library-Sites-twl-shared-library/default/dw020e6b20/core/product-badges/extendedSizes3.svg",
+     "absBadgeImageURL": "https://www.thewarehouse.co.nz/on/demandware.static/-/Library-Sites-twl-shared-library/default/dw020e6b20/core/product-badges/extendedSizes3.svg",
+     "badgeImageWidth": 109
+    },
+    {
+     "badgeClasses": "top left",
+     "badgeId": "badge_clearance_att",
+     "badgeImageURL": "/on/demandware.static/-/Library-Sites-twl-shared-library/default/dw353ca475/core/product-badges/clearanceUpdate.svg",
+     "absBadgeImageURL": "https://www.thewarehouse.co.nz/on/demandware.static/-/Library-Sites-twl-shared-library/default/dw353ca475/core/product-badges/clearanceUpdate.svg",
+     "badgeImageWidth": 82
+    }
+   ],
+   "overflow": [
+    {
+     "badgeId": "better_cotton_initiative_producctATT",
+     "badgeImageURL": "/on/demandware.static/-/Library-Sites-twl-shared-library/default/v1788484665461/core/product-badges/bci_Resized.svg",
+     "absBadgeImageURL": "https://www.thewarehouse.co.nz/on/demandware.static/-/Library-Sites-twl-shared-library/default/v1788484665461/core/product-badges/bci_Resized.svg",
+     "badgeImageWidth": 58
+    }
+   ]
+  },
+  "ean": "9401113979374",
+  "manufacturerSKU": "ITM1911-000654",
+  "upc": null,
+  "gtin13": [
+   "9401113979374"
+  ],
+  "protection": [],
+  "ga4": {
+   "item_id": "RM110166766",
+   "item_name": "H&H Men's Regular Fit Crew Neck Tee",
+   "item_brand": "H&H",
+   "dimension15": "9401113979374",
+   "dimension18": "8134",
+   "dimension88": false,
+   "marketplaceProduct": false,
+   "productEAN": "9401113979374",
+   "productMerchandiseCategory": "8134",
+   "productRating": "4.6",
+   "variationGroupID": "RM110166766-8M",
+   "dimension26": "Estimated delivery in 2-4 business days",
+   "productDeliveryPromise": "Estimated delivery in 2-4 business days",
+   "item_primarycgid": "clothingshoesaccessories-mensclothingshoes-menstshirtstops-menstshirts",
+   "item_category": "clothingshoesaccessories",
+   "item_category2": "clothingshoesaccessories-mensclothingshoes",
+   "item_category3": "clothingshoesaccessories-mensclothingshoes-menstshirtstops",
+   "item_category4": "clothingshoesaccessories-mensclothingshoes-menstshirtstops-menstshirts",
+   "dimension17": "fathersday/fathersday-stylish|clothingshoesaccessories/clothingshoesaccessories-brands/clothingshoesaccessories-brands-h-&-h",
+   "productSecondaryNavCat": "fathersday/fathersday-stylish|clothingshoesaccessories/clothingshoesaccessories-brands/clothingshoesaccessories-brands-h-&-h",
+   "dimension23": "store",
+   "productChannelType": "store"
+  },
+  "gtm": {
+   "name": "H&H Men's Regular Fit Crew Neck Tee",
+   "id": "RM110166766",
+   "variationProductId": "na",
+   "brand": "H&H",
+   "productEAN": "9401113979374",
+   "productMerchandiseCategory": "8134",
+   "productBadges": "badge_extendedsizes|badge_clearance_att",
+   "productRating": 4.6,
+   "customDimension1": "",
+   "marketplaceProduct": false,
+   "variant": false,
+   "variationGroupId": "RM110166766-8M",
+   "productColor": "GRN M",
+   "productColorRefinement": "Green Mid",
+   "productSize": "na",
+   "productDeliveryPromise": "Estimated delivery in 2-4 business days",
+   "productCollectPromise": "Ship to store. Estimated pickup in 2-4 business days.",
+   "productChannelType": "In-Store",
+   "promotionCallOutMessage": "na",
+   "category": "clothingshoesaccessories/clothingshoesaccessories-mensclothingshoes/clothingshoesaccessories-mensclothingshoes-menstshirtstops/clothingshoesaccessories-mensclothingshoes-menstshirtstops-menstshirts",
+   "productCategoryLevel1": "clothingshoesaccessories",
+   "productCategoryLevel2": "clothingshoesaccessories-mensclothingshoes",
+   "productCategoryLevel3": "clothingshoesaccessories-mensclothingshoes-menstshirtstops",
+   "productCategoryLevel4": "clothingshoesaccessories-mensclothingshoes-menstshirtstops-menstshirts",
+   "productCategoryLevel5": "na",
+   "productCategoryLevel6": "na",
+   "productCategoryLevel7": "na",
+   "primaryCategoryId": "clothingshoesaccessories-mensclothingshoes-menstshirtstops-menstshirts",
+   "productSecondaryNavigationCategory": "fathersday/fathersday-stylish|clothingshoesaccessories/clothingshoesaccessories-brands/clothingshoesaccessories-brands-h-&-h",
+   "price": "2.98",
+   "productThenPrice": "2.98"
+  },
+  "isESD": false,
+  "shipToStoreEligible": true,
+  "enableCheckInStore": true,
+  "availableInStore": true,
+  "deliveryOnly": false,
+  "afterpayEligible": {
+   "customerEligible": true,
+   "productEligible": true
+  },
+  "afterpayInstallment": "$0.75",
+  "zipPdp": {
+   "zipEligible": false,
+   "zipData": {
+    "zipAmount": 2.98,
+    "zipLimitPriceOrderMin": 1,
+    "zipLimitPriceOrderMax": 3500
+   }
+  },
+  "gemPdp": {
+   "gemPdpEnabled": false,
+   "gemProductEligible": false,
+   "numberOfInstallments": 12,
+   "minimumPrice": "$250"
+  },
+  "isBundled": false,
+  "primaryCategoryUrl": {},
+  "turnstile": {
+   "enabled": false
+  },
+  "isVariant": false,
+  "attributesHtml": "",
+  "promotionsHtml": "",
+  "pricingRendered": "<div class=\"price-lockup-wrapper\">\n<div class=\"price-lockup pdp\" data-test-id=\"price-lockup\">\n<div class=\"price-lockup__pdp-left \">\n<div class=\"price \" data-test-id=\"price\" data-price=\"$2.98\">\n<span class=\"price__currency\">$</span>\n<span class=\"price__dollars\">2</span>\n<span class=\"price__cents\">98</span>\n</div>\n</div>\n</div>\n<div class=\"price-lockup-payments\">\n<p class=\"price-lockup-afterpay\">\nOr 4 payments of $0.75 with\n<svg xmlns=\"http://www.w3.org/2000/svg\" class=\"afterpay-logo\" viewBox=\"0 0 104.049 20\" width=\"104\" height=\"20\">\n<path d=\"m102.466 4.036-3.134-1.793-3.178-1.82c-2.102-1.205-4.728.308-4.728 2.735v.407c0 .227.118.435.317.544l1.476.842a.612.612 0 0 0 .915-.534v-.97c0-.48.516-.778.933-.543l2.898 1.667 2.889 1.657a.62.62 0 0 1 0 1.078l-2.89 1.657-2.897 1.666a.624.624 0 0 1-.933-.543v-.48c0-2.427-2.626-3.949-4.728-2.735l-3.178 1.82-3.134 1.794c-2.11 1.213-2.11 4.265 0 5.479l3.134 1.793 3.178 1.82c2.102 1.205 4.728-.308 4.728-2.735v-.407a.613.613 0 0 0-.317-.544l-1.476-.842a.612.612 0 0 0-.915.534v.97c0 .48-.516.778-.933.543l-2.898-1.667-2.889-1.657a.62.62 0 0 1 0-1.078l2.89-1.657 2.897-1.666a.624.624 0 0 1 .933.543v.48c0 2.427 2.626 3.949 4.728 2.735l3.178-1.82 3.134-1.794c2.11-1.222 2.11-4.265 0-5.479zM81.908 4.634l-7.336 15.152h-3.043l2.744-5.66-4.32-9.492h3.124l2.772 6.358 3.025-6.358zM8.558 10.014c0-1.812-1.313-3.08-2.925-3.08-1.612 0-2.925 1.295-2.925 3.08 0 1.766 1.313 3.079 2.925 3.079 1.612 0 2.925-1.268 2.925-3.08m.028 5.38v-1.395c-.797.97-1.984 1.567-3.397 1.567C2.237 15.565 0 13.201 0 10.014c0-3.161 2.328-5.57 5.253-5.57 1.376 0 2.536.607 3.333 1.548V4.634h2.644v10.76ZM24.09 13.002c-.923 0-1.186-.344-1.186-1.25V6.98h1.703V4.634h-1.703V2.008h-2.708v2.626H16.7V3.565c0-.905.344-1.25 1.295-1.25h.598V.233H17.29c-2.237 0-3.297.734-3.297 2.971v1.44H12.49V6.98h1.503v8.413H16.7V6.98h3.496v5.27c0 2.192.842 3.143 3.034 3.143h1.395v-2.39zM33.817 9.045c-.19-1.395-1.331-2.237-2.671-2.237-1.332 0-2.437.815-2.708 2.237zM28.41 10.72c.19 1.594 1.332 2.5 2.78 2.5 1.142 0 2.02-.535 2.537-1.395h2.78c-.643 2.282-2.69 3.74-5.38 3.74-3.25 0-5.533-2.282-5.533-5.533 0-3.252 2.409-5.597 5.597-5.597 3.206 0 5.533 2.364 5.533 5.597 0 .235-.018.47-.063.688zM53.968 10.014c0-1.74-1.313-3.08-2.925-3.08-1.612 0-2.925 1.295-2.925 3.08 0 1.766 1.313 3.079 2.925 3.079 1.612 0 2.925-1.331 2.925-3.08m-8.522 9.773V4.634h2.644v1.395c.797-.987 1.984-1.594 3.397-1.594 2.907 0 5.189 2.39 5.189 5.551s-2.328 5.57-5.253 5.57c-1.358 0-2.472-.534-3.251-1.44v5.66h-2.726zM66.213 10.014c0-1.812-1.314-3.08-2.926-3.08s-2.925 1.295-2.925 3.08c0 1.766 1.313 3.079 2.925 3.079 1.612 0 2.926-1.268 2.926-3.08m.027 5.38v-1.395c-.797.97-1.984 1.567-3.397 1.567-2.952 0-5.189-2.364-5.189-5.551 0-3.161 2.328-5.57 5.253-5.57 1.376 0 2.536.607 3.333 1.548V4.634h2.644v10.76ZM40.673 5.685s.67-1.25 2.328-1.25c.706 0 1.159.244 1.159.244v2.744s-.996-.615-1.911-.489c-.915.127-1.494.96-1.494 2.083v6.367h-2.736V4.634h2.645v1.05z\" />\n</svg>\n<a class=\"btn-icon afterpay-info\" href=\"#afterpayPDPModal\" data-toggle=\"modal\" aria-label=\"More information\">\n<svg xmlns=\"http://www.w3.org/2000/svg\" aria-hidden=\"true\" class=\"icon\" fill=\"#666\" height=\"20px\" viewBox=\"0 -960 960 960\" width=\"20px\">\n<path d=\"M440-280h80v-240h-80v240Zm40-320q17 0 28.5-11.5T520-640q0-17-11.5-28.5T480-680q-17 0-28.5 11.5T440-640q0 17 11.5 28.5T480-600Zm0 520q-83 0-156-31.5T197-197q-54-54-85.5-127T80-480q0-83 31.5-156T197-763q54-54 127-85.5T480-880q83 0 156 31.5T763-763q54 54 85.5 127T880-480q0 83-31.5 156T763-197q-54 54-127 85.5T480-80Zm0-80q134 0 227-93t93-227q0-134-93-227t-227-93q-134 0-227 93t-93 227q0 134 93 227t227 93Zm0-320Z\"></path>\n</svg>\n</a>\n</p>\n</div>\n</div>",
+  "carouselTemplateRendered": "<twg-carousel class=\"product-slider\" arrows dots infinite>\n<img\nclass=\"img-fluid \"\nsrc=\"https://www.thewarehouse.co.nz/dw/image/v2/BDMG_PRD/on/demandware.static/-/Sites-twl-master-catalog/default/dw837a3e26/images/hi-res/FE/F3/R3043935_10.jpg?sw=765&amp;sh=765\"\nalt=\"H&amp;H Men's Regular Fit Crew Neck Tee, Green Mid, hi-res\"\ntitle=\"H&amp;H Men's Regular Fit Crew Neck Tee, Green Mid\"\ndata-fallback=\"/on/demandware.static/Sites-twl-Site/-/default/dwad408a1d/images/image-coming-soon.svg\"\nwidth=\"765\"\nheight=\"765\"\n/>\n<img\nclass=\"img-fluid \"\nsrc=\"https://www.thewarehouse.co.nz/dw/image/v2/BDMG_PRD/on/demandware.static/-/Sites-twl-master-catalog/default/dwf270b6d1/images/hi-res/FE/F3/R3043935_11.jpg?sw=765&amp;sh=765\"\nalt=\"H&amp;H Men's Regular Fit Crew Neck Tee, Green Mid, hi-res\"\ntitle=\"H&amp;H Men's Regular Fit Crew Neck Tee, Green Mid\"\ndata-fallback=\"/on/demandware.static/Sites-twl-Site/-/default/dwad408a1d/images/image-coming-soon.svg\"\nwidth=\"765\"\nheight=\"765\"\n/>\n<img\nclass=\"img-fluid \"\nsrc=\"https://www.thewarehouse.co.nz/dw/image/v2/BDMG_PRD/on/demandware.static/-/Sites-twl-master-catalog/default/dwfc9abdff/images/hi-res/FE/F3/R3043935_13.jpg?sw=765&amp;sh=765\"\nalt=\"H&amp;H Men's Regular Fit Crew Neck Tee, Green Mid, hi-res\"\ntitle=\"H&amp;H Men's Regular Fit Crew Neck Tee, Green Mid\"\ndata-fallback=\"/on/demandware.static/Sites-twl-Site/-/default/dwad408a1d/images/image-coming-soon.svg\"\nwidth=\"765\"\nheight=\"765\"\n/>\n<img\nclass=\"img-fluid \"\nsrc=\"https://www.thewarehouse.co.nz/dw/image/v2/BDMG_PRD/on/demandware.static/-/Sites-twl-master-catalog/default/dw8fee90eb/images/hi-res/FE/F3/R3043935_20.jpg?sw=765&amp;sh=765\"\nalt=\"H&amp;H Men's Regular Fit Crew Neck Tee, Green Mid, hi-res\"\ntitle=\"H&amp;H Men's Regular Fit Crew Neck Tee, Green Mid\"\ndata-fallback=\"/on/demandware.static/Sites-twl-Site/-/default/dwad408a1d/images/image-coming-soon.svg\"\nwidth=\"765\"\nheight=\"765\"\n/>\n<img\nclass=\"img-fluid \"\nsrc=\"https://www.thewarehouse.co.nz/dw/image/v2/BDMG_PRD/on/demandware.static/-/Sites-twl-master-catalog/default/dw3693b110/images/hi-res/FE/F3/R3043935_21.jpg?sw=765&amp;sh=765\"\nalt=\"H&amp;H Men's Regular Fit Crew Neck Tee, Green Mid, hi-res\"\ntitle=\"H&amp;H Men's Regular Fit Crew Neck Tee, Green Mid\"\ndata-fallback=\"/on/demandware.static/Sites-twl-Site/-/default/dwad408a1d/images/image-coming-soon.svg\"\nwidth=\"765\"\nheight=\"765\"\n/>\n</twg-carousel>",
+  "productImagesRendered": "<div class=\"product-images\">\n<swiper-container grab-cursor=\"true\" keyboard=\"true\" keyboard-page-up-down=\"false\" navigation=\"true\" pagination=\"true\" pagination-clickable=\"true\" rewind=\"true\">\n<swiper-slide lazy=\"false\">\n<img src=\"https://www.thewarehouse.co.nz/dw/image/v2/BDMG_PRD/on/demandware.static/-/Sites-twl-master-catalog/default/dw837a3e26/images/hi-res/FE/F3/R3043935_10.jpg?sw=765&amp;sh=765\" alt=\"H&amp;H Men's Regular Fit Crew Neck Tee, Green Mid, hi-res\" title=\"H&amp;H Men's Regular Fit Crew Neck Tee, Green Mid\" width=\"765\" height=\"765\" loading=\"eager\"\ndata-fallback=\"/on/demandware.static/Sites-twl-Site/-/default/dwad408a1d/images/image-coming-soon.svg\"\n/>\n</swiper-slide>\n<swiper-slide lazy=\"true\">\n<img src=\"https://www.thewarehouse.co.nz/dw/image/v2/BDMG_PRD/on/demandware.static/-/Sites-twl-master-catalog/default/dwf270b6d1/images/hi-res/FE/F3/R3043935_11.jpg?sw=765&amp;sh=765\" alt=\"H&amp;H Men's Regular Fit Crew Neck Tee, Green Mid, hi-res\" title=\"H&amp;H Men's Regular Fit Crew Neck Tee, Green Mid\" width=\"765\" height=\"765\" loading=\"lazy\"\ndata-fallback=\"/on/demandware.static/Sites-twl-Site/-/default/dwad408a1d/images/image-coming-soon.svg\"\n/>\n</swiper-slide>\n<swiper-slide lazy=\"true\">\n<img src=\"https://www.thewarehouse.co.nz/dw/image/v2/BDMG_PRD/on/demandware.static/-/Sites-twl-master-catalog/default/dwfc9abdff/images/hi-res/FE/F3/R3043935_13.jpg?sw=765&amp;sh=765\" alt=\"H&amp;H Men's Regular Fit Crew Neck Tee, Green Mid, hi-res\" title=\"H&amp;H Men's Regular Fit Crew Neck Tee, Green Mid\" width=\"765\" height=\"765\" loading=\"lazy\"\ndata-fallback=\"/on/demandware.static/Sites-twl-Site/-/default/dwad408a1d/images/image-coming-soon.svg\"\n/>\n</swiper-slide>\n<swiper-slide lazy=\"true\">\n<img src=\"https://www.thewarehouse.co.nz/dw/image/v2/BDMG_PRD/on/demandware.static/-/Sites-twl-master-catalog/default/dw8fee90eb/images/hi-res/FE/F3/R3043935_20.jpg?sw=765&amp;sh=765\" alt=\"H&amp;H Men's Regular Fit Crew Neck Tee, Green Mid, hi-res\" title=\"H&amp;H Men's Regular Fit Crew Neck Tee, Green Mid\" width=\"765\" height=\"765\" loading=\"lazy\"\ndata-fallback=\"/on/demandware.static/Sites-twl-Site/-/default/dwad408a1d/images/image-coming-soon.svg\"\n/>\n</swiper-slide>\n<swiper-slide lazy=\"true\">\n<img src=\"https://www.thewarehouse.co.nz/dw/image/v2/BDMG_PRD/on/demandware.static/-/Sites-twl-master-catalog/default/dw3693b110/images/hi-res/FE/F3/R3043935_21.jpg?sw=765&amp;sh=765\" alt=\"H&amp;H Men's Regular Fit Crew Neck Tee, Green Mid, hi-res\" title=\"H&amp;H Men's Regular Fit Crew Neck Tee, Green Mid\" width=\"765\" height=\"765\" loading=\"lazy\"\ndata-fallback=\"/on/demandware.static/Sites-twl-Site/-/default/dwad408a1d/images/image-coming-soon.svg\"\n/>\n</swiper-slide>\n</swiper-container>\n</div>",
+  "badgesTemplateRendered": "<img\nclass=\"product-badge-image bottom right\"\nsrc=\"/on/demandware.static/-/Library-Sites-twl-shared-library/default/dw020e6b20/core/product-badges/extendedSizes3.svg\"\nalt=\"\"\nloading=\"lazy\"\nwidth=\"109.0\"\n/>\n<img\nclass=\"product-badge-image top left\"\nsrc=\"/on/demandware.static/-/Library-Sites-twl-shared-library/default/dw353ca475/core/product-badges/clearanceUpdate.svg\"\nalt=\"\"\nloading=\"lazy\"\nwidth=\"82.0\"\n/>",
+  "socialProofRendered": "",
+  "preferredStoresAvailability": "",
+  "productIdentifiersTemplateRendered": "<div class=\"product-identifiers mb-xl\">\n<span class=\"text-p-small mr-sm product-ean\">\n<span class=\"font-weight-bold\">Item No:</span>\n<span>9401113979374</span>\n</span>\n</div>",
+  "shippingOptionsTemplateRendered": "<div class=\"shipping-options-container sml-shipping-options mt-xl \">\n<div class=\"d-flex align-items-center mb-sm\">\n<h4 class=\"mb-0\">Delivery and returns</h4>\n<a href=\"#\" class=\"btn-action ml-auto text-p-small\" data-toggle=\"modal\" data-target=\"#shipping-details-modal\">Details</a>\n</div>\n<div class=\"shipping-methods mt-xl\">\n<div class=\"shipping-method\">\n<div class=\"shipping-method-header\">\n<div class=\"shipping-icon-container\">\n<svg xmlns=\"http://www.w3.org/2000/svg\" aria-hidden=\"true\" class=\"icon\" fill=\"#999\" height=\"24px\" viewBox=\"0 -960 960 960\" width=\"24px\">\n<path d=\"M480-480q33 0 56.5-23.5T560-560q0-33-23.5-56.5T480-640q-33 0-56.5 23.5T400-560q0 33 23.5 56.5T480-480Zm0 294q122-112 181-203.5T720-552q0-109-69.5-178.5T480-800q-101 0-170.5 69.5T240-552q0 71 59 162.5T480-186Zm0 106Q319-217 239.5-334.5T160-552q0-150 96.5-239T480-880q127 0 223.5 89T800-552q0 100-79.5 217.5T480-80Zm0-480Z\"></path>\n</svg>\n</div>\n<div class=\"shipping-method-name flex-fill\">\n<p>In store</p>\n</div>\n<div class=\"shipping-method-cta\">\n<gep-container-store-availability pid=\"RM110166766-8M\" url=\"/products/stores?pid=RM110166766-8M&amp;edit=true&amp;verify=1788496607-UZ3%2Bhza7lwGsTX4udIzQ3ifQZPLU%2FfESlKG5gsx4RlY%3D\">\n<button\nclass=\"btn-get-in-store-inventory btn-action text-p-small in-store-option\"\ndata-modal-close-text=\"Close\"\ndata-edit=\"true\"\ndata-toggle=\"modal\"\ndata-target=\"#instoreAvailabilityModal\"\ndata-test-id=\"click-and-collect-preferred-store-btn\"\n>\nSelect stores\n</button>\n</gep-container-store-availability>\n</div>\n</div>\n<div class=\"shipping-method-info\">\n</div>\n</div>\n<div class=\"shipping-method\nd-none\">\n<div class=\"shipping-method-header\">\n<div class=\"shipping-icon-container\">\n<svg xmlns=\"http://www.w3.org/2000/svg\" aria-hidden=\"true\" class=\"icon\" fill=\"#999\" height=\"24px\" viewBox=\"0 -960 960 960\" width=\"24px\">\n<path d=\"M240-160q-50 0-85-35t-35-85H40v-440q0-33 23.5-56.5T120-800h560v160h120l120 160v200h-80q0 50-35 85t-85 35q-50 0-85-35t-35-85H360q0 50-35 85t-85 35Zm0-80q17 0 28.5-11.5T280-280q0-17-11.5-28.5T240-320q-17 0-28.5 11.5T200-280q0 17 11.5 28.5T240-240ZM120-360h32q17-18 39-29t49-11q27 0 49 11t39 29h272v-360H120v360Zm600 120q17 0 28.5-11.5T760-280q0-17-11.5-28.5T720-320q-17 0-28.5 11.5T680-280q0 17 11.5 28.5T720-240Zm-40-200h170l-90-120h-80v120ZM360-540Z\"></path>\n</svg>\n</div>\n<div class=\"shipping-method-name flex-fill\">\n<p>\nStandard delivery\n</p>\n</div>\n<div class=\"shipping-method-cta\">\n<button class=\"btn-action text-p-small shipping-method-select-region\" data-region=\"northIsland\">\nChange Island\n</button>\n</div>\n</div>\n<div class=\"shipping-method-info\">\n<p class=\"shipping-method-estimate d-none\" data-delivery-type=\"available\">\nEstimated delivery in 2-4 business days\n</p>\n<p class=\"shipping-method-estimate \" data-delivery-type=\"unavailable\">\nNot available in your region\n</p>\n</div>\n</div>\n<div class=\"shipping-method\nd-none\">\n<div class=\"shipping-method-header\">\n<div class=\"shipping-icon-container\">\n<img\nclass=\"svg-icon\"\nsrc=\"/on/demandware.static/Sites-twl-Site/-/default/dw3ca1413c/images/icons/click-and-collect.svg\"\nalt=\"Click and collect\"\nwidth=\"24\"\nheight=\"24\"\n/>\n</div>\n<div class=\"shipping-method-name flex-fill\">\n<p>\nClick &amp; Collect\n</p>\n</div>\n<div class=\"shipping-method-cta\">\n<gep-container-store-availability pid=\"RM110166766-8M\" url=\"/products/stores?pid=RM110166766-8M&amp;edit=true&amp;verify=1788496607-UZ3%2Bhza7lwGsTX4udIzQ3ifQZPLU%2FfESlKG5gsx4RlY%3D\">\n<button\nclass=\"btn-get-in-store-inventory btn-action text-p-small\"\ndata-modal-close-text=\"Close\"\ndata-edit=\"true\"\ndata-toggle=\"modal\"\ndata-target=\"#instoreAvailabilityModal\"\ndata-test-id=\"click-and-collect-preferred-store-btn\"\n>\nCheck availability\n</button>\n</gep-container-store-availability>\n</div>\n</div>\n<div class=\"shipping-method-info\">\n</div>\n</div>\n</div>\n<div class=\"shipping-returns-info mt-md\">\n<span class=\"text-p-small\" data-test-id=\"pdp-returns-message\">Free returns within 60 days*</span>\n<a href=\"https://help.thewarehouse.co.nz/Help/s/article/Returns-Policy-and-Money-Back-Guarantee\" class=\"terms-and-conditions text-p-small\" target=\"_blank\" data-test-id=\"pdp-returns-terms\">\nT&amp;C&rsquo;s apply\n</a>\n</div>\n</div>",
+  "addToCartBtnTemplate": "<div class=\"alert alert-danger--no-bg my-lg\" role=\"alert\">\n<svg xmlns=\"http://www.w3.org/2000/svg\" aria-hidden=\"true\" class=\"icon\" fill=\"currentcolor\" height=\"24px\" viewBox=\"0 -960 960 960\" width=\"24px\">\n<path d=\"M440-280h80v-240h-80v240Zm40-320q17 0 28.5-11.5T520-640q0-17-11.5-28.5T480-680q-17 0-28.5 11.5T440-640q0 17 11.5 28.5T480-600Zm0 520q-83 0-156-31.5T197-197q-54-54-85.5-127T80-480q0-83 31.5-156T197-763q54-54 127-85.5T480-880q83 0 156 31.5T763-763q54 54 85.5 127T880-480q0 83-31.5 156T763-197q-54 54-127 85.5T480-80Zm0-80q134 0 227-93t93-227q0-134-93-227t-227-93q-134 0-227 93t-93 227q0 134 93 227t227 93Zm0-320Z\"></path>\n</svg>\n<div class=\"alert-body\">\n<p class=\"mb-0\">\nOut of stock\n</p>\n</div>\n</div>\n<gep-container-store-availability pid=\"RM110166766-8M\" url=\"null\">\n<button\nclass=\"btn btn-block btn-outline btn-get-in-store-inventory\"\ndata-modal-close-text=\"Close\"\ndata-test-id=\"check-in-store-availability-btn\"\ntype=\"submit\"\n>\n<span class=\"add-to-cart-text\">Sold out online</span>\n</button>\n</gep-container-store-availability>",
+  "shopMyLocalRegionModalTemplate": "<gep-shop-my-local-region-modal\npid=\"RM110166766-8M\"\nlabel=\"Check in-store availability\"\nmax=\"0.0\"\nurl=\"/products/set-region?pid=RM110166766-8M&amp;verify=1788496607-aKiI%2F0Q46LXNz83wfw77kXSmfUjKQ3LFFrKsRXM0qrs%3D\"\nproduct-name=\"H&amp;H Men's Regular Fit Crew Neck Tee\"\nproduct-image-url=\"https://www.thewarehouse.co.nz/dw/image/v2/BDMG_PRD/on/demandware.static/-/Sites-twl-master-catalog/default/dw837a3e26/images/hi-res/FE/F3/R3043935_10.jpg?sw=208&amp;sh=208\"\nproduct-image-title=\"H&amp;H Men's Regular Fit Crew Neck Tee, Green Mid\"\nfallback-image-url=\"/on/demandware.static/Sites-twl-Site/-/default/dwad408a1d/images/image-coming-soon.svg\"\nprimary-category-url=\"/c/clothing-shoes-accessories/mens-clothing-shoes/mens-t-shirts-tops/mens-t-shirts\"\nshop-my-local-order-quantity=\"1.0\"\n>\n</gep-shop-my-local-region-modal>"
+ },
+ "isProductAddedToWishlist": false,
+ "resources": {
+  "info_selectforstock": "Select Styles for Availability",
+  "assistiveSelectedText": "selected"
+ },
+ "urls": {
+  "addToCart": "",
+  "addToWishlist": "/wishlist-add-product?pid=RM110166766-8M&verify=1788496607-FbjHohnQ3k50aDFxB9aFw4s0RBsfD0JQWJbMZrdl%2BXQ%3D",
+  "storeStockLevels": "/products/stores?pid=RM110166766-8M&verify=1788496607-5%2FyG7H2t7oZQLhVxbMqHcJ%2FoTlZBMLwv%2BpMliiOmHSw%3D",
+  "setRegion": "/products/set-region?pid=RM110166766-8M&verify=1788496607-aKiI%2F0Q46LXNz83wfw77kXSmfUjKQ3LFFrKsRXM0qrs%3D",
+  "googleShoppingProductSuggestions": "/on/demandware.store/Sites-twl-Site/default/Product-GetGoogleShoppingProductSuggestions?pid=RM110166766-8M&verify=1788496607-gA74jQ44eK6y0qF0AuLw%2F0Ib6C9KsTRO4idvpYg3n2U%3D"
+ }
+}

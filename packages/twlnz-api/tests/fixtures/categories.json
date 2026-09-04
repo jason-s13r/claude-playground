@@ -1,0 +1,59 @@
+
+{"categories": [
+
+{
+  "action": "Category-GetNavigationHierarchy",
+  "queryString": "cgid=homegarden&maxDepth=0",
+  "locale": "default",
+  "id": "homegarden",
+  "displayName": "Home, Garden & Appliances",
+  "url": "https://www.thewarehouse.co.nz/c/home-garden-appliances",
+  "image": "/on/demandware.static/-/Sites-twl-storefront-catalog/default/v1788484665461/on/demandware.static/-/Sites-twl-master-catalog/default/images/hi-res/94/48/R2395381_30.jpg?sw=208&sh=208"
+}
+,
+
+{
+  "action": "Category-GetNavigationHierarchy",
+  "queryString": "cgid=clothingshoesaccessories&maxDepth=0",
+  "locale": "default",
+  "id": "clothingshoesaccessories",
+  "displayName": "Clothing, Shoes & Accessories",
+  "url": "https://www.thewarehouse.co.nz/c/clothing-shoes-accessories",
+  "image": "/on/demandware.static/-/Sites-twl-storefront-catalog/default/v1788484665461/on/demandware.static/-/Sites-twl-master-catalog/default/dw070be76e/images/hi-res/1A/97/R2924941_10.jpg?sw=292&sh=292"
+}
+,
+
+{
+  "action": "Category-GetNavigationHierarchy",
+  "queryString": "cgid=toysbaby-babytoddler&maxDepth=0",
+  "locale": "default",
+  "id": "toysbaby-babytoddler",
+  "displayName": "Baby & Toddler",
+  "url": "https://www.thewarehouse.co.nz/c/toys-baby/baby-toddler",
+  "image": "/on/demandware.static/-/Sites-twl-storefront-catalog/default/v1788484665461/on/demandware.static/-/Sites-twl-master-catalog/default/images/hi-res/F2/5E/R2891867_30.jpg?sw=208&sh=208"
+}
+,
+
+{
+  "action": "Category-GetNavigationHierarchy",
+  "queryString": "cgid=foodhouseholdpets-fooddrink&maxDepth=0",
+  "locale": "default",
+  "id": "foodhouseholdpets-fooddrink",
+  "displayName": "Food & Drink",
+  "url": "https://www.thewarehouse.co.nz/c/food-pets-household/food-drink",
+  "image": "/on/demandware.static/-/Sites-twl-storefront-catalog/default/v1788484665461/on/demandware.static/-/Sites-twl-master-catalog/default/images/hi-res/23/97/R2102526_30.jpg?sw=208&sh=208"
+}
+,
+
+{
+  "action": "Category-GetNavigationHierarchy",
+  "queryString": "cgid=toysbaby-toys&maxDepth=0",
+  "locale": "default",
+  "id": "toysbaby-toys",
+  "displayName": "Toys",
+  "url": "https://www.thewarehouse.co.nz/c/toys-baby/toys",
+  "image": "/on/demandware.static/-/Sites-twl-storefront-catalog/default/v1788484665461/on/demandware.static/-/Sites-twl-master-catalog/default/images/hi-res/C9/F0/R2736085_30.jpg?sw=208&sh=208"
+}
+
+
+]}

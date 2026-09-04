@@ -11,6 +11,7 @@ way an app is, with its own `dispat.yaml` declaring its scripts.
 | [`gsnz-ui`](gsnz-ui) | `cli_kit::View` implementations over `gsnz-core` types — product listings, carts, orders, department trees, comparison tables |
 | [`fsnz-api`](fsnz-api) | The Foodstuffs edge API (New World and PAK'nSAVE) and the Club Plus login |
 | [`wwnz-api`](wwnz-api) | The Woolworths GraphQL API and its Auth0 login flow |
+| [`twlnz-api`](twlnz-api) | The Warehouse storefront: listings scraped from HTML, plus the JSON cart, wishlist and stores |
 | [`build-kit`](build-kit) | The provenance a `build.rs` stamps into a binary, and the self-update that replaces it from a GitHub release |
 
 Each one documents itself in its own `README.md`, linked above.
@@ -18,7 +19,9 @@ Each one documents itself in its own `README.md`, linked above.
 They stack in that order. `net-kit` and `cli-kit` know nothing about
 groceries; `gsnz-core` knows nothing about HTTP; the two API crates speak their
 own vendor-shaped types and convert to the domain in the app, which is what
-keeps each of them usable on its own. Consumers and the edges dispat follows
+keeps each of them usable on its own. `twlnz-api` is vendor-shaped too but has
+no domain to convert to: nothing above it is a grocery, so its types are the
+final ones. Consumers and the edges dispat follows
 are the `dependencies` block in the root [`dispat.yaml`](../dispat.yaml).
 
 Each crate exports its own `VERSION`, which is how `gsnz --version` can name

@@ -1,0 +1,44 @@
+{
+  "action": "Cart-RemoveProductLineItem",
+  "queryString": "context=CART&pid=R0000001&uuid=aaaaaaaaaaaaaaaaaaaaaaaaaa",
+  "locale": "default",
+  "basket": {
+    "cartId": "0000000000000000000000000000",
+    "items": [
+      {
+        "uuid": "1111111111111111111111111111",
+        "UUID": "2222222222222222222222222222",
+        "preOrderUUID": "2222222222222222222222222222",
+        "id": "R0000002",
+        "productName": "Second Thing",
+        "brand": "House Brand",
+        "quantity": 2,
+        "price": {
+          "sales": { "value": 7.49, "currency": "NZD", "formatted": "$7.49" }
+        },
+        "priceTotal": {
+          "price": {
+            "sales": { "value": 14.98, "currency": "NZD", "formatted": "$14.98" }
+          }
+        }
+      },
+      {
+        "uuid": "3333333333333333333333333333",
+        "UUID": "4444444444444444444444444444",
+        "preOrderUUID": "4444444444444444444444444444",
+        "id": "R0000003",
+        "productName": "Third Thing",
+        "quantity": 1,
+        "price": {
+          "sales": { "value": 9.99, "currency": "NZD", "formatted": "$9.99" }
+        }
+      }
+    ],
+    "quantityTotal": 3,
+    "totals": { "subTotal": "$24.97" },
+    "selectedStore": "Whangarei"
+  },
+  "pliForRemoval": { "id": "R0000001", "productName": "Removed Thing" },
+  "quantityTotal": 0,
+  "updateQuantity": 0
+}
