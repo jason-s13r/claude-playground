@@ -75,7 +75,11 @@ twlnz region set canterbury             # NZ-CAN: which shops get asked
 twlnz auth login
 twlnz cart add R3059518 2
 twlnz cart list
+
+twlnz wishlist                          # what is saved
 twlnz wishlist add R3059518
+twlnz wishlist set R3059518 2           # how many are wanted; 0 stops saving it
+twlnz wishlist move-to-cart R3059518
 ```
 
 Every command takes `--json`, and it is the same data the table is built from
@@ -124,6 +128,29 @@ count — so `cart add` and `cart remove` re-read the minicart before printing.
 That is one small GET, it is what the site's own page does after a write, and it
 is the difference between a table that matches `cart list` and one that quietly
 means something else.
+
+### `wishlist` shows the list without being asked
+
+`twlnz wishlist` prints what is saved. There is no `wishlist list` to type,
+because reading is what a wishlist is mostly for — `list` is accepted anyway, so
+the habit is never punished.
+
+The rest are `add`, `remove`, `set` and `move-to-cart`, all by product id.
+Internally the site addresses a saved row by a `uuid` that a person never sees,
+so every one of these reads the list first to turn the id into the row.
+
+`move-to-cart` is **two changes**: the product goes into the cart, then off the
+list, because that is what the site's own button is. They are done in that order
+on purpose — a failure in between leaves it in the cart and still saved, rather
+than in neither. It also defaults to the quantity saved against the row, since
+that is the number someone put there.
+
+A saved row carries its own add-to-cart token, so `move-to-cart` does not fetch
+the product page the way `cart add` has to.
+
+Saving is not buying: the quantity is a note to self, nothing is reserved, and
+the site quotes no total for it — so the table has one price column where `cart`
+has two.
 
 ### The store is a local preference
 

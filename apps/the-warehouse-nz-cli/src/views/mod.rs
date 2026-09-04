@@ -15,6 +15,7 @@ mod product;
 mod products;
 mod stock;
 mod stores;
+mod wishlist;
 
 pub use cart::CartView;
 pub use departments::DepartmentTree;
@@ -22,6 +23,7 @@ pub use product::ProductDetailView;
 pub use products::ProductList;
 pub use stock::StockList;
 pub use stores::{StoreList, StoreView};
+pub use wishlist::WishlistView;
 
 use cli_kit::{plural, Out};
 use std::io::Write;

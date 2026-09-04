@@ -139,6 +139,21 @@ fn an_account_command_says_to_sign_in_rather_than_failing_obscurely() {
 }
 
 #[test]
+fn the_wishlist_needs_no_subcommand_to_be_shown() {
+    // The bare command is the listing, and `list` is kept as the same thing
+    // said longhand. Both get as far as needing an account, which is where a
+    // signed-out run stops -- so this pins the parse rather than the network.
+    let home = home();
+    for args in [vec!["wishlist"], vec!["wishlist", "list"]] {
+        twlnz(&home)
+            .args(&args)
+            .assert()
+            .code(3)
+            .stderr(contains("not signed in"));
+    }
+}
+
+#[test]
 fn logging_out_when_signed_out_is_not_an_error() {
     let home = home();
     twlnz(&home)

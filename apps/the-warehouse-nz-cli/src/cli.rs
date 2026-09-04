@@ -147,10 +147,13 @@ pub enum Command {
         action: CartAction,
     },
 
-    /// Save products for later. Needs an account.
+    /// What is saved for later, and changing it. Needs an account.
+    ///
+    /// With nothing after it, this shows the list -- the reading is what a
+    /// wishlist is for, so it does not need naming.
     Wishlist {
         #[command(subcommand)]
-        action: WishlistAction,
+        action: Option<WishlistAction>,
     },
 
     /// Signing in, and signing out.
@@ -306,8 +309,26 @@ pub enum CartAction {
 
 #[derive(Subcommand, Debug)]
 pub enum WishlistAction {
-    /// Add a product.
+    /// What is saved. The same as naming nothing at all.
+    List,
+    /// Save a product.
     Add { pid: String },
+    /// Stop saving a product.
+    Remove { pid: String },
+    /// Note how many of something is wanted. Zero stops saving it.
+    ///
+    /// A note to self: nothing is reserved and the site quotes no price for it.
+    Set { pid: String, quantity: u32 },
+    /// Put a saved product in the cart and stop saving it.
+    ///
+    /// Two changes, in that order, because the site's own button is two
+    /// requests -- so a failure in between leaves the product in the cart and
+    /// still on the list rather than in neither.
+    MoveToCart {
+        pid: String,
+        /// How many, when not the number the wishlist has against it.
+        quantity: Option<u32>,
+    },
 }
 
 #[derive(Subcommand, Debug)]
