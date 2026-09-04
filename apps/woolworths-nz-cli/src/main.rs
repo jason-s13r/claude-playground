@@ -1,99 +1,79 @@
-//! wwnz -- unofficial CLI for Woolworths New Zealand.
+//! `wwnz` -- Woolworths New Zealand from the command line.
 //!
-//! Not affiliated with Woolworths. It calls the same undocumented GraphQL
-//! endpoint their website calls, which can change without notice.
+//! The interesting code is in `packages/`: the domain in `gsnz-core`, the
+//! GraphQL protocol in `wwnz-api`, the rendering in `cli-kit` and `gsnz-ui`.
+//! What is left here is the part that is genuinely about this program --
+//! reading the environment once, resolving flags against config, and turning a
+//! failure into an exit code.
 
-mod api;
 mod app;
-mod auth;
 mod build;
 mod cli;
 mod commands;
 mod config;
-mod domain;
-mod output;
-mod password;
-mod secrets;
-mod session;
-mod update;
+mod env;
+mod error;
+mod retailers;
 
-use anyhow::Result;
-use clap::{CommandFactory, Parser};
 use std::process::ExitCode;
-use std::time::Duration;
 
-use api::Endpoints;
-use app::App;
-use cli::{Cli, Command};
-use config::{Config, Paths};
-use secrets::Secrets;
+use clap::Parser;
 
-#[tokio::main]
-async fn main() -> ExitCode {
-    match run().await {
-        Ok(code) => code,
+use crate::app::App;
+use crate::cli::Cli;
+use crate::error::AppResult;
+
+fn main() -> ExitCode {
+    let cli = Cli::parse();
+
+    let runtime = match tokio::runtime::Builder::new_multi_thread()
+        .enable_all()
+        .build()
+    {
+        Ok(rt) => rt,
         Err(e) => {
-            eprintln!("error: {e:#}");
-            ExitCode::FAILURE
+            eprintln!("wwnz: could not start the async runtime: {e}");
+            return ExitCode::FAILURE;
+        }
+    };
+
+    match runtime.block_on(run(cli)) {
+        Ok(()) => ExitCode::SUCCESS,
+        Err(e) if e.silent() => ExitCode::from(e.exit_code()),
+        Err(e) => {
+            eprintln!("wwnz: {e}");
+            // The chain, not just the top: "reading the cart" alone says
+            // nothing, and the cause underneath it is the part worth reading.
+            // Skipping anything the line above already said, because a wrapper
+            // carrying its source's own words would print them twice and read
+            // as two problems.
+            let mut shown = e.to_string();
+            let mut cause = std::error::Error::source(&e);
+            while let Some(e) = cause {
+                let text = e.to_string();
+                if !shown.contains(&text) {
+                    eprintln!("      {text}");
+                    shown = text;
+                }
+                cause = e.source();
+            }
+            // The library says what is wrong and, separately, what kind of
+            // thing would fix it. Only this binary knows it is called `wwnz`,
+            // so turning that into a command line happens here.
+            if let Some(hint) = e.hint() {
+                eprintln!("      {hint}");
+            }
+            if let Some(advice) = cli::advice(&e) {
+                eprintln!("      {advice}");
+            }
+            // 2 misuse, 3 auth, 4 unsupported, 5 no store -- so a script can
+            // tell them apart without reading this text.
+            ExitCode::from(e.exit_code())
         }
     }
 }
 
-async fn run() -> Result<ExitCode> {
-    let cli = Cli::parse();
-
-    // A bare `wwnz` is someone looking for the commands. Answer before touching
-    // config, so a broken config file still gets help rather than an error.
-    let Some(command) = &cli.command else {
-        Cli::command().print_long_help()?;
-        return Ok(ExitCode::SUCCESS);
-    };
-
-    // Completion scripts describe the command surface and nothing else, so
-    // they are generated without config, credentials or a network.
-    if let Command::Completions { shell } = command {
-        commands::completions::run(*shell)?;
-        return Ok(ExitCode::SUCCESS);
-    }
-
-    let paths = Paths::resolve()?;
-    let config = Config::load(&paths)?;
-
-    let mut app = App {
-        secrets: Secrets::new(paths.state_dir.clone()),
-        paths,
-        config,
-        endpoints: Endpoints::resolve(),
-        http: http_client()?,
-        json: cli.json,
-        store_flag: cli.store.clone(),
-    };
-
-    commands::dispatch(&mut app, command).await
-}
-
-/// The client every request goes through.
-///
-/// `wreq` -- `reqwest` with a browser TLS handshake -- and deliberately not
-/// plain `reqwest`. Akamai sits in front of woolworths.co.nz and scores the
-/// handshake: with rustls the storefront withholds its bot-manager cookies and
-/// the login is refused with a bare 400; with a Firefox handshake the same
-/// requests are answered normally and the cookies arrive.
-///
-/// The sibling `foodstuffs-nz-cli` shells out to curl for the same class of
-/// problem, because Cloudflare accepts OpenSSL handshakes. Do not copy that
-/// here: the two vendors score differently and curl fares worse than rustls
-/// against this one.
-///
-/// Nor curl, for the same reason in the other direction: asked for the home
-/// page, curl is issued neither `__guest__token` nor `ak_bmsc`. A browser
-/// handshake is issued both.
-fn http_client() -> Result<wreq::Client> {
-    Ok(wreq::Client::builder()
-        // The whole point. This sets the TLS handshake, the HTTP/2 settings and
-        // the headers together, which is what Akamai scores.
-        .emulation(session::EMULATION)
-        .timeout(Duration::from_secs(30))
-        .connect_timeout(Duration::from_secs(10))
-        .build()?)
+async fn run(cli: Cli) -> AppResult<()> {
+    let app = App::new(&cli)?;
+    commands::run(&app, cli.command).await
 }

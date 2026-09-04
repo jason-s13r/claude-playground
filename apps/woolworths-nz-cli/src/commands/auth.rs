@@ -1,269 +1,168 @@
-//! `wwnz auth` -- signing in, signing out, and reporting on the session.
+//! `auth` -- signing in, and the four ways a session ends.
 
-use anyhow::{bail, Context, Result};
-use std::io::Read;
+use cli_kit::{emit, prompt, prompt_password, Out, View};
+use gsnz_core::AuthStatus;
+use serde::Serialize;
+use std::io::Write;
 
-use crate::app::App;
-use crate::auth;
-use crate::cli::AuthCommand;
-use crate::commands::io::{print_json, prompt};
-use crate::domain::order::Filter;
-use crate::password;
-use crate::session::{self, Session, StoredSession};
+use crate::app::{App, RETAILER};
+use crate::cli::AuthAction;
+use crate::error::{AppError, AppResult};
 
-pub async fn run(app: &App, cmd: &AuthCommand) -> Result<bool> {
-    match cmd {
-        AuthCommand::Login {
+pub async fn run(app: &App, action: AuthAction) -> AppResult<()> {
+    match action {
+        AuthAction::Login {
             email,
             password_command,
             no_store_password,
-        } => {
-            login(
-                app,
-                email.as_deref(),
-                password_command.as_deref(),
-                !no_store_password,
-            )
-            .await?;
-            Ok(true)
-        }
-        AuthCommand::Import { file } => {
-            import(app, file)?;
-            Ok(true)
-        }
-        AuthCommand::Logout => {
-            logout(app)?;
-            Ok(true)
-        }
-        AuthCommand::Status => status(app).await,
+        } => login(app, email, password_command, no_store_password).await,
+        AuthAction::Import { file } => import(app, &file).await,
+        AuthAction::Refresh => refresh(app).await,
+        AuthAction::Status => show(app, status(app).await),
+        AuthAction::Logout => logout(app).await,
     }
 }
 
 async fn login(
     app: &App,
-    email: Option<&str>,
-    password_command: Option<&str>,
-    store_password: bool,
-) -> Result<()> {
-    let email = match email.map(str::trim).filter(|e| !e.is_empty()) {
-        Some(e) => e.to_string(),
-        None => prompt("Email: ")?,
+    email: Option<String>,
+    password_command: Option<String>,
+    no_store_password: bool,
+) -> AppResult<()> {
+    let handle = app.handle()?;
+    // On stderr with the prompts: what is being asked for is part of the
+    // conversation, not part of the result.
+    let email = match email {
+        Some(email) => email,
+        None => prompt("Email")?,
+    };
+    // A configured command is the account's real source of truth where one
+    // exists, so it beats both the prompt and anything stored.
+    let password = match password_command
+        .as_deref()
+        .or(app.config.auth.password_command.as_deref())
+    {
+        Some(command) => net_kit::run::capturing("password_command", command).await?,
+        None => prompt_password("Password")?,
     };
 
-    let command = password_command.or(app.config.password_command.as_deref());
-    let password = match command {
-        Some(cmd) => password::from_command(cmd)?,
-        None => read_password()?,
+    // Auth0 challenges nothing this flow can answer, so a code prompt here
+    // would be a prompt nothing ever reaches. It exists because the trait has
+    // one; a challenge fails the login instead.
+    let ask = |method: &str| {
+        eprintln!("A verification code was sent by {method}.");
+        prompt("Code")
     };
-    // Not conditional on where the password came from: `--password-command` is
-    // the only way to sign in without a terminal, so refusing to store what it
-    // printed would mean a headless box could never set this up.
-    let store_password = store_password && app.config.store_password.unwrap_or(true);
+    handle.login(&email, &password, &ask).await?;
 
-    let session = auth::login(&app.endpoints, &email, &password).await?;
-    StoredSession {
-        email: Some(email.clone()),
-        cookies: session.cookies(),
-        obtained_at: session::now(),
-    }
-    .save(&app.secrets)?;
-    // The session cookie is encrypted and has nothing to refresh it with, so
-    // the password is the only thing that can renew it unattended.
-    if store_password {
-        password::save(&app.secrets, &password)?;
-    } else {
-        password::clear(&app.secrets)?;
-    }
-
-    if app.json {
-        print_json(&serde_json::json!({
-            "signed_in": true,
-            "email": email,
-            "password_stored": store_password,
-        }));
-    } else {
-        println!(
-            "Signed in as {email}; session stored in {}.",
-            app.secrets.backend().describe()
-        );
-        if store_password {
-            println!(
-                "Password kept there as well, so a lapsed session signs itself in\n\
-                 again. `--no-store-password` skips that."
-            );
-        } else if command.is_some() {
-            println!("Password not stored; password_command signs in again instead.");
-        } else {
-            println!(
-                "Password not stored, so a lapsed session needs `wwnz auth login`\n\
-                 again. Set password_command, or drop --no-store-password."
-            );
+    // Only after the login worked: storing a password that does not sign in is
+    // worse than storing none. And it matters more here than elsewhere --
+    // signing in again is the only renewal a Woolworths session has.
+    if app.config.auth.store_password && !no_store_password {
+        if let Err(e) = net_kit::password::save(&app.secrets(), &password) {
+            eprintln!("wwnz: signed in, but the password could not be kept: {e}");
         }
     }
-    Ok(())
+    show(app, status(app).await)
 }
 
-/// Take the session from a browser's exported cookies.
+/// Sign in again from the stored password, which is the only renewal there is:
+/// the session cookie is encrypted and only the site can mint one.
 ///
-/// The way in when the login flow cannot be followed. Only the session and
-/// guest cookies are kept -- an export holds the whole browser's cookies for
-/// the site, and none of the rest is a credential this tool should hold on to.
-fn import(app: &App, file: &str) -> Result<()> {
-    let text = if file == "-" {
-        let mut buf = String::new();
-        std::io::stdin()
-            .read_to_string(&mut buf)
-            .context("reading cookies from stdin")?;
-        buf
-    } else {
-        std::fs::read_to_string(file).with_context(|| format!("reading {file}"))?
-    };
-
-    let cookies = auth::cookies_from_netscape(&text);
-    let session = Session::from_cookies(cookies.clone());
-    if !session.account {
-        bail!(
-            "no Woolworths session found in {file}.\n\
-             It should be a Netscape-format cookies.txt holding the \
-             __session__0 and __session__1 cookies for www.woolworths.co.nz, \
-             exported while signed in."
-        );
+/// An account that was never signed in is reported, not failed.
+async fn refresh(app: &App) -> AppResult<()> {
+    let handle = app.handle()?;
+    if let Ok(status) = handle.auth_status().await {
+        if !status.signed_in {
+            eprintln!("wwnz: not signed in, so there is nothing to renew");
+            return show(app, status);
+        }
     }
-
-    StoredSession {
-        // An export says nothing about who it belongs to, and without an email
-        // there is nobody to sign back in as -- so an imported session cannot
-        // renew itself even where a password is stored.
-        email: None,
-        cookies,
-        obtained_at: session::now(),
-    }
-    .save(&app.secrets)?;
-
-    if app.json {
-        print_json(&serde_json::json!({ "signed_in": true, "source": file }));
-    } else {
-        println!("Session imported from {file}. Check it with `wwnz auth status`.");
-    }
+    let result = handle.refresh_session().await;
+    // The status is the useful part and is worth printing either way; the
+    // failure still decides the exit code.
+    let status = status(app).await;
+    show(app, status)?;
+    result?;
     Ok(())
 }
 
-fn logout(app: &App) -> Result<()> {
-    let had_session = StoredSession::clear(&app.secrets)?;
-    let had_password = password::clear(&app.secrets)?;
-    // The guest token is not a credential, but it is bound to the same cart, so
-    // leaving it behind would keep the signed-out session's store selection.
-    let had_guest = session::clear_guest(&app.paths);
-
-    if app.json {
-        print_json(&serde_json::json!({
-            "signed_out": had_session,
-            "had_password": had_password,
-            "guest_token_cleared": had_guest,
-        }));
-    } else if had_session {
-        println!("Signed out.");
-    } else {
-        println!("There was no stored session.");
-    }
-    Ok(())
-}
-
-/// Report whether there is a session and whether it still works.
+/// What the account reports, with a failure reported rather than raised.
 ///
-/// A stored session carries no readable expiry -- it is encrypted, and only the
-/// site can read it -- so the only honest way to answer "does this still work?"
-/// is to make a call with it.
-async fn status(app: &App) -> Result<bool> {
-    let stored = StoredSession::load(&app.secrets)?;
-    let overridden = std::env::var("WWNZ_SESSION").is_ok_and(|v| !v.trim().is_empty());
-
-    let Some(session) = app.stored_session()? else {
-        if app.json {
-            print_json(&serde_json::json!({ "signed_in": false }));
-        } else {
-            println!("Not signed in. Run: wwnz auth login --email you@example.com");
-        }
-        return Ok(false);
+/// `auth status` is what someone runs to find out that a stored blob is
+/// unreadable, so it must not be the command that fails because of one.
+async fn status(app: &App) -> AuthStatus {
+    let result = match app.handle() {
+        Ok(handle) => handle.auth_status().await.map_err(|e| e.to_string()),
+        Err(e) => Err(e.to_string()),
     };
-
-    let email = stored.as_ref().and_then(|s| s.email.clone());
-    let age = stored
-        .as_ref()
-        .map(|s| session::now().saturating_sub(s.obtained_at));
-
-    // Whether a lapsed session could come back on its own. It takes an email
-    // as well as a password, so a session from `auth import` or `WWNZ_SESSION`
-    // -- neither of which names one -- has no renewal even where a password is
-    // stored.
-    let renewal = match email.is_some() && !overridden {
-        true => password::Source::resolve(app.config.password_command.as_deref(), &app.secrets)?,
-        false => None,
-    };
-
-    // The cheapest account-scoped call there is: one order, which most
-    // accounts will not even have. Deliberately built without renewal, so this
-    // reports the session as it stands rather than quietly replacing it.
-    let client = crate::api::Client::new(app.http.clone(), app.endpoints.clone(), session);
-    let working = client.orders(1, Filter::All).await;
-    let usable = working.is_ok() || renewal.is_some();
-
-    if app.json {
-        print_json(&serde_json::json!({
-            "signed_in": true,
-            "email": email,
-            "source": if overridden { "WWNZ_SESSION" } else { "stored" },
-            "age_seconds": age,
-            "working": working.is_ok(),
-            "usable": usable,
-            "unattended_renewal": renewal.as_ref().map(|r| r.describe()),
-            "error": working.as_ref().err().map(|e| format!("{e:#}")),
-        }));
-        return Ok(usable);
-    }
-
-    match email {
-        Some(email) => println!("Signed in as {email}"),
-        None => println!("Signed in"),
-    }
-    if overridden {
-        println!("Session from WWNZ_SESSION, overriding anything stored.");
-    }
-    if let Some(age) = age.filter(|_| !overridden) {
-        println!(
-            "Obtained {} ago",
-            crate::commands::io::human_duration(std::time::Duration::from_secs(age),)
-        );
-    }
-    match (&working, &renewal) {
-        (Ok(page), _) => println!("The session works ({} order(s) on file).", page.total),
-        (Err(e), Some(r)) => println!(
-            "The session no longer works: {e:#}\nThe next command signs in again from {}.",
-            r.describe()
-        ),
-        (Err(e), None) => {
-            println!("The session no longer works: {e:#}\nSign in again: wwnz auth login")
-        }
-    }
-    if working.is_ok() {
-        if let Some(r) = &renewal {
-            println!("Renewal: automatic, from {}.", r.describe());
-        }
-    }
-    Ok(usable)
+    result.unwrap_or_else(|detail| AuthStatus {
+        retailer: RETAILER,
+        signed_in: false,
+        account: None,
+        expires_in: None,
+        detail: Some(detail),
+    })
 }
 
-fn read_password() -> Result<String> {
-    use std::io::IsTerminal;
-    if !std::io::stdin().is_terminal() {
-        bail!(
-            "a password is required, but there is no terminal to prompt on. \
-             Set password_command in the config file, or pass --password-command."
-        );
+async fn import(app: &App, file: &std::path::Path) -> AppResult<()> {
+    let text = std::fs::read_to_string(file).map_err(|e| {
+        AppError::usage(format!(
+            "cannot read {}: {e}. Export a Netscape cookies.txt from a browser signed in \
+             to woolworths.co.nz.",
+            file.display()
+        ))
+    })?;
+    let status = app.handle()?.import_cookies(&text).await?;
+    show(app, status)
+}
+
+async fn logout(app: &App) -> AppResult<()> {
+    let dropped = app.handle()?.logout().await?;
+    let mut out = app.out();
+    if out.is_json() {
+        emit(&mut out, &Status(status(app).await))?;
+    } else if dropped {
+        writeln!(out, "Signed out.")?;
+    } else {
+        writeln!(out, "Was not signed in.")?;
     }
-    let password = rpassword::prompt_password("Password: ").context("reading the password")?;
-    if password.trim().is_empty() {
-        bail!("no password entered");
+    Ok(())
+}
+
+fn show(app: &App, status: AuthStatus) -> AppResult<()> {
+    emit(&mut app.out(), &Status(status))?;
+    Ok(())
+}
+
+/// One account, so `--json` gets the object rather than a one-element array:
+/// `wwnz auth status --json | jq .signed_in` should not have to index.
+#[derive(Serialize)]
+struct Status(AuthStatus);
+
+impl View for Status {
+    fn text(&self, out: &mut Out) -> std::io::Result<()> {
+        let s = &self.0;
+        let mark = if s.signed_in {
+            out.good("signed in")
+        } else {
+            out.dim("signed out")
+        };
+        match s.account.as_deref() {
+            Some(who) => writeln!(out, "{}  {mark} {who}", s.retailer)?,
+            None => writeln!(out, "{}  {mark}", s.retailer)?,
+        }
+        if let Some(expires_in) = s.expires_in {
+            let d = std::time::Duration::from_secs(expires_in);
+            writeln!(out, "  expires in {}", cli_kit::human_duration(d))?;
+        }
+        if let Some(detail) = &s.detail {
+            writeln!(out, "  {}", out.dim(detail))?;
+        }
+        Ok(())
     }
-    Ok(password)
+
+    fn json(&self) -> cli_kit::serde_json::Value {
+        cli_kit::serde_json::to_value(&self.0).unwrap_or(cli_kit::serde_json::Value::Null)
+    }
 }

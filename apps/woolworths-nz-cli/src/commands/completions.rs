@@ -1,26 +1,26 @@
-//! `wwnz completions` -- emit a shell completion script.
+//! `completions` -- the shell script, and nothing else on the stream, so
+//! `source <(wwnz completions zsh)` works.
 
-use anyhow::{bail, Result};
-use clap::CommandFactory;
-use clap_complete::Shell;
-use std::io::stdout;
+use crate::app::App;
+use crate::error::{AppError, AppResult};
 
-use crate::cli::Cli;
-
-/// Write the completion script for `shell` to stdout.
-///
-/// Nothing but the script goes to stdout, so `source <(wwnz completions zsh)`
-/// works. Runs before any config or credential handling: generating a script
-/// must not depend on the machine being set up.
-pub fn run(shell: Option<Shell>) -> Result<()> {
-    let shell = match shell.or_else(Shell::from_env) {
-        Some(s) => s,
-        None => bail!(
-            "could not tell which shell this is from $SHELL; name one:\n  \
-             wwnz completions <bash|zsh|fish|powershell|elvish>"
-        ),
-    };
-    let mut cmd = Cli::command();
-    clap_complete::generate(shell, &mut cmd, "wwnz", &mut stdout());
-    Ok(())
+pub fn run(app: &App, shell: Option<String>) -> AppResult<()> {
+    let named = shell
+        .as_deref()
+        .map(str::trim)
+        .filter(|s| !s.is_empty())
+        .map(|s| {
+            s.parse::<clap_complete::Shell>()
+                .map_err(|_| AppError::usage(format!("{s:?} is not a shell this can generate for")))
+        })
+        .transpose()?;
+    let mut out = std::io::stdout();
+    cli_kit::completions::generate(
+        &mut crate::cli::command(),
+        "wwnz",
+        named,
+        app.env.shell.as_deref(),
+        &mut out,
+    )
+    .map_err(AppError::usage)
 }
