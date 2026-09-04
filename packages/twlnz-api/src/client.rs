@@ -5,7 +5,7 @@ use std::sync::Mutex;
 use net_kit::wreq;
 
 use crate::cart;
-use crate::domain::{Cart, Category, Island, ProductDetail, Store, StoreStock};
+use crate::domain::{Cart, Category, Island, ProductDetail, Store, StoreStock, Wishlist};
 use crate::endpoints::Endpoints;
 use crate::error::{Error, Result};
 use crate::extract;
@@ -219,11 +219,26 @@ impl Client {
         url: &str,
         form: &[(&str, &str)],
     ) -> Result<serde_json::Value> {
+        self.post_form_from(action, url, form, None).await
+    }
+
+    /// The same, from a named page.
+    ///
+    /// The wishlist's writes are the reason: they carry the pid in the *body*
+    /// rather than in the query, so the page a request came from cannot be
+    /// worked out from its URL the way every other write's can.
+    async fn post_form_from(
+        &self,
+        action: &'static str,
+        url: &str,
+        form: &[(&str, &str)],
+        from: Option<String>,
+    ) -> Result<serde_json::Value> {
         let absolute = self.endpoints.absolute(url);
-        let referer = match pid_of(url) {
+        let referer = from.unwrap_or_else(|| match pid_of(url) {
             Some(pid) => self.endpoints.product_page("p", &pid),
             None => self.endpoints.cart_page(),
-        };
+        });
         let mut req = self
             .http
             .post(&absolute)
@@ -567,6 +582,113 @@ impl Client {
         )
         .await?;
         Ok(())
+    }
+
+    /// Everything saved for later.
+    ///
+    /// **A page, not a controller.** The basket has `Cart-MiniCartShow` to ask;
+    /// the wishlist has nothing of the kind, so this is the rendered `/wishlist`
+    /// page read as markup. It is also an ordinary navigation rather than the
+    /// `fetch()` shape the writes use -- the opposite of the minicart, which is
+    /// a read that must be made as an XHR.
+    ///
+    /// The rows carry a **pre-signed add-to-cart URL each**, so the two-step
+    /// this crate is otherwise built around collapses here: moving something to
+    /// the basket needs no product page. Those tokens expire with the page they
+    /// were minted into, so a [`Wishlist`] held for a while is a set of stale
+    /// tokens and has to be read again.
+    pub async fn wishlist(&self) -> Result<Wishlist> {
+        self.require_account().await?;
+        let (_, body) = self.get(&self.endpoints.wishlist_page(), &[]).await?;
+        let total = extract::wishlist_total(&body);
+        let items = extract::wishlist_items(&body);
+        // An empty wishlist still renders its heading, so nothing at all means
+        // this was not the wishlist page -- a sign-in wall, most likely. Saying
+        // "you have saved nothing" to that would be a lie about the account.
+        if total.is_none() && items.is_empty() {
+            return Err(Error::not_in_page("the wishlist"));
+        }
+        Ok(Wishlist { items, total })
+    }
+
+    /// Take something out of the wishlist.
+    ///
+    /// Takes the item rather than a product id because the controller wants the
+    /// list entry's `uuid`, which only a read of the page knows -- the same
+    /// shape as [`Client::remove_line`], and for the same reason.
+    ///
+    /// **A GET, where the quantity change beside it is a POST.** The two sit on
+    /// the same page, are called by the same script and are written the same way
+    /// in the page's link table, and they still disagree about the method: this
+    /// one answers a form post with a 500 and a page of apology, which says
+    /// nothing about what it wanted. The cart has the same split the other way
+    /// round, so the rule is per controller and cannot be guessed from either
+    /// its neighbours or its shape.
+    ///
+    /// Neither needs a `verify` token, which no other write on this storefront
+    /// can say: the wishlist's own controllers are guarded by the `Sec-Fetch-*`
+    /// headers alone.
+    pub async fn remove_from_wishlist(&self, item: &crate::WishlistItem) -> Result<()> {
+        self.require_account().await?;
+        let url = format!(
+            "{}?pid={}&uuid={}",
+            self.endpoints.controller("Wishlist-RemoveProduct"),
+            item.id,
+            item.uuid
+        );
+        let value = self.action("the wishlist removal", &url).await?;
+        cart::succeeded("the wishlist removal", &value)
+    }
+
+    /// Change how many of something is saved.
+    ///
+    /// A note to self rather than an order: nothing is reserved and no price is
+    /// quoted for the quantity, so this only changes what the row says.
+    pub async fn set_wishlist_quantity(
+        &self,
+        item: &crate::WishlistItem,
+        quantity: u32,
+    ) -> Result<()> {
+        self.require_account().await?;
+        let quantity = quantity.max(1).to_string();
+        let value = self
+            .post_form_from(
+                "the wishlist quantity change",
+                &self.endpoints.controller("Wishlist-UpdateProductQuantity"),
+                // The site's own order, kept: `uuid` names the row and `pid`
+                // rides along beside it.
+                &[
+                    ("uuid", &item.uuid),
+                    ("pid", &item.id),
+                    ("quantity", &quantity),
+                ],
+                Some(self.endpoints.wishlist_page()),
+            )
+            .await?;
+        cart::succeeded("the wishlist quantity change", &value)
+    }
+
+    /// Put a saved item in the basket, spending the token its row was rendered
+    /// with.
+    ///
+    /// The one call in this crate that adds to the cart without a product page:
+    /// the wishlist mints an add-to-cart token into every row, so the read that
+    /// found the item is also what authorises the write.
+    ///
+    /// This does **not** take it out of the wishlist. The site's own "Move to
+    /// Cart" button is two requests -- this one, then the removal -- and
+    /// pretending otherwise here would hide a failure between them.
+    pub async fn add_saved_to_cart(
+        &self,
+        item: &crate::WishlistItem,
+        quantity: u32,
+    ) -> Result<Cart> {
+        let url = item
+            .add_to_cart
+            .as_deref()
+            .ok_or_else(|| Error::not_in_page("an add-to-cart action on the saved item"))?;
+        let quantity = quantity.max(1).to_string();
+        cart::cart_from(self.add(url, &item.id, &quantity).await?)
     }
 
     // ---- stores ----

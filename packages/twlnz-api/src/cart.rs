@@ -1,9 +1,10 @@
 //! The basket and the wishlist.
 //!
 //! The one half of this storefront that was already an API: these controllers
-//! answer typed JSON with line items, prices and totals. What they still need
-//! is a `verify` token from a product page, so every write here starts from a
-//! [`crate::Pdp`].
+//! answer typed JSON with line items, prices and totals. Adding needs a
+//! `verify` token from a product page, so it starts from a [`crate::Pdp`] --
+//! but the wishlist's own writes need no token at all, and answer with nothing
+//! but whether they worked.
 
 use crate::error::{Error, Result};
 use crate::wire;
@@ -42,6 +43,26 @@ fn is_stale_token(message: &str) -> bool {
     let m = message.to_lowercase();
     (m.contains("verify") || m.contains("token") || m.contains("expired"))
         && !m.contains("out of stock")
+}
+
+/// Read a write whose only answer is whether it worked.
+///
+/// The wishlist's own controllers are the ones that do this.
+/// `Wishlist-RemoveProduct` and `Wishlist-UpdateProductQuantity` answer
+/// `{"action":…,"success":true}` -- no model, no count, and no `error` field
+/// at all -- so the flag is the whole answer and a caller that wants to show
+/// the result has to go and read the page again.
+pub fn succeeded(action: &'static str, value: &serde_json::Value) -> Result<()> {
+    match value.get("success").and_then(serde_json::Value::as_bool) {
+        // A missing flag is not a refusal: `checked` has already looked for the
+        // site's own `error`, and inventing a failure from an absent field
+        // would fail writes that landed.
+        None | Some(true) => Ok(()),
+        Some(false) => Err(Error::Refused {
+            action,
+            message: "the site reported it did not work, and gave no reason".into(),
+        }),
+    }
 }
 
 pub fn cart_from(value: serde_json::Value) -> Result<crate::Cart> {

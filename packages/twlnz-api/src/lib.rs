@@ -1,9 +1,10 @@
 //! The Warehouse New Zealand storefront.
 //!
 //! A Salesforce Commerce Cloud site, not an API: there is no GraphQL endpoint
-//! and no product service. Cart, wishlist, stores and variations answer clean
-//! JSON, but everything that lists products is server-rendered HTML, and this
-//! crate reads it -- see [`extract`], which is the only module that does.
+//! and no product service. Cart, stores, variations and the wishlist's writes
+//! answer clean JSON, but everything that lists products is server-rendered
+//! HTML -- the wishlist included -- and this crate reads it: see [`extract`],
+//! which is the only module that does.
 //!
 //! Two things shape everything else here. Writes are a **two-step**: cart,
 //! wishlist and stock endpoints need a `verify` token that is minted into a
@@ -45,7 +46,7 @@ mod wire;
 pub use client::{Client, Reauth};
 pub use domain::{
     Availability, Cart, CartLine, Category, Island, Price, Product, ProductDetail, ShippingOption,
-    Store, StoreStock, VariationAxis, VariationValue,
+    Store, StoreStock, VariationAxis, VariationValue, Wishlist, WishlistItem,
 };
 pub use endpoints::{Endpoints, SITE};
 pub use error::{Error, Result};

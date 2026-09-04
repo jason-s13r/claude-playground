@@ -2,10 +2,10 @@
 
 The Warehouse NZ storefront: its listings, products, cart, wishlist and stores.
 
-Salesforce Commerce Cloud (Demandware), not an API. Cart, wishlist, stores and
-variations answer clean JSON, but **everything that lists products is
-server-rendered HTML** — in a 1,195-request capture of the site, 18 responses
-were JSON.
+Salesforce Commerce Cloud (Demandware), not an API. Cart, stores, variations and
+the wishlist's *writes* answer clean JSON, but **everything that lists products
+is server-rendered HTML** — the wishlist included — and in a 1,195-request
+capture of the site, 18 responses were JSON.
 
 > Reverse-engineered from the site's own traffic. There is no public API and no
 > documentation; these endpoints can change without notice.
@@ -25,7 +25,7 @@ degrade to a missing column, not a failed command.
 | Module | What it does |
 | ------ | ------------ |
 | [`client`](src/client.rs) | The storefront, and everything reached through it |
-| [`extract`](src/extract.rs) | **The only module that parses HTML.** Tiles, page tokens, JSON-LD, stock markup |
+| [`extract`](src/extract.rs) | **The only module that parses HTML.** Tiles, page tokens, JSON-LD, stock markup, wishlist rows |
 | [`listing`](src/listing.rs) | Search and browse, which are one endpoint, and how paging works |
 | [`product`](src/product.rs) | `Pdp` — a product page that has been read, and what it authorises |
 | [`cart`](src/cart.rs) | The basket and the wishlist, and reading a refusal off a 200 |
@@ -177,6 +177,57 @@ the lines, and no subtotal, no `totals`, no count. So the answer to a write is
 what the site said, not a basket fit to print: a caller showing the result of a
 write should re-read the minicart, which is what the site's own page does.
 
+## The wishlist is a page, and its writes disagree with each other
+
+There is no `Wishlist-Show` that answers JSON. The basket has `Cart-MiniCartShow`
+to ask; the wishlist has only the rendered `/wishlist` page, read as markup —
+and it is an ordinary navigation rather than the `fetch()` shape, which is the
+exact opposite of the minicart.
+
+The markup is kinder than a listing, though. A row is a
+`<gep-product-card uuid pid addtocarturl quickviewurl>` custom element, so the
+ids are the element's own attributes rather than something dug out of prose or a
+tracking blob. What the row does *not* carry is a `data-gtm-product` payload, so
+there is no brand, EAN or category — and no per-channel stock marker either, only
+the cart's phrasing, which is why a saved item keeps a `stock` string where a
+tile gets a two-axis [`Availability`](src/domain.rs).
+
+**Each row carries its own add-to-cart token.** This is the one place the
+two-step collapses: `addtocarturl` is a pre-signed `/cart/add-product`, so moving
+something into the basket needs no product page at all. It expires with the page
+it was minted into.
+
+The writes need no token — the `Sec-Fetch-*` headers are the whole guard — and
+they still do not agree on a method:
+
+| Controller | How | Takes |
+| --- | --- | --- |
+| `Wishlist-RemoveProduct` | **GET**, query string | `pid`, `uuid` |
+| `Wishlist-UpdateProductQuantity` | **POST**, form body | `uuid`, `pid`, `quantity` |
+
+Two controllers on one page, called by the same script, written the same way in
+the page's own `<link rel>` table. Posting to the first is answered with a 500
+and a page of apology that says nothing about what it wanted. The cart has the
+same split the other way round — everything there is a POST except
+`Cart-UpdateQuantity` — so the method is a fact per controller and cannot be
+inferred from its neighbours.
+
+Both answer `{"action":…,"success":true}` and nothing else: no list, no count, no
+`error` field even to be absent. So a caller that wants to show the result has to
+go and read the page again, and `success:false` is the only refusal there is to
+see.
+
+The row id is not the product id. `uuid` addresses the list entry, and the
+writes take it — a product id alone cannot say which row.
+
+**The list is paged.** The heading counts it (`Wishlist (2)`), a
+`Wishlist-MoreList` controller sits behind a "show more" button, and its
+parameters were not in any capture — the button renders empty for a list that
+fits on one page, and the script that calls it was never captured. So the
+heading is how a caller knows the rows it has are not all of them. Failing that,
+every page of the site carries `<span data-wishlist-items="R1,R2">` in its
+header, which is the whole membership by id whatever the page shows.
+
 ## Two shapes of background request
 
 Neither is interchangeable with a page load, and sending the wrong one is
@@ -190,7 +241,8 @@ answered with `Cross-Origin Request Blocked`:
 
 And the *writes* are POSTs with a form body — `pid`, `quantity`, `context` —
 while the `verify` token stays in the query string. As GETs they answer 500 with
-nothing to go on. `Cart-UpdateQuantity` is the exception and is a GET.
+nothing to go on. `Cart-UpdateQuantity` and `Wishlist-RemoveProduct` are the
+exceptions and are GETs, which is only ever knowable one controller at a time.
 
 ## Listings
 

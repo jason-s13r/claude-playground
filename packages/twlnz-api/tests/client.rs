@@ -587,3 +587,178 @@ async fn a_removal_reads_the_basket_it_left_behind() {
     );
     assert_eq!(cart.subtotal.as_deref(), Some("$24.97"));
 }
+
+// ---- the wishlist ----
+
+/// A client whose cookies speak for an account.
+///
+/// The wishlist is the one part of the storefront that genuinely belongs to a
+/// person, so every call here refuses a guest before it reaches the network.
+fn signed_in(server: &MockServer) -> Client {
+    let cookies =
+        std::collections::BTreeMap::from([("cc-nx_twl".to_string(), "signed-in".to_string())]);
+    let http = net_kit::http::build(twlnz_api::client_spec()).expect("http client");
+    Client::new(
+        http,
+        Endpoints::default().with_origin(server.uri()),
+        Session::from_cookies(cookies),
+    )
+}
+
+#[tokio::test]
+async fn the_wishlist_page_reads_as_saved_items() {
+    let server = MockServer::start().await;
+    Mock::given(method("GET"))
+        .and(path("/wishlist"))
+        .respond_with(html("wishlist-page.html"))
+        .mount(&server)
+        .await;
+
+    let wishlist = signed_in(&server).wishlist().await.unwrap();
+
+    assert_eq!(wishlist.total, Some(2), "the page's own heading");
+    assert!(wishlist.complete(), "two rows for a list of two");
+    let first = &wishlist.items[0];
+    assert_eq!(first.id, "R2837766");
+    assert_eq!(
+        first.uuid, "69aa74651283fdb1388801709a",
+        "the row, not the product"
+    );
+    assert_eq!(first.name, "Workspace 925 Mobile 3 Drawer");
+    assert_eq!(first.price.label().as_deref(), Some("$279.00"));
+    assert_eq!(first.stock.as_deref(), Some("In stock"));
+
+    // The second row is a saved *variant*, which is the case that makes the
+    // labels worth carrying: without them two colours of one shirt are the
+    // same row printed twice.
+    let second = &wishlist.items[1];
+    assert_eq!(second.quantity, 2, "the row's own quantity, not a default");
+    assert_eq!(second.variation, ["Green Dark", "S"]);
+}
+
+#[tokio::test]
+async fn a_saved_row_carries_the_token_that_puts_it_in_the_basket() {
+    // The wishlist is where this crate's two-step collapses: the add-to-cart
+    // token is minted into the row, so nothing has to fetch a product page.
+    let server = MockServer::start().await;
+    Mock::given(method("GET"))
+        .and(path("/wishlist"))
+        .respond_with(html("wishlist-page.html"))
+        .mount(&server)
+        .await;
+    Mock::given(method("POST"))
+        .and(path("/cart/add-product"))
+        .respond_with(json("cart.json"))
+        .mount(&server)
+        .await;
+
+    let client = signed_in(&server);
+    let wishlist = client.wishlist().await.unwrap();
+    let saved = &wishlist.items[0];
+    assert!(
+        saved
+            .add_to_cart
+            .as_deref()
+            .is_some_and(|u| u.contains("verify=")),
+        "{:?}",
+        saved.add_to_cart
+    );
+
+    let cart = client.add_saved_to_cart(saved, 1).await.unwrap();
+    assert!(!cart.lines.is_empty());
+    assert_eq!(
+        server.received_requests().await.unwrap().len(),
+        2,
+        "the page and the add -- no product page in between"
+    );
+}
+
+#[tokio::test]
+async fn a_wishlist_write_is_addressed_by_the_row_rather_than_the_product() {
+    // And the removal is a GET while the quantity change beside it is a POST.
+    // Both are the wishlist's own controllers, both are called by the same
+    // script, and posting to this one is answered with a 500 that says nothing
+    // -- so the method is pinned here rather than left to look incidental.
+    let server = MockServer::start().await;
+    Mock::given(method("GET"))
+        .and(path("/wishlist"))
+        .respond_with(html("wishlist-page.html"))
+        .mount(&server)
+        .await;
+    Mock::given(method("GET"))
+        .and(path(
+            "/on/demandware.store/Sites-twl-Site/default/Wishlist-RemoveProduct",
+        ))
+        .and(query_param("uuid", "69aa74651283fdb1388801709a"))
+        .and(query_param("pid", "R2837766"))
+        .respond_with(body(
+            r#"{"action":"Wishlist-RemoveProduct","success":true}"#.to_string(),
+            "application/json",
+        ))
+        .mount(&server)
+        .await;
+
+    let client = signed_in(&server);
+    let wishlist = client.wishlist().await.unwrap();
+    client
+        .remove_from_wishlist(&wishlist.items[0])
+        .await
+        .unwrap();
+}
+
+#[tokio::test]
+async fn a_write_the_site_says_did_not_work_is_not_reported_as_done() {
+    // These controllers answer with a flag and nothing else, so `success:false`
+    // on a 200 is the only failure there is to see.
+    let server = MockServer::start().await;
+    Mock::given(method("GET"))
+        .and(path("/wishlist"))
+        .respond_with(html("wishlist-page.html"))
+        .mount(&server)
+        .await;
+    Mock::given(method("POST"))
+        .and(path(
+            "/on/demandware.store/Sites-twl-Site/default/Wishlist-UpdateProductQuantity",
+        ))
+        .respond_with(body(
+            r#"{"action":"Wishlist-UpdateProductQuantity","success":false}"#.to_string(),
+            "application/json",
+        ))
+        .mount(&server)
+        .await;
+
+    let client = signed_in(&server);
+    let wishlist = client.wishlist().await.unwrap();
+    let err = client
+        .set_wishlist_quantity(&wishlist.items[0], 3)
+        .await
+        .unwrap_err();
+    assert!(err.to_string().contains("refused"), "{err}");
+}
+
+#[tokio::test]
+async fn a_page_that_is_not_the_wishlist_is_not_an_empty_wishlist() {
+    // A lapsed session is served the sign-in wall with a 200. Reporting that as
+    // "nothing saved" would be a lie about the account rather than about the
+    // request.
+    let server = MockServer::start().await;
+    Mock::given(method("GET"))
+        .and(path("/wishlist"))
+        .respond_with(body(
+            "<html><body><h1>Sign in</h1></body></html>".to_string(),
+            "text/html",
+        ))
+        .mount(&server)
+        .await;
+
+    let err = signed_in(&server).wishlist().await.unwrap_err();
+    assert!(err.to_string().contains("the wishlist"), "{err}");
+}
+
+#[tokio::test]
+async fn the_wishlist_refuses_a_guest_before_it_asks() {
+    let server = MockServer::start().await;
+    let err = client(&server).wishlist().await.unwrap_err();
+    assert!(err.to_string().contains("not signed in"), "{err}");
+    assert!(server.received_requests().await.unwrap().is_empty());
+}

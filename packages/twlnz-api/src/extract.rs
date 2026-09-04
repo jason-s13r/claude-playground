@@ -18,7 +18,7 @@
 
 use scraper::{Html, Selector};
 
-use crate::domain::{Availability, Price, Product, StoreStock};
+use crate::domain::{Availability, Price, Product, StoreStock, WishlistItem};
 
 /// Compile a selector once. A bad selector here is a programming error, not
 /// something the site can cause, so panicking names the bug immediately rather
@@ -51,6 +51,22 @@ sel!(
     ACTION_URL,
     "[href], [url], [data-url], [data-href], input.add-to-cart-url"
 );
+// The wishlist page. A row is a custom element carrying its own ids and its
+// own pre-signed add-to-cart URL, so the card is read off attributes and only
+// the text a person sees comes from inside it.
+sel!(WISHLIST_CARD, "gep-product-card");
+sel!(WISHLIST_COUNT, "span.number-of-items");
+sel!(
+    CARD_NAME,
+    "[data-test-id='product-name'], p.product-card__name"
+);
+sel!(CARD_PRICE, "[data-test-id='price']");
+sel!(CARD_QUANTITY, "[data-test-id='quantity-value']");
+sel!(CARD_QUANTITY_INPUT, "input.product-card__input-quantity");
+sel!(CARD_STOCK, "[data-test-id='product-stock-availability']");
+sel!(CARD_VARIATION, "span.product-card__variations__attribute");
+sel!(CARD_LINK, "a[href*='/p/']");
+sel!(CARD_IMAGE, "img.product-card__image__img");
 sel!(STORE_PANEL, "div.store.panel");
 sel!(STORE_TITLE, "h6.title, .store-details-title h6");
 sel!(STORE_AVAIL, "span.store-availability");
@@ -445,6 +461,87 @@ pub fn store_stock(html: &str) -> Vec<StoreStock> {
         .collect()
 }
 
+/// The wishlist, out of the page the site renders for it.
+///
+/// The one listing here that is not a product tile. A wishlist row is a
+/// `<gep-product-card>` custom element with `uuid`, `pid` and a pre-signed
+/// `addtocarturl` as **attributes on the element itself**, which is a sturdier
+/// thing to read than a tile: the ids are not in prose and not in a tracking
+/// blob, they are the element's own identity.
+///
+/// What it does not carry is a `data-gtm-product` payload, so there is no
+/// brand, EAN or category to be had -- and no per-channel stock marker either,
+/// only the cart's phrasing. Those are absent rather than guessed at.
+pub fn wishlist_items(html: &str) -> Vec<WishlistItem> {
+    let doc = Html::parse_fragment(html);
+    doc.select(&WISHLIST_CARD)
+        .filter_map(|card| {
+            let text = |sel: &Selector| {
+                card.select(sel)
+                    .next()
+                    .map(|e| e.text().collect::<String>().trim().to_string())
+                    .and_then(StringExt::into_option)
+            };
+            Some(WishlistItem {
+                uuid: card.attr("uuid")?.to_string(),
+                id: card.attr("pid")?.to_string(),
+                name: text(&CARD_NAME)?,
+                // The printed quantity, then the input beside it. Both are on
+                // every row; the second is the fallback for a row rendered
+                // without the summary line rather than a different number.
+                quantity: text(&CARD_QUANTITY)
+                    .or_else(|| {
+                        card.select(&CARD_QUANTITY_INPUT)
+                            .next()
+                            .and_then(|i| i.attr("value"))
+                            .map(str::to_string)
+                    })
+                    .and_then(|q| q.parse().ok())
+                    .unwrap_or(1),
+                price: text(&CARD_PRICE)
+                    .map(|t| Price::from_display(&t))
+                    .unwrap_or_default(),
+                variation: card
+                    .select(&CARD_VARIATION)
+                    .map(|e| e.text().collect::<String>().trim().to_string())
+                    .filter(|t| !t.is_empty())
+                    .collect(),
+                stock: text(&CARD_STOCK),
+                url: card
+                    .select(&CARD_LINK)
+                    .find_map(|a| a.attr("href"))
+                    .map(str::to_string),
+                image: card
+                    .select(&CARD_IMAGE)
+                    .find_map(|i| i.attr("src"))
+                    .map(str::to_string),
+                // The site writes an empty attribute where a card has no such
+                // action, which is not the same as a URL.
+                add_to_cart: card
+                    .attr("addtocarturl")
+                    .map(str::to_string)
+                    .and_then(StringExt::into_option),
+            })
+        })
+        .collect()
+}
+
+/// How many things the wishlist holds, from the `Wishlist (2)` heading.
+///
+/// The only count on the page, and worth having separately from the rows: the
+/// list is paged behind a "show more" button, so the heading is how a caller
+/// knows the rows it has are not all of them.
+pub fn wishlist_total(html: &str) -> Option<u32> {
+    Html::parse_fragment(html)
+        .select(&WISHLIST_COUNT)
+        .next()?
+        .text()
+        .collect::<String>()
+        .trim()
+        .parse()
+        .ok()
+}
+
 /// A description as prose.
 ///
 /// `longDescription` is a fragment of HTML -- headings, a `<ul>` of features --
@@ -822,5 +919,67 @@ mod tests {
         assert_eq!(stock[0].in_stock, Some(true));
         assert_eq!(stock[1].in_stock, Some(false));
         assert_eq!(stock[1].label.as_deref(), Some("Not available"));
+    }
+
+    const WISHLIST_ROW: &str = r##"
+    <span class="number-of-items">7</span>
+    <gep-product-card uuid="row-1" pid="R1000001"
+        addtocarturl="/cart/add-product?pid=R1000001&amp;verify=1-aaa" addtowishlisturl="">
+      <a href="/p/plain-cotton-tee/R1000001.html"><p class="product-card__name">Plain Cotton Tee</p></a>
+      <img class="product-card__image__img" src="https://example.test/tee.jpg" />
+      <span class="product-card__variations__attribute" data-attribute-id="color">Blue Dark</span>
+      <span class="product-card__variations__attribute" data-attribute-id="size">XL</span>
+      <span class="product-card__stock-availability__text" data-test-id="product-stock-availability">In stock</span>
+      <p class="product-card__quantity">Qty: <span data-test-id="quantity-value">3</span></p>
+      <input class="product-card__input-quantity" data-uuid="row-1" value="3" />
+      <div class="price" data-test-id="price">$12.00</div>
+    </gep-product-card>"##;
+
+    #[test]
+    fn a_saved_row_is_read_off_the_element_that_carries_its_ids() {
+        let item = &wishlist_items(WISHLIST_ROW)[0];
+        assert_eq!(item.uuid, "row-1", "the list entry");
+        assert_eq!(item.id, "R1000001", "the product");
+        assert_eq!(item.name, "Plain Cotton Tee");
+        assert_eq!(item.quantity, 3);
+        assert_eq!(item.price.value, Some(12.0));
+        assert_eq!(item.variation, ["Blue Dark", "XL"]);
+        assert_eq!(item.stock.as_deref(), Some("In stock"));
+        assert_eq!(
+            item.url.as_deref(),
+            Some("/p/plain-cotton-tee/R1000001.html")
+        );
+        assert_eq!(
+            item.add_to_cart.as_deref(),
+            Some("/cart/add-product?pid=R1000001&verify=1-aaa")
+        );
+    }
+
+    #[test]
+    fn the_heading_counts_the_whole_list_rather_than_the_rows_in_hand() {
+        // Seven saved, one row rendered: the list is paged, and a caller that
+        // trusted the rows would report a shorter wishlist than the person has.
+        assert_eq!(wishlist_total(WISHLIST_ROW), Some(7));
+        assert_eq!(wishlist_items(WISHLIST_ROW).len(), 1);
+    }
+
+    #[test]
+    fn an_empty_action_attribute_is_no_action_rather_than_an_empty_url() {
+        let html = r##"<gep-product-card uuid="u" pid="R1" addtocarturl="">
+            <p class="product-card__name">A Thing</p>
+            <input class="product-card__input-quantity" value="2" />
+        </gep-product-card>"##;
+        let item = &wishlist_items(html)[0];
+        assert_eq!(item.add_to_cart, None);
+        // The printed quantity is missing from this row, so the input beside it
+        // answers instead -- both are the row's own number.
+        assert_eq!(item.quantity, 2);
+        assert!(item.price.is_empty(), "a row with no price says nothing");
+    }
+
+    #[test]
+    fn a_page_with_no_wishlist_on_it_yields_nothing_rather_than_a_row() {
+        assert!(wishlist_items("<html><body>Sign in</body></html>").is_empty());
+        assert_eq!(wishlist_total("<html><body>Sign in</body></html>"), None);
     }
 }

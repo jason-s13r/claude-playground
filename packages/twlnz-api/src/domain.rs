@@ -280,6 +280,75 @@ pub struct CartLine {
     pub total: Price,
 }
 
+/// What is saved for later.
+///
+/// A page rather than a payload: unlike the basket, the wishlist has no JSON
+/// controller to ask, so this is read out of the HTML the site renders.
+#[derive(Clone, Debug, Default, Serialize, Deserialize)]
+pub struct Wishlist {
+    pub items: Vec<WishlistItem>,
+    /// What the page's own heading counts.
+    ///
+    /// Kept apart from `items.len()` because the site pages the list -- there
+    /// is a `Wishlist-MoreList` controller behind a "show more" button -- so a
+    /// long wishlist arrives partly. A caller that prints the rows without
+    /// checking this would quietly report a shorter list than the person has.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub total: Option<u32>,
+}
+
+impl Wishlist {
+    /// Whether the rows in hand are the whole list.
+    ///
+    /// `true` when nothing said otherwise: the heading is the only count there
+    /// is, and its absence is not evidence of more.
+    pub fn complete(&self) -> bool {
+        self.total.is_none_or(|t| t as usize <= self.items.len())
+    }
+}
+
+/// One saved product.
+///
+/// Deliberately not a [`Product`]: what the card carries is not what a tile
+/// carries. There is no brand, no EAN and no category on it, there *is* a
+/// quantity and a line id, and the stock line is the cart's phrasing rather
+/// than the two-axis marker a tile has.
+#[derive(Clone, Debug, Default, Serialize, Deserialize)]
+pub struct WishlistItem {
+    /// The list entry's id, which is what every write takes. Not the product.
+    pub uuid: String,
+    /// The product id, which is what a person types.
+    pub id: String,
+    pub name: String,
+    /// How many of it are saved. Saving is not buying, so this is a note to
+    /// self rather than anything the site acts on.
+    pub quantity: u32,
+    pub price: Price,
+    /// The chosen variation, as the card labels it -- `Green Dark`, `S`.
+    ///
+    /// Two saved variants of one garment are otherwise the same row twice.
+    #[serde(skip_serializing_if = "Vec::is_empty")]
+    pub variation: Vec<String>,
+    /// What the card says about stock, in the site's own words.
+    ///
+    /// A string rather than an [`Availability`]: the card prints one cart-style
+    /// phrase and carries no per-channel marker, so the two axes a tile answers
+    /// cannot be answered here without inventing them.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub stock: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub url: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub image: Option<String>,
+    /// The pre-signed add-to-cart URL the row was rendered with.
+    ///
+    /// The wishlist is the one place the two-step collapses: the token is
+    /// minted into the row, so moving something to the basket needs no product
+    /// page. It expires with the page it came from.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub add_to_cart: Option<String>,
+}
+
 /// A node of the department tree.
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct Category {
