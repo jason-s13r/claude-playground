@@ -34,6 +34,10 @@ dependencies:
   gsnz-ui: [gsnz-core, cli-kit]
   fsnz-api: [net-kit]
   wwnz-api: [net-kit]
+  twlnz-api: [net-kit]
   foodstuffs-nz-cli: [gsnz-core, gsnz-ui, cli-kit, net-kit, fsnz-api, build-kit]
   woolworths-nz-cli: [gsnz-core, gsnz-ui, cli-kit, net-kit, wwnz-api, build-kit]
   grocery-nz-cli: [gsnz-core, gsnz-ui, cli-kit, net-kit, fsnz-api, wwnz-api, build-kit]
+  # The Warehouse is general merchandise, not groceries, so it shares the
+  # domain-free halves and none of `gsnz-*`. See apps/the-warehouse-nz-cli.
+  the-warehouse-nz-cli: [cli-kit, net-kit, twlnz-api, build-kit]

@@ -22,6 +22,7 @@ Two kinds of directory. [`apps/`](apps) holds the things that ship;
 | [`grocery-nz-cli`](apps/grocery-nz-cli) | `gsnz` | New World, PAK'nSAVE and Woolworths NZ from one command line, with `compare` pricing a query at all three |
 | [`foodstuffs-nz-cli`](apps/foodstuffs-nz-cli) | `fsnz` | The Foodstuffs half on its own: New World and PAK'nSAVE |
 | [`woolworths-nz-cli`](apps/woolworths-nz-cli) | `wwnz` | Woolworths NZ on its own, against their GraphQL API |
+| [`the-warehouse-nz-cli`](apps/the-warehouse-nz-cli) | `twlnz` | The Warehouse: general merchandise, scraped off a Salesforce Commerce Cloud storefront |
 
 | Package | What it holds |
 | ------- | ------------- |
@@ -31,11 +32,18 @@ Two kinds of directory. [`apps/`](apps) holds the things that ship;
 | [`gsnz-ui`](packages/gsnz-ui) | `cli-kit` views over `gsnz-core` types — listings, carts, orders, comparison tables |
 | [`fsnz-api`](packages/fsnz-api) | The Foodstuffs edge API and the Club Plus login, in its own vendor-shaped types |
 | [`wwnz-api`](packages/wwnz-api) | The Woolworths GraphQL API and its Auth0 login flow, likewise |
+| [`twlnz-api`](packages/twlnz-api) | The Warehouse storefront — mostly HTML rather than an API, and the one crate that parses markup |
 | [`build-kit`](packages/build-kit) | The provenance a binary stamps into itself at build time, and the self-update that replaces it |
 
 `gsnz` is built on all seven; `fsnz` and `wwnz` are the two single-chain slices
 of it, each dropping the API crate it does not speak. Nothing under `apps/`
 carries its own HTTP client, credential store or domain types any more.
+
+`twlnz` is the odd one out and deliberately so: it shares the domain-free halves
+— `net-kit`, `cli-kit`, `build-kit` — and none of `gsnz-*`. The Warehouse is
+general merchandise, so a grocery `Product` is the wrong shape for it, and it
+writes its own views instead. It is the first consumer to test `cli-kit`'s claim
+to know nothing about groceries.
 
 Those tables are for people. dispat and CI discover the projects themselves, so
 adding one means adding a directory and nothing else.
