@@ -29,11 +29,12 @@ net-kit = { path = "../../packages/net-kit", version = "^0.1.0" }
 # The stamping half only. Its runtime deps -- the whole HTTP stack -- have no
 # business being built before the crate itself is.
 #
-# One line rather than a [build-dependencies.build-kit] sub-table: dispat
-# rewrites the version of an inline entry on release and does not see the
-# sub-table form, which left this pinned to a version that no longer existed.
+# No `version` here, unlike [dependencies]: dispat rewrites one range per
+# manifest, so a package declared twice leaves the second pinned to a version
+# that no longer exists. A path dependency only needs a version to be
+# publishable, and nothing here is published.
 [build-dependencies]
-build-kit = { path = "../../packages/build-kit", version = "^0.1.0", default-features = false, features = ["emit"] }
+build-kit = { path = "../../packages/build-kit", default-features = false, features = ["emit"] }
 
 [dev-dependencies]
 assert_cmd = "2"

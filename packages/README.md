@@ -75,6 +75,13 @@ Apps do not find packages automatically — a dependency is declared twice:
    `[dev-dependencies]` and `[build-dependencies]`, where it is tempting
    because the entry has several keys.
 
+   **One `version` per package per manifest.** dispat rewrites one range per
+   manifest, so a package declared in both `[dependencies]` and
+   `[build-dependencies]` gets the first updated and the second left behind —
+   the same "failed to select a version", from the opposite direction. Give the
+   second declaration a bare `path` and no `version`; a path dependency only
+   needs one to be publishable, and nothing here is published.
+
 2. In the root [`dispat.yaml`](../dispat.yaml), so dispat orders the builds and
    propagates version bumps:
 
