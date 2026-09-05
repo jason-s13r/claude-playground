@@ -7,10 +7,12 @@ because command line arguments are visible to every process on the machine.
 Prints one JSON document on stdout and nothing else; progress goes to stderr.
 
 Why a browser at all: Kmart's bot check guards the password submit and cannot
-be satisfied by an HTTP client, whatever its TLS fingerprint. Why *this*
-browser: measured against the live site, a headful session with humanised
-input gets through. Headless was refused when it was tried, but that was
-against an earlier route into the login and is worth re-measuring.
+be satisfied by an HTTP client, whatever its TLS fingerprint -- admission is
+bound to the client that ran Akamai's sensor script, and only a browser runs
+it. Why *this* browser: measured against the live site, a session with
+humanised input gets through. Headless is the default and passes in the common
+case; a window (KMART_HEADLESS unset) gives the sensor more to score and is the
+one to reach for when a headless run is refused.
 
 The flow is deliberately shallow. Rather than driving OAuth ourselves, it
 signs in and then lets the storefront's own single-page app finish the PKCE
@@ -34,8 +36,8 @@ from camoufox.sync_api import Camoufox
 EMAIL = os.environ.get("KMART_EMAIL", "")
 PASSWORD = os.environ.get("KMART_PASSWORD", "")
 ORIGIN = os.environ.get("KMART_ORIGIN", "https://www.kmart.co.nz")
-# Headless was refused by the bot check under an earlier route into the login.
-# The option is here so that can be re-measured rather than assumed.
+# Headless by default; the caller sets KMART_HEADLESS="" to show a window. The
+# window is the stronger path when the bot check is being stubborn.
 HEADLESS = os.environ.get("KMART_HEADLESS", "") not in ("", "0", "false", "no")
 TIMEOUT = int(os.environ.get("KMART_BROWSER_TIMEOUT", "120")) * 1000
 # How long to wait for Auth0 to hand back to the storefront. Generous: it

@@ -309,8 +309,9 @@ pub enum AuthAction {
     ///
     /// Kmart's bot check guards the password submit and refuses any plain HTTP
     /// client, so this drives a real browser to do it -- `camoufox`, which has
-    /// to be installed separately. A window appears while it runs, unless
-    /// `--headless` says otherwise.
+    /// to be installed separately. It runs without a window by default; pass
+    /// `--headful` to watch it, which is also the stronger path when the bot
+    /// check is being stubborn.
     ///
     /// One run yields both credentials, the token and the cookies, so it
     /// replaces `auth token` and `auth import` together. Those two remain for
@@ -328,14 +329,26 @@ pub enum AuthAction {
         /// Do not keep the password.
         #[arg(long)]
         no_store_password: bool,
-        /// Run the browser without a window.
+        /// Show the browser window.
         ///
-        /// A headless session was refused by the bot check when it was
-        /// measured, but that was against an earlier route into the login and
-        /// has not been re-measured since. Worth trying; a refusal is
-        /// reported as a challenge rather than as a wrong password.
+        /// The default is headless, which passes the bot check in the common
+        /// case. Headful has more input entropy for the sensor to score, so it
+        /// is the one to reach for when a headless run is refused -- a refusal
+        /// is reported as a challenge rather than as a wrong password.
         #[arg(long)]
-        headless: bool,
+        headful: bool,
+        /// Sign in with no browser at all, replaying Auth0's login as direct
+        /// HTTP requests.
+        ///
+        /// A diagnostic, not a way in. It walks the exact flow the browser
+        /// walks, made instead by this program's own emulation client, and
+        /// prints each step to stderr so where it stops is visible. Against the
+        /// live site Akamai answers the password submit with a challenge --
+        /// admission is bound to the browser that ran its sensor, and this is
+        /// not that browser -- so it is here to measure that wall, and to
+        /// notice the day it moves. It earns no bot-check cookies.
+        #[arg(long, conflicts_with = "headful")]
+        direct: bool,
     },
     /// Take the bot-check cookies out of a browser export.
     ///

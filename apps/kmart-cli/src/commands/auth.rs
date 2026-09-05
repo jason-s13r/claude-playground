@@ -30,8 +30,19 @@ pub async fn run(app: &App, action: AuthAction) -> AppResult<()> {
             email,
             password_command,
             no_store_password,
-            headless,
-        } => login(app, email, password_command, no_store_password, headless).await,
+            headful,
+            direct,
+        } => {
+            login(
+                app,
+                email,
+                password_command,
+                no_store_password,
+                !headful,
+                direct,
+            )
+            .await
+        }
         AuthAction::Import { file } => import(app, &file),
         AuthAction::Token { token } => token_import(app, token).await,
         AuthAction::Status => status(app),
@@ -45,6 +56,7 @@ async fn login(
     password_command: Option<String>,
     no_store_password: bool,
     headless: bool,
+    direct: bool,
 ) -> AppResult<()> {
     let secrets = app.secrets();
     let email = match email {
@@ -53,7 +65,7 @@ async fn login(
     };
 
     // A command beats a prompt, so a password manager never has to be typed
-    // out of -- `--password-command 'op read "op://Personal/Kmart/password"'`
+    // out of -- `--password-command 'op read "op://Vault/Kmart/password"'`
     // and the password never touches this process's output or its arguments.
     let command = password_command.or_else(|| app.config.auth.password_command.clone());
     let password = match &command {
@@ -65,13 +77,20 @@ async fn login(
         None => prompt_password("Password")?,
     };
 
+    // The no-browser experiment. Its own path because it earns no cookies and
+    // stores only the token, and because what it is for is being watched fail:
+    // it narrates each step and stops at whatever answers the password submit.
+    if direct {
+        return direct_login(app, &email, &password).await;
+    }
+
     let mut out = app.out();
     if !out.is_json() {
-        writeln!(
-            out,
-            "{}",
-            out.dim("Opening a browser. Kmart's bot check refuses anything else.")
-        )?;
+        let how = match headless {
+            true => "Signing in through a browser (headless). Pass --headful to watch it.",
+            false => "Signing in through a browser.",
+        };
+        writeln!(out, "{}", out.dim(how))?;
     }
 
     let signed_in = crate::browser::login(
@@ -115,6 +134,62 @@ async fn login(
     emit(
         &mut app.out(),
         &status_of(app, &session, stored.email.clone(), keep),
+    )?;
+    Ok(())
+}
+
+/// Sign in with no browser, by replaying Auth0's login as direct requests.
+///
+/// The point of `--direct`: the flow the browser walks, made by this program's
+/// own emulation client instead. Against the live site Akamai answers the
+/// password submit and this ends in [`kmart_api::Error::Challenged`] -- kept so
+/// that can be measured rather than assumed, and so a policy change that opened
+/// the step would be noticed. Each step is printed to stderr, so where it stops
+/// is visible without `KMART_DEBUG`.
+///
+/// It stores only the token, and only if one is minted. No cookies are earned
+/// this way -- validating Akamai's admission needs the browser's sensor script
+/// to run -- so a token from here still wants `auth import` for the gateway.
+async fn direct_login(app: &App, email: &str, password: &str) -> AppResult<()> {
+    let secrets = app.secrets();
+    let http = net_kit::http::build(kmart_api::client_spec())
+        .map_err(|e| AppError::usage(format!("building the HTTP client: {e}")))?;
+    // Current identifiers, so the flow is built against what the storefront
+    // serves today rather than what shipped -- the same set the browser path
+    // and every other command resolve.
+    let endpoints = app.live_endpoints(&http, None).await;
+
+    // Any admission this session already holds, from a browser export
+    // (`auth import`) or an earlier browser login. The auth host is under
+    // `.kmart.com.au`, so the Australian bucket is the one that covers it --
+    // and feeding it in is the whole experiment: whether a `_abck` another
+    // client validated lets this one past Akamai's guard on the password step.
+    let mut stored = StoredSession::load(&secrets)?.unwrap_or_default();
+    let admission = stored.session().admission(Country::Au);
+
+    // Always narrated: watching where it stops is the whole reason this exists.
+    let trace: kmart_api::auth::Trace<'_> =
+        &|step: &str, detail: &str| eprintln!("kmart: [{step}] {detail}");
+
+    let tokens = kmart_api::auth::login(&endpoints, email, password, &admission, trace).await?;
+
+    stored.tokens = Some(tokens);
+    stored.email = Some(email.to_string());
+    stored.auth_country = Some(app.country.code().to_string());
+    stored.save(&secrets)?;
+
+    let mut out = app.out();
+    if !out.is_json() {
+        writeln!(
+            out,
+            "{}",
+            out.dim("Signed in directly, no browser. No bot-check cookies were earned this way.")
+        )?;
+    }
+    let session = stored.session();
+    emit(
+        &mut out,
+        &status_of(app, &session, stored.email.clone(), false),
     )?;
     Ok(())
 }

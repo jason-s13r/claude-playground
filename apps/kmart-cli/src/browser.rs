@@ -2,11 +2,13 @@
 //!
 //! Kmart's bot check guards the one step of Auth0's login that would produce a
 //! session -- the password submit -- and no HTTP client gets past it, whatever
-//! its TLS fingerprint. Measured against the live site: `wreq` is refused and
-//! a headful browser with humanised input is not. So the only way to sign in
-//! with an email and a password is to have a browser do it. Headless was
-//! refused too, but only against an earlier route into the login -- hence
-//! `--headless`, which is there to be tried rather than believed.
+//! its TLS fingerprint. Measured against the live site: `wreq` is refused and a
+//! browser with humanised input is not, because admission is bound to the
+//! client that ran Akamai's sensor script and only a browser runs it. So the
+//! only way to sign in with an email and a password is to have a browser do it.
+//! Headless is the default and passes in the common case; a window (`--headful`)
+//! gives the sensor more to score and is the one to reach for when a headless
+//! run is refused.
 //!
 //! That browser is not this program's to ship. [`login`] drives one that is
 //! already installed, through a script embedded in this binary, and says
