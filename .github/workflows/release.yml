@@ -5,8 +5,8 @@ name: Release
 # changed and what their next versions are, and releases only those. A push
 # that changes nothing releasable is a no-op.
 on:
-  push:
-    branches: [main]
+  # push:
+  #   branches: [main]
   workflow_dispatch:
 
 # A second release while one is running would race it for tags. dispat takes
