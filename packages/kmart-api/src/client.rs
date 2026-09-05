@@ -572,10 +572,14 @@ impl Client {
             None => Error::NotSignedIn,
         })?;
         let password = reauth.password.password().await?;
+        // Seed whatever admission this session holds: the auth host is under
+        // `.kmart.com.au`, so the Australian bucket is the one that covers it.
+        let admission = self.session().admission(Country::Au);
         let tokens = crate::auth::login(
             &self.endpoints,
             &reauth.email,
             &password,
+            &admission,
             &crate::auth::no_trace,
         )
         .await?;

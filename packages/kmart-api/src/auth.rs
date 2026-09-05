@@ -106,18 +106,31 @@ fn nonce() -> String {
 
 /// Walk the login flow and come back with tokens.
 ///
-/// **Expect [`crate::Error::Challenged`].** Akamai blocks the password submit,
-/// so against the live site this gets as far as the second form and no
-/// further. Kept because it is correct against Auth0 and because it documents
-/// the flow precisely; see the module docs.
+/// **Expect [`crate::Error::Challenged`] from a cold client.** Akamai blocks
+/// the password submit, so with no admission this gets as far as the second
+/// form and no further. Pass a browser-earned `admission` set (the Australian
+/// bucket, which covers the `.kmart.com.au` auth host) to test whether a
+/// validated `_abck` carried from another client is accepted here -- the
+/// question behind the CLI's `--direct`. An empty set runs cold, as before.
+/// Kept because it is correct against Auth0 and documents the flow precisely;
+/// see the module docs.
 pub async fn login(
     endpoints: &Endpoints,
     email: &str,
     password: &str,
+    admission: &Cookies,
     trace: Trace<'_>,
 ) -> Result<Tokens> {
     let jar = Arc::new(wreq::cookie::Jar::default());
     let auth_host = host_of(&endpoints.auth);
+
+    // Seed a browser-earned admission cookie onto the auth host before the
+    // flow starts. The password submit is guarded by Akamai, which refuses any
+    // client that has not run its sensor script -- so this crate cannot mint a
+    // valid `_abck`, but it can *carry* one another client validated. Whether
+    // that transfers across the TLS boundary is the open question `--direct`
+    // exists to answer; without a seed the flow proceeds cold, as before.
+    seed_admission(&jar, &endpoints.auth, admission, trace);
 
     // Its own client, not the shared one: this is the one place redirects are
     // followed, and they are followed only within the auth host. The last hop
@@ -279,6 +292,87 @@ pub async fn login(
 
     trace("passkey", "exchanging the authorization code for a token");
     exchange(&http, endpoints, &code, &pkce.verifier, trace).await
+}
+
+/// Put browser-earned admission cookies onto the auth host's jar.
+///
+/// The browser scoped `_abck` to the parent of the auth host -- `.kmart.com.au`
+/// for `auth.kmart.com.au` -- so the seed is scoped there too, by dropping the
+/// host's leftmost label. Not by a "registrable domain" rule: under a two-level
+/// public suffix like `.com.au` that arithmetic lands on `.com.au` itself, a
+/// domain a jar is right to refuse, and the cookie then silently never sends.
+///
+/// So this does not trust the scope it wrote. It reads the jar back for what it
+/// would actually send to the auth host and traces that -- present or dropped,
+/// and for a present `_abck` whether it reads validated (Akamai encodes that in
+/// the second `~`-delimited field: `-1` before its sensor reports, `0` after).
+/// A seed that does not survive the jar, or survives unvalidated, tests nothing,
+/// and the trace has to say which so a `403` is not misread.
+fn seed_admission(jar: &wreq::cookie::Jar, auth_url: &str, admission: &Cookies, trace: Trace<'_>) {
+    if admission.is_empty() {
+        trace("seed", "no admission cookies to seed; the flow runs cold");
+        return;
+    }
+    let Ok(uri) = auth_url.parse::<wreq::Uri>() else {
+        return;
+    };
+    let host = host_of(auth_url);
+    // The parent domain: everything past the first label. `_abck` is set there
+    // by the storefront, so this is where it has to live to reach the auth host.
+    let domain = host.split_once('.').map(|(_, rest)| rest).unwrap_or(&host);
+    for (name, value) in admission {
+        jar.add(format!("{name}={value}; Domain=.{domain}; Path=/"), &uri);
+    }
+
+    // What the jar will really send, not what was handed in -- the difference
+    // is the whole point, and reading the map instead would hide a dropped seed.
+    let sent = outgoing_names(jar, &uri);
+    let names = sent.join(", ");
+    let abck = admission.get("_abck");
+    let verdict = match (sent.iter().any(|n| n == "_abck"), abck) {
+        (false, _) => "but the jar will send NO _abck to the auth host -- \
+                       the seed did not take, so this runs as cold as no seed"
+            .to_string(),
+        (true, Some(value)) if abck_validated(value) => {
+            "and _abck will be sent, reading validated".to_string()
+        }
+        (true, _) => "and _abck will be sent, but it reads UNVALIDATED -- \
+                      Akamai refuses those, so a 403 here proves nothing"
+            .to_string(),
+    };
+    trace(
+        "seed",
+        &format!("seeded onto .{domain}; jar will send: {names} -- {verdict}"),
+    );
+}
+
+/// The names of the cookies a jar would send to `uri`.
+fn outgoing_names(jar: &wreq::cookie::Jar, uri: &wreq::Uri) -> Vec<String> {
+    use wreq::cookie::{CookieStore, Cookies as Sent};
+    let header = match jar.cookies(uri, wreq::Version::HTTP_11) {
+        Sent::Compressed(v) => v.to_str().unwrap_or_default().to_string(),
+        Sent::Uncompressed(parts) => parts
+            .iter()
+            .filter_map(|v| v.to_str().ok())
+            .collect::<Vec<_>>()
+            .join("; "),
+        _ => String::new(),
+    };
+    header
+        .split(';')
+        .filter_map(|pair| pair.split('=').next())
+        .map(|n| n.trim().to_string())
+        .filter(|n| !n.is_empty())
+        .collect()
+}
+
+/// Whether an Akamai `_abck` reads as sensor-validated.
+///
+/// The value is `~`-delimited and its second field is `-1` before the sensor
+/// script has reported and `0` after. This is a read of state, not a
+/// guarantee: the cookie can still be stale or bound elsewhere.
+fn abck_validated(value: &str) -> bool {
+    value.split('~').nth(1) == Some("0")
 }
 
 /// The `/authorize` URL that starts it all.
@@ -844,5 +938,47 @@ mod tests {
         let session = session_from_netscape("# empty\n");
         assert!(!session.admitted(Country::Nz));
         assert!(!session.admitted(Country::Au));
+    }
+
+    #[test]
+    fn abck_validation_is_read_off_the_second_field() {
+        // Akamai's own encoding: -1 until the sensor reports, 0 after. A seed
+        // that is merely present but still -1 is why a transplant can look set
+        // up correctly and be refused anyway, so the two are told apart.
+        assert!(abck_validated("HASH~0~token~-1~-1"));
+        assert!(!abck_validated("HASH~-1~token~-1~-1"));
+        assert!(!abck_validated("garbage"));
+    }
+
+    #[test]
+    fn a_seed_actually_reaches_the_auth_host() {
+        // The auth host is a subdomain, but `_abck` is scoped to its parent, so
+        // the seed has to be scoped to `.kmart.com.au` to be sent to
+        // `auth.kmart.com.au`. The earlier bug scoped it to the `.com.au`
+        // public suffix instead, which a jar drops -- so this asserts through
+        // the same jar-readback the seed logs, not through the map handed in.
+        let jar = wreq::cookie::Jar::default();
+        let mut admission = Cookies::new();
+        admission.insert("_abck".into(), "HASH~0~t~-1~-1".into());
+        admission.insert("bm_sz".into(), "abc".into());
+        seed_admission(&jar, "https://auth.kmart.com.au", &admission, &no_trace);
+
+        let uri: wreq::Uri = "https://auth.kmart.com.au/authorize".parse().unwrap();
+        let sent = outgoing_names(&jar, &uri);
+        assert!(sent.iter().any(|n| n == "_abck"), "{sent:?}");
+        assert!(sent.iter().any(|n| n == "bm_sz"), "{sent:?}");
+    }
+
+    #[test]
+    fn seeding_nothing_sends_nothing() {
+        let jar = wreq::cookie::Jar::default();
+        seed_admission(
+            &jar,
+            "https://auth.kmart.com.au",
+            &Cookies::new(),
+            &no_trace,
+        );
+        let uri: wreq::Uri = "https://auth.kmart.com.au/authorize".parse().unwrap();
+        assert!(outgoing_names(&jar, &uri).is_empty());
     }
 }

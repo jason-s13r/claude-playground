@@ -174,6 +174,15 @@ impl Session {
             .is_some_and(|c| c.contains_key("_abck"))
     }
 
+    /// One country's admission cookies, or an empty set when there are none.
+    ///
+    /// The login flow uses this to seed its jar: the auth host is
+    /// `auth.kmart.com.au`, whose `_abck` is scoped to `.kmart.com.au`, so the
+    /// Australian bucket is what covers it whichever country is signing in.
+    pub fn admission(&self, country: Country) -> Cookies {
+        self.cookies.get(&country).cloned().unwrap_or_default()
+    }
+
     /// The `Cookie` header for one country, or `None` when there is nothing to
     /// send.
     pub fn cookie_header(&self, country: Country) -> Option<String> {
