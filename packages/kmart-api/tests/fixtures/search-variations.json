@@ -1,0 +1,862 @@
+{
+ "response": {
+  "result_sources": {
+   "token_match": {
+    "count": 2
+   },
+   "embeddings_match": {
+    "count": 18
+   }
+  },
+  "facets": [
+   {
+    "display_name": "Product Type",
+    "name": "Product Type",
+    "type": "multiple",
+    "options": [
+     {
+      "status": "",
+      "count": 14,
+      "display_name": "T-Shirts",
+      "value": "T-Shirts",
+      "data": {}
+     },
+     {
+      "status": "",
+      "count": 4,
+      "display_name": "Active T-Shirts",
+      "value": "Active T-Shirts",
+      "data": {}
+     },
+     {
+      "status": "",
+      "count": 1,
+      "display_name": "Short Sleeve",
+      "value": "Short Sleeve",
+      "data": {}
+     }
+    ],
+    "hidden": false,
+    "data": {}
+   },
+   {
+    "display_name": "Category",
+    "name": "Category",
+    "type": "multiple",
+    "options": [
+     {
+      "status": "",
+      "count": 10,
+      "display_name": "Clothing",
+      "value": "Clothing",
+      "data": {}
+     },
+     {
+      "status": "",
+      "count": 1,
+      "display_name": "Girls Clothing",
+      "value": "Girls Clothing",
+      "data": {}
+     },
+     {
+      "status": "",
+      "count": 4,
+      "display_name": "Boys Clothing",
+      "value": "Boys Clothing",
+      "data": {}
+     },
+     {
+      "status": "",
+      "count": 4,
+      "display_name": "Activewear",
+      "value": "Activewear",
+      "data": {}
+     },
+     {
+      "status": "",
+      "count": 1,
+      "display_name": "Underwear & Socks",
+      "value": "Underwear & Socks",
+      "data": {}
+     }
+    ],
+    "hidden": false,
+    "data": {}
+   }
+  ],
+  "groups": [
+   {
+    "group_id": "all",
+    "display_name": "All",
+    "count": 20,
+    "data": {},
+    "children": [
+     {
+      "group_id": "c7a32d8a2f6d6ebc0692fcc36b78a10f",
+      "display_name": "Women",
+      "count": 16,
+      "data": {
+       "url": "/womens/",
+       "sequence": 10000,
+       "isSpecial": false,
+       "identifier": "NZ_Women",
+       "breadcrumbs": [
+        "f41c506c422261cd409ceef9de2f442c",
+        "c7a32d8a2f6d6ebc0692fcc36b78a10f"
+       ],
+       "defaultCategory": true
+      },
+      "children": [],
+      "parents": [
+       {
+        "display_name": "All",
+        "group_id": "all"
+       }
+      ]
+     },
+     {
+      "group_id": "4059ccaf605ac3c0bd001cf03c50e1fd",
+      "display_name": "Men",
+      "count": 12,
+      "data": {
+       "url": "/mens/",
+       "sequence": 11000,
+       "isSpecial": false,
+       "identifier": "NZ_Men",
+       "breadcrumbs": [
+        "f41c506c422261cd409ceef9de2f442c",
+        "4059ccaf605ac3c0bd001cf03c50e1fd"
+       ],
+       "defaultCategory": true
+      },
+      "children": [],
+      "parents": [
+       {
+        "display_name": "All",
+        "group_id": "all"
+       }
+      ]
+     },
+     {
+      "group_id": "dddaa894234df841cfb678463562e055",
+      "display_name": "Home & Living",
+      "count": 8,
+      "data": {
+       "url": "/home-and-living/",
+       "sequence": 9000,
+       "isSpecial": false,
+       "identifier": "Home & Living",
+       "breadcrumbs": [
+        "f41c506c422261cd409ceef9de2f442c",
+        "dddaa894234df841cfb678463562e055"
+       ],
+       "defaultCategory": true
+      },
+      "children": [],
+      "parents": [
+       {
+        "display_name": "All",
+        "group_id": "all"
+       }
+      ]
+     },
+     {
+      "group_id": "5e26d9713e0bea197aecaf043f2bda3c",
+      "display_name": "Christmas",
+      "count": 3,
+      "data": {
+       "url": "/christmas/inactive/",
+       "sequence": 3000,
+       "isSpecial": false,
+       "identifier": "NZ_Christmas",
+       "breadcrumbs": [
+        "f41c506c422261cd409ceef9de2f442c",
+        "5e26d9713e0bea197aecaf043f2bda3c"
+       ],
+       "defaultCategory": false
+      },
+      "children": [],
+      "parents": [
+       {
+        "display_name": "All",
+        "group_id": "all"
+       }
+      ]
+     },
+     {
+      "group_id": "0e5deb0a902194d97a0fbd45b1458f96",
+      "display_name": "Father's Day",
+      "count": 9,
+      "data": {
+       "url": "/fathers-day/",
+       "sequence": 7000,
+       "isSpecial": false,
+       "identifier": "Fathers Day",
+       "breadcrumbs": [
+        "f41c506c422261cd409ceef9de2f442c",
+        "0e5deb0a902194d97a0fbd45b1458f96"
+       ],
+       "defaultCategory": true
+      },
+      "children": [],
+      "parents": [
+       {
+        "display_name": "All",
+        "group_id": "all"
+       }
+      ]
+     },
+     {
+      "group_id": "6095b2832f08bb7ca1c60ffc1b2d091b",
+      "display_name": "Kids & Baby",
+      "count": 5,
+      "data": {
+       "url": "/kids/",
+       "sequence": 12000,
+       "isSpecial": false,
+       "identifier": "Kids & Baby",
+       "breadcrumbs": [
+        "f41c506c422261cd409ceef9de2f442c",
+        "6095b2832f08bb7ca1c60ffc1b2d091b"
+       ],
+       "defaultCategory": false
+      },
+      "children": [],
+      "parents": [
+       {
+        "display_name": "All",
+        "group_id": "all"
+       }
+      ]
+     },
+     {
+      "group_id": "54b873ec7757f2cfb651cbed7763552b",
+      "display_name": "Latest Arrivals",
+      "count": 2,
+      "data": {
+       "url": "/category/latest-arrivals/",
+       "sequence": 20000,
+       "isSpecial": false,
+       "identifier": "NZ_Latest Arrivals",
+       "breadcrumbs": [
+        "f41c506c422261cd409ceef9de2f442c",
+        "54b873ec7757f2cfb651cbed7763552b"
+       ],
+       "defaultCategory": false
+      },
+      "children": [],
+      "parents": [
+       {
+        "display_name": "All",
+        "group_id": "all"
+       }
+      ]
+     },
+     {
+      "group_id": "001c619affca601ee03daf29751be39e",
+      "display_name": "Sport & Outdoor",
+      "count": 4,
+      "data": {
+       "url": "/sport-and-outdoor/",
+       "sequence": 15000,
+       "isSpecial": false,
+       "identifier": "NZ_Sport & Outdoor",
+       "breadcrumbs": [
+        "f41c506c422261cd409ceef9de2f442c",
+        "001c619affca601ee03daf29751be39e"
+       ],
+       "defaultCategory": true
+      },
+      "children": [],
+      "parents": [
+       {
+        "display_name": "All",
+        "group_id": "all"
+       }
+      ]
+     },
+     {
+      "group_id": "befa407c5d94db3285034c3a4d582251",
+      "display_name": "Health & Wellness",
+      "count": 4,
+      "data": {
+       "url": "/health-and-wellness/",
+       "sequence": 14500,
+       "isSpecial": false,
+       "identifier": "Health & Wellness",
+       "breadcrumbs": [
+        "f41c506c422261cd409ceef9de2f442c",
+        "befa407c5d94db3285034c3a4d582251"
+       ],
+       "defaultCategory": true
+      },
+      "children": [],
+      "parents": [
+       {
+        "display_name": "All",
+        "group_id": "all"
+       }
+      ]
+     },
+     {
+      "group_id": "d5319dbf50382d810aa71acbef870046",
+      "display_name": "Back To School",
+      "count": 1,
+      "data": {
+       "url": "/back-to-school/inactive/",
+       "sequence": 5000,
+       "isSpecial": false,
+       "identifier": "NZ_Back To School",
+       "breadcrumbs": [
+        "f41c506c422261cd409ceef9de2f442c",
+        "d5319dbf50382d810aa71acbef870046"
+       ],
+       "defaultCategory": false
+      },
+      "children": [],
+      "parents": [
+       {
+        "display_name": "All",
+        "group_id": "all"
+       }
+      ]
+     },
+     {
+      "group_id": "76e8717aa8f53df2dfc21af312f4c309",
+      "display_name": "Clearance",
+      "count": 6,
+      "data": {
+       "url": "/inactive/",
+       "sequence": 19000,
+       "isSpecial": false,
+       "identifier": "NZ_Clearance",
+       "breadcrumbs": [
+        "f41c506c422261cd409ceef9de2f442c",
+        "76e8717aa8f53df2dfc21af312f4c309"
+       ],
+       "defaultCategory": true
+      },
+      "children": [],
+      "parents": [
+       {
+        "display_name": "All",
+        "group_id": "all"
+       }
+      ]
+     },
+     {
+      "group_id": "89abe35cb1ad766f11a28c598fd37ba1",
+      "display_name": "Gifting",
+      "count": 1,
+      "data": {
+       "url": "/gifting/",
+       "sequence": 18000,
+       "isSpecial": false,
+       "identifier": "Gifting",
+       "breadcrumbs": [
+        "f41c506c422261cd409ceef9de2f442c",
+        "89abe35cb1ad766f11a28c598fd37ba1"
+       ],
+       "defaultCategory": true
+      },
+      "children": [],
+      "parents": [
+       {
+        "display_name": "All",
+        "group_id": "all"
+       }
+      ]
+     }
+    ],
+    "parents": []
+   }
+  ],
+  "results": [
+   {
+    "matched_terms": [
+     "plain",
+     "crew",
+     "neck",
+     "t",
+     "shirt"
+    ],
+    "labels": {},
+    "data": {
+     "id": "P_S140827",
+     "url": "/product/plain-crew-neck-t-shirt-s140827/",
+     "uri": "/product/plain-crew-neck-t-shirt-s140827/",
+     "Brand": "Anko",
+     "video": {},
+     "badges": [],
+     "altImages": [
+      "6f0ce3d2-7e4e-4316-8d1d-cbc47d248d6c/68972042-2",
+      "2505dcad-07af-46d3-a36d-f37327ae79f0/68972042-3",
+      "44f6aa33-7c8c-4d22-8cd1-8561a7797e44/68972042-4",
+      "988d09c6-3a83-44a7-93c4-be752892d94d/68972035-5",
+      "33336b11-78ba-4fe8-ab74-92d8b432b37c/68972035-6",
+      "ae54fb68-42cc-41dc-ac8f-101693a025cc/68972035-7"
+     ],
+     "image_url": "https://assets.kmart.com.au/transform/62e1cbb3-e115-4ec0-9557-2ae096491b18/68972042-1?io=transform:fill,width:580,height:725",
+     "description": "<strong>Material</strong><ul><li>Cotton or cotton/polyester</li><li>Single jersey&nbsp;fabric</li></ul><strong>Features</strong><ul><li>Ribbed&nbsp;crew neck</li><li>Short sleeves</li></ul><strong>Fit and Model Size</strong><ul><li>Regular fit</li><li>The model featured is wearing a Size&nbsp;M</li></ul><strong>Care Instructions</strong><ul><li>Warm&nbsp;machine wash with similar colours</li><li>Do not bleach</li><li>Do not tumble dry</li><li>Warm iron on reverse side if required</li><li>Do not dry-clean</li></ul>",
+     "FreeShipping": true,
+     "MerchDepartment": 91,
+     "AssortedProducts": false,
+     "FulfilmentChannel": 3,
+     "primaryCategoryId": "cf516ed6aa45e0ed2b17dcc1e9863192",
+     "nationalInventory": false,
+     "ratings": {
+      "averageScore": 4.7,
+      "totalReviews": 693
+     },
+     "group_ids": [
+      "9bf6ed7ac7f47d7c81ef0416766613f1",
+      "62ec2c8a502d6bcc8c6797cc6072f92a",
+      "cf516ed6aa45e0ed2b17dcc1e9863192",
+      "f0e1eadfedada5a9d6a2ddaeb85b8112",
+      "d7b2933ba512ada478c97fa43dd7ebe6",
+      "1afecd6d775ca3c9766659deba5392a5",
+      "c78d59ddd0c322deb4f358ef0ae5c5d3",
+      "2f5b5706739ee6d84e7a06fbc82105af",
+      "4f0bf504bde96affac9e0b6f1d6bb288",
+      "291462e135316f58e23463be9bb35d0c",
+      "acbbb25dfe0352676e90521d576e3d61",
+      "d3abde91dac26f6c22379356e3f32be6",
+      "4f44a0c2f55343d4d46d93b08f7e487a",
+      "f27e5fbd573ecfa8578b43db7cf43619",
+      "78baeeea48c93a6405ffb1b92c2ce904"
+     ],
+     "apn": 9341106207513,
+     "Size": "L",
+     "price": 6.5,
+     "prices": [
+      {
+       "type": "list",
+       "amount": "6.50",
+       "country": "NZ",
+       "endDate": "9999-12-31",
+       "currency": "NZD",
+       "startDate": "2023-06-09"
+      }
+     ],
+     "Colour": "Black",
+     "Seller": [
+      "Kmart"
+     ],
+     "is_default": false,
+     "facets": [
+      {
+       "name": "Size",
+       "values": [
+        "/L"
+       ]
+      }
+     ],
+     "variation_id": "68972059",
+     "variant_video": {},
+     "variant_badges": [],
+     "SecondaryColour": "Black"
+    },
+    "value": "Plain Crew Neck T-shirt",
+    "is_slotted": false,
+    "variations": [
+     {
+      "data": {
+       "apn": 9341106207513,
+       "Size": "L",
+       "price": 6.5,
+       "prices": [
+        {
+         "type": "list",
+         "amount": "6.50",
+         "country": "NZ",
+         "endDate": "9999-12-31",
+         "currency": "NZD",
+         "startDate": "2023-06-09"
+        }
+       ],
+       "Colour": "Black",
+       "Seller": [
+        "Kmart"
+       ],
+       "image_url": "https://assets.kmart.com.au/transform/62e1cbb3-e115-4ec0-9557-2ae096491b18/68972042-1?io=transform:fill,width:580,height:725",
+       "altImages": [
+        "6f0ce3d2-7e4e-4316-8d1d-cbc47d248d6c/68972042-2",
+        "2505dcad-07af-46d3-a36d-f37327ae79f0/68972042-3",
+        "44f6aa33-7c8c-4d22-8cd1-8561a7797e44/68972042-4",
+        "988d09c6-3a83-44a7-93c4-be752892d94d/68972035-5",
+        "33336b11-78ba-4fe8-ab74-92d8b432b37c/68972035-6",
+        "ae54fb68-42cc-41dc-ac8f-101693a025cc/68972035-7"
+       ],
+       "is_default": false,
+       "facets": [
+        {
+         "name": "Size",
+         "values": [
+          "/L"
+         ]
+        }
+       ],
+       "variation_id": "68972059",
+       "variant_video": {},
+       "variant_badges": [],
+       "SecondaryColour": "Black"
+      },
+      "value": "Plain Crew Neck T-shirt"
+     },
+     {
+      "data": {
+       "apn": 9341106207520,
+       "Size": "XL",
+       "price": 6.5,
+       "Seller": [
+        "Kmart"
+       ],
+       "prices": [
+        {
+         "type": "list",
+         "amount": "6.50",
+         "country": "NZ",
+         "endDate": "9999-12-31",
+         "currency": "NZD",
+         "startDate": "2023-06-09"
+        }
+       ],
+       "Colour": "Black",
+       "altImages": [
+        "6f0ce3d2-7e4e-4316-8d1d-cbc47d248d6c/68972042-2",
+        "2505dcad-07af-46d3-a36d-f37327ae79f0/68972042-3",
+        "44f6aa33-7c8c-4d22-8cd1-8561a7797e44/68972042-4",
+        "988d09c6-3a83-44a7-93c4-be752892d94d/68972035-5",
+        "33336b11-78ba-4fe8-ab74-92d8b432b37c/68972035-6",
+        "ae54fb68-42cc-41dc-ac8f-101693a025cc/68972035-7"
+       ],
+       "image_url": "https://assets.kmart.com.au/transform/62e1cbb3-e115-4ec0-9557-2ae096491b18/68972042-1?io=transform:fill,width:580,height:725",
+       "is_default": false,
+       "facets": [
+        {
+         "name": "Size",
+         "values": [
+          "/XL"
+         ]
+        }
+       ],
+       "variation_id": "68972066",
+       "variant_video": {},
+       "variant_badges": [],
+       "SecondaryColour": "Black"
+      },
+      "value": "Plain Crew Neck T-shirt"
+     },
+     {
+      "data": {
+       "apn": 9341106207506,
+       "Size": "M",
+       "price": 6.5,
+       "Colour": "Black",
+       "Seller": [
+        "Kmart"
+       ],
+       "prices": [
+        {
+         "type": "list",
+         "amount": "6.50",
+         "country": "NZ",
+         "endDate": "9999-12-31",
+         "currency": "NZD",
+         "startDate": "2023-06-09"
+        }
+       ],
+       "image_url": "https://assets.kmart.com.au/transform/62e1cbb3-e115-4ec0-9557-2ae096491b18/68972042-1?io=transform:fill,width:580,height:725",
+       "altImages": [
+        "6f0ce3d2-7e4e-4316-8d1d-cbc47d248d6c/68972042-2",
+        "2505dcad-07af-46d3-a36d-f37327ae79f0/68972042-3",
+        "44f6aa33-7c8c-4d22-8cd1-8561a7797e44/68972042-4",
+        "988d09c6-3a83-44a7-93c4-be752892d94d/68972035-5",
+        "33336b11-78ba-4fe8-ab74-92d8b432b37c/68972035-6",
+        "ae54fb68-42cc-41dc-ac8f-101693a025cc/68972035-7"
+       ],
+       "is_default": false,
+       "facets": [
+        {
+         "name": "Size",
+         "values": [
+          "/M"
+         ]
+        }
+       ],
+       "variation_id": "68972042",
+       "variant_video": {},
+       "variant_badges": [],
+       "SecondaryColour": "Black"
+      },
+      "value": "Plain Crew Neck T-shirt"
+     }
+    ]
+   }
+  ],
+  "sort_options": [
+   {
+    "sort_by": "relevance",
+    "display_name": "Popular",
+    "sort_order": "descending",
+    "status": "selected",
+    "hidden": false
+   },
+   {
+    "sort_by": "numberOfDaysSinceStartDate",
+    "display_name": "New",
+    "sort_order": "ascending",
+    "status": "",
+    "hidden": false
+   },
+   {
+    "sort_by": "price",
+    "display_name": "$",
+    "sort_order": "ascending",
+    "status": "",
+    "hidden": false
+   },
+   {
+    "sort_by": "price",
+    "display_name": "$$$",
+    "sort_order": "descending",
+    "status": "",
+    "hidden": false
+   }
+  ],
+  "refined_content": [],
+  "total_num_results": 20,
+  "features": [
+   {
+    "feature_name": "a_a_test",
+    "display_name": "a_a_test",
+    "enabled": true,
+    "variant": null
+   },
+   {
+    "feature_name": "auto_generated_refined_query_rules",
+    "display_name": "Affinity Engine",
+    "enabled": true,
+    "variant": {
+     "name": "default_rules",
+     "display_name": "Default weights"
+    }
+   },
+   {
+    "feature_name": "custom_autosuggest_ui",
+    "display_name": "custom_autosuggest_ui",
+    "enabled": true,
+    "variant": {
+     "name": "custom_autosuggest_ui_image_result_count",
+     "display_name": "custom_autosuggest_ui_image_result_count"
+    }
+   },
+   {
+    "feature_name": "disable_test_only_global_rules_browse",
+    "display_name": "Disables global refined filter rules with include_in_test=1 column",
+    "enabled": false,
+    "variant": null
+   },
+   {
+    "feature_name": "disable_test_only_global_rules_search",
+    "display_name": "Disables global refined query rules with include_in_test=1 column",
+    "enabled": false,
+    "variant": null
+   },
+   {
+    "feature_name": "disable_test_only_tag_rules",
+    "display_name": "disable test only tag rules",
+    "enabled": false,
+    "variant": null
+   },
+   {
+    "feature_name": "enable_campaigns_context_selector_expression",
+    "display_name": "enable campaigns context selector expression",
+    "enabled": false,
+    "variant": null
+   },
+   {
+    "feature_name": "filter_items",
+    "display_name": "Filter-item boosts",
+    "enabled": true,
+    "variant": {
+     "name": "filter_items_w_atcs_and_purchases",
+     "display_name": "filter_items_w_atcs_and_purchases"
+    }
+   },
+   {
+    "feature_name": "manual_searchandizing",
+    "display_name": "Searchandizing",
+    "enabled": true,
+    "variant": null
+   },
+   {
+    "feature_name": "pass_user_history_to_reranker",
+    "display_name": "Pass user history to Reranker from AC",
+    "enabled": false,
+    "variant": null
+   },
+   {
+    "feature_name": "personalization",
+    "display_name": "Personalization",
+    "enabled": true,
+    "variant": {
+     "name": "default_personalization",
+     "display_name": "Default Personalization"
+    }
+   },
+   {
+    "feature_name": "query_items",
+    "display_name": "Learn To Rank",
+    "enabled": true,
+    "variant": {
+     "name": "query_items_ctr_and_l2r",
+     "display_name": "CTR & LTR"
+    }
+   },
+   {
+    "feature_name": "recommendations_merge_allowlist_rules",
+    "display_name": "recommendations_merge_allowlist_rules",
+    "enabled": false,
+    "variant": null
+   },
+   {
+    "feature_name": "refined_tag_rules",
+    "display_name": "refined_tag_rules",
+    "enabled": true,
+    "variant": null
+   },
+   {
+    "feature_name": "reranker_transformations_autocomplete",
+    "display_name": "reranker_transformations_autocomplete",
+    "enabled": false,
+    "variant": null
+   },
+   {
+    "feature_name": "reranker_transformations_browse",
+    "display_name": "reranker_transformations_browse",
+    "enabled": false,
+    "variant": null
+   },
+   {
+    "feature_name": "reranker_transformations_search",
+    "display_name": "reranker_transformations_search",
+    "enabled": false,
+    "variant": null
+   },
+   {
+    "feature_name": "use_ces_blending",
+    "display_name": "use_ces_blending",
+    "enabled": false,
+    "variant": null
+   },
+   {
+    "feature_name": "use_enriched_attributes_as_fuzzy_searchable",
+    "display_name": "use_enriched_attributes_as_fuzzy_searchable",
+    "enabled": false,
+    "variant": null
+   },
+   {
+    "feature_name": "use_llm_label_sort",
+    "display_name": "use_llm_label_sort",
+    "enabled": false,
+    "variant": null
+   },
+   {
+    "feature_name": "use_reranker_service_for_all",
+    "display_name": "[DEPRECATED] Use reranker service to rerank search and browse results",
+    "enabled": false,
+    "variant": null
+   },
+   {
+    "feature_name": "use_reranker_service_for_browse",
+    "display_name": "Use reranker service to rerank browse / collections results",
+    "enabled": false,
+    "variant": null
+   },
+   {
+    "feature_name": "use_reranker_service_for_search",
+    "display_name": "Use reranker service to rerank search results",
+    "enabled": false,
+    "variant": null
+   },
+   {
+    "feature_name": "variation_selection",
+    "display_name": "variation_selection",
+    "enabled": false,
+    "variant": null
+   }
+  ],
+  "related_searches": [],
+  "related_browse_pages": []
+ },
+ "result_id": "0af8cf1b-07d8-40f9-9d1b-2c023bf1490e",
+ "request": {
+  "sort_by": "relevance",
+  "sort_order": "descending",
+  "page": 1,
+  "num_results_per_page": 1,
+  "term": "plain crew neck t-shirt",
+  "fmt_options": {
+   "groups_start": "current",
+   "groups_max_depth": 1,
+   "show_hidden_facets": false,
+   "show_hidden_fields": false,
+   "show_protected_facets": false
+  },
+  "section": "Products",
+  "features": {
+   "query_items": true,
+   "a_a_test": true,
+   "auto_generated_refined_query_rules": true,
+   "manual_searchandizing": true,
+   "personalization": true,
+   "filter_items": true,
+   "use_reranker_service_for_search": false,
+   "use_reranker_service_for_browse": false,
+   "use_reranker_service_for_all": false,
+   "custom_autosuggest_ui": true,
+   "disable_test_only_global_rules_search": false,
+   "disable_test_only_global_rules_browse": false,
+   "use_enriched_attributes_as_fuzzy_searchable": false,
+   "use_ces_blending": false,
+   "refined_tag_rules": true,
+   "enable_campaigns_context_selector_expression": false,
+   "variation_selection": false,
+   "reranker_transformations_search": false,
+   "use_llm_label_sort": false,
+   "reranker_transformations_browse": false,
+   "reranker_transformations_autocomplete": false,
+   "pass_user_history_to_reranker": false,
+   "disable_test_only_tag_rules": false,
+   "recommendations_merge_allowlist_rules": false
+  },
+  "feature_variants": {
+   "query_items": "query_items_ctr_and_l2r",
+   "a_a_test": null,
+   "auto_generated_refined_query_rules": "default_rules",
+   "manual_searchandizing": null,
+   "personalization": "default_personalization",
+   "filter_items": "filter_items_w_atcs_and_purchases",
+   "use_reranker_service_for_search": null,
+   "use_reranker_service_for_browse": null,
+   "use_reranker_service_for_all": null,
+   "custom_autosuggest_ui": "custom_autosuggest_ui_image_result_count",
+   "disable_test_only_global_rules_search": null,
+   "disable_test_only_global_rules_browse": null,
+   "use_enriched_attributes_as_fuzzy_searchable": null,
+   "use_ces_blending": null,
+   "refined_tag_rules": null,
+   "enable_campaigns_context_selector_expression": null,
+   "variation_selection": null,
+   "reranker_transformations_search": null,
+   "use_llm_label_sort": null,
+   "reranker_transformations_browse": null,
+   "reranker_transformations_autocomplete": null,
+   "pass_user_history_to_reranker": null,
+   "disable_test_only_tag_rules": null,
+   "recommendations_merge_allowlist_rules": null
+  },
+  "searchandized_items": {}
+ }
+}
