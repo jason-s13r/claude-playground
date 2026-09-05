@@ -1,0 +1,37 @@
+# Changelog
+
+## kmart-api/v0.1.0 (2026-09-05)
+
+### Features
+
+- let a login carry browser-earned admission
+  The password submit is guarded by Akamai, which binds admission to the
+  client that ran its sensor. `auth::login` now takes an admission cookie
+  set and seeds it onto the auth host before the flow, so a `_abck` earned
+  elsewhere can be tried across the TLS boundary. The seed reads itself
+  back out of the jar and reports whether the cookie will actually send
+  and whether it reads validated -- a scope bug or a stale cookie tests
+  nothing, and a 403 must not be misread as a verdict.
+
+- add a client for Kmart Australia and New Zealand
+  Four surfaces behind one client: a Constructor.io catalogue that needs no
+  credentials, a commercetools-backed GraphQL gateway that needs Akamai
+  cookies, a second half of that gateway that needs an account token too,
+  and Auth0. Telling those apart is most of the crate -- a bot challenge, a
+  lapsed session and a missing one all arrive as failures and need opposite
+  advice.
+
+  Both countries share one backend, one Auth0 tenant and one store-id
+  namespace, so `Country` is a parameter rather than a second crate.
+
+  Akamai guards exactly the step of the login that would produce a session,
+  so `auth::login` is correct against Auth0 and cannot be used; the way in
+  is `auth::refresh`, from a token a browser obtained.
+
+  The Constructor index key and the Auth0 client id are read from the storefront
+  home page rather than only compiled in, so a rotation heals itself; `vendor` is
+  the one module they live in, and the values that shipped are the fallback.
+
+  The two countries turn out to be separate Auth0 applications despite the shared
+  tenant -- read off the Australian storefront rather than assumed to match -- so
+  a session records which one minted it and renews under that.
