@@ -10,6 +10,7 @@ and has its own `dispat.yaml` declaring the scripts described in the
 | [`foodstuffs-nz-cli`](foodstuffs-nz-cli) | `fsnz` | The Foodstuffs banners on their own: New World and PAK'nSAVE, `compare` across the two |
 | [`woolworths-nz-cli`](woolworths-nz-cli) | `wwnz` | Woolworths NZ on its own, against their GraphQL API |
 | [`the-warehouse-nz-cli`](the-warehouse-nz-cli) | `twlnz` | The Warehouse: search, browse, per-store stock, variations, cart and wishlist |
+| [`kmart-cli`](kmart-cli) | `kmart` | Kmart, both countries: search, browse, per-store stock, cart and wishlist, with `kmart use au` to switch |
 
 They overlap on purpose. `gsnz` is the whole of it: the libraries in
 [`packages/`](../packages) with a `Retailer` adapter per chain. `fsnz` and
@@ -19,9 +20,13 @@ it the flags that only make sense with a second shop. Each keeps its own
 config, state and credentials, so having more than one installed is not a
 conflict.
 
-`twlnz` is not part of that family. It is a different retailer in a different
-trade, sharing only the halves that have no domain in them, and there is no
-Warehouse adapter in `gsnz`. Its own README says why.
+`twlnz` and `kmart` are not part of that family. They are different retailers
+in a different trade, sharing only the halves that have no domain in them, and
+there is no adapter for either in `gsnz`. Their own READMEs say why.
+
+`kmart` is the only one here that is not New Zealand alone: Kmart runs one
+backend for both countries, so the country is a flag rather than a second
+binary.
 
 Create one with:
 

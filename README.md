@@ -23,6 +23,7 @@ Two kinds of directory. [`apps/`](apps) holds the things that ship;
 | [`foodstuffs-nz-cli`](apps/foodstuffs-nz-cli) | `fsnz` | The Foodstuffs half on its own: New World and PAK'nSAVE |
 | [`woolworths-nz-cli`](apps/woolworths-nz-cli) | `wwnz` | Woolworths NZ on its own, against their GraphQL API |
 | [`the-warehouse-nz-cli`](apps/the-warehouse-nz-cli) | `twlnz` | The Warehouse: general merchandise, scraped off a Salesforce Commerce Cloud storefront |
+| [`kmart-cli`](apps/kmart-cli) | `kmart` | Kmart in both Australia and New Zealand, off one backend: `kmart use au` switches country |
 
 | Package | What it holds |
 | ------- | ------------- |
@@ -33,17 +34,23 @@ Two kinds of directory. [`apps/`](apps) holds the things that ship;
 | [`fsnz-api`](packages/fsnz-api) | The Foodstuffs edge API and the Club Plus login, in its own vendor-shaped types |
 | [`wwnz-api`](packages/wwnz-api) | The Woolworths GraphQL API and its Auth0 login flow, likewise |
 | [`twlnz-api`](packages/twlnz-api) | The Warehouse storefront — mostly HTML rather than an API, and the one crate that parses markup |
+| [`kmart-api`](packages/kmart-api) | Kmart across four services: a third-party search index, a GraphQL gateway, Auth0, and the bot check in front of two of them |
 | [`build-kit`](packages/build-kit) | The provenance a binary stamps into itself at build time, and the self-update that replaces it |
 
 `gsnz` is built on all seven; `fsnz` and `wwnz` are the two single-chain slices
 of it, each dropping the API crate it does not speak. Nothing under `apps/`
 carries its own HTTP client, credential store or domain types any more.
 
-`twlnz` is the odd one out and deliberately so: it shares the domain-free halves
-— `net-kit`, `cli-kit`, `build-kit` — and none of `gsnz-*`. The Warehouse is
-general merchandise, so a grocery `Product` is the wrong shape for it, and it
-writes its own views instead. It is the first consumer to test `cli-kit`'s claim
-to know nothing about groceries.
+`twlnz` and `kmart` are the odd ones out and deliberately so: they share the
+domain-free halves — `net-kit`, `cli-kit`, `build-kit` — and none of `gsnz-*`.
+Both sell general merchandise, so a grocery `Product` is the wrong shape for
+either, and each writes its own views instead. They are what tests `cli-kit`'s
+claim to know nothing about groceries.
+
+`kmart` is also the only one covering two countries. Kmart runs one backend for
+Australia and New Zealand — one GraphQL schema, one Auth0 tenant, one store-id
+namespace — so the country is a parameter rather than a second binary. What
+differs is the catalogue and the currency.
 
 Those tables are for people. dispat and CI discover the projects themselves, so
 adding one means adding a directory and nothing else.

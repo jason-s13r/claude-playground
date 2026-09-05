@@ -12,6 +12,7 @@ way an app is, with its own `dispat.yaml` declaring its scripts.
 | [`fsnz-api`](fsnz-api) | The Foodstuffs edge API (New World and PAK'nSAVE) and the Club Plus login |
 | [`wwnz-api`](wwnz-api) | The Woolworths GraphQL API and its Auth0 login flow |
 | [`twlnz-api`](twlnz-api) | The Warehouse storefront: listings scraped from HTML, plus the JSON cart, wishlist and stores |
+| [`kmart-api`](kmart-api) | Kmart in both countries: the Constructor.io catalogue, the GraphQL gateway, and the Auth0 login |
 | [`build-kit`](build-kit) | The provenance a `build.rs` stamps into a binary, and the self-update that replaces it from a GitHub release |
 
 Each one documents itself in its own `README.md`, linked above.
