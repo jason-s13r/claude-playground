@@ -309,9 +309,12 @@ pub enum AuthAction {
     ///
     /// Kmart's bot check guards the password submit and refuses any plain HTTP
     /// client, so this drives a real browser to do it -- `camoufox`, which has
-    /// to be installed separately. It runs without a window by default; pass
-    /// `--headful` to watch it, which is also the stronger path when the bot
-    /// check is being stubborn.
+    /// to be installed separately:
+    ///
+    ///     uv tool install "camoufox[geoip]" && camoufox fetch
+    ///
+    /// It runs without a window by default; pass `--headful` to watch it, which
+    /// is also the stronger path when the bot check is being stubborn.
     ///
     /// One run yields both credentials, the token and the cookies, so it
     /// replaces `auth token` and `auth import` together. Those two remain for

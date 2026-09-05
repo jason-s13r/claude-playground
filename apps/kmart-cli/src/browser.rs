@@ -33,7 +33,7 @@ const SCRIPT: &str = include_str!("browser/login.py");
 /// A constant because it is the failure most people will meet, and it has to
 /// carry two things: how to get a browser, and the way in that needs none.
 const MISSING_BROWSER: &str = "signing in needs a browser, and `camoufox` was not found on PATH. \
-     Install it (`uv tool install camoufox[geoip]` then `camoufox fetch`), \
+     Install it (`uv tool install \"camoufox[geoip]\"` then `camoufox fetch`), \
      or use `kmart auth token` instead";
 
 /// What the script hands back.

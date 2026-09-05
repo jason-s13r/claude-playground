@@ -53,9 +53,9 @@ kmart auth login --email "$(op read 'op://Vault/Kmart/email')" \
                  --password-command 'op read "op://Vault/Kmart/password"'
 ```
 
-A window appears while it runs, unless `--headless` says otherwise. **One run
-earns both credentials**, the token and the cookies, so it replaces
-`auth import` as well.
+It runs headless by default; add `--headful` to watch the window, which is also
+the stronger path when the bot check is being stubborn. **One run earns both
+credentials**, the token and the cookies, so it replaces `auth import` as well.
 
 That needs [camoufox](https://camoufox.com) installed separately, because a
 browser engine is a hundred megabytes and most of this tool does not need one:
@@ -63,6 +63,8 @@ browser engine is a hundred megabytes and most of this tool does not need one:
 ```bash
 uv tool install "camoufox[geoip]" && camoufox fetch
 ```
+
+`kmart auth login` says the same if it cannot find camoufox on your `PATH`.
 
 Without a browser, both halves can still be fetched by hand from a signed-in
 tab — `kmart auth import <cookies.txt>` for the cookies, and for the token:
