@@ -17,7 +17,11 @@ pub struct Cli {
     /// Which country to ask, for this command only: `au` or `nz`.
     ///
     /// Not a display preference -- it selects the catalogue, the prices and
-    /// the currency. `kmart use` sets the lasting one.
+    /// the currency. `kmart use` sets the lasting one, and Australia is what
+    /// is asked until something does.
+    ///
+    /// For one command, with one exception: `auth login` keeps the country it
+    /// signed in to, because the session is only good against that storefront.
     #[arg(long, short = 'c', global = true, value_name = "au|nz")]
     pub country: Option<Country>,
 
@@ -150,6 +154,9 @@ pub enum Command {
     },
 
     /// Set the country commands use when `--country` is not given.
+    ///
+    /// Australia until this says otherwise -- or until `auth login`, which
+    /// writes down the storefront it signed in to.
     ///
     /// Shorthand for `kmart config set country <COUNTRY>`. With no argument it
     /// says which one is current.
@@ -376,6 +383,47 @@ pub enum AuthAction {
         /// The token. Read from the terminal, hidden, if left off -- which
         /// also keeps it out of the shell history.
         token: Option<String>,
+    },
+    /// Renew whatever has lapsed, without typing anything.
+    ///
+    /// For a cron job or a wrapper script: it does what `auth login` does, but
+    /// from the email and the password already on hand, and only as far as it
+    /// has to go.
+    ///
+    /// Cheapest first. The token endpoint is not bot-checked, so a good refresh
+    /// token renews with no browser involved. The cookies have no clock to read
+    /// -- a stale `_abck` looks exactly like a good one -- so they are tested
+    /// by spending one gateway request, and only a refusal opens a browser.
+    /// That browser run earns both credentials again, as `auth login` does.
+    ///
+    /// An account with neither a stored password nor an `auth.password_command`
+    /// cannot get past a refused token, and says so with exit code 3.
+    Refresh {
+        /// Show the browser window, when a browser is needed at all.
+        ///
+        /// As with `auth login`: headless passes the bot check in the common
+        /// case, and `--headful` gives the sensor more to score when it does
+        /// not. A refresh that stays on the token endpoint never opens one.
+        #[arg(long)]
+        headful: bool,
+        /// Renew both halves whatever state they are in.
+        ///
+        /// The default stops as soon as the session is proven good, which is
+        /// what a scheduled run wants -- Auth0 rotates the refresh token on
+        /// every use, so renewing one that has not lapsed is a rotation for
+        /// nothing. This spends it anyway and signs in through a browser
+        /// regardless, for a session that is misbehaving in some way the
+        /// gateway does not report as a refusal.
+        #[arg(long)]
+        force: bool,
+        /// Sign in with no browser at all, when the refresh token fails.
+        ///
+        /// The same diagnostic as `auth login --direct`: it replays Auth0's
+        /// login as direct HTTP requests, narrating each step to stderr. The
+        /// live bot check answers the password submit with a challenge, so
+        /// this is here to measure that wall, not to get past it.
+        #[arg(long, conflicts_with = "headful")]
+        direct: bool,
     },
     /// Who is signed in, whether the gateway will answer, and until when.
     Status,

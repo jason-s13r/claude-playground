@@ -56,44 +56,45 @@ fn help_lists_the_commands() {
 }
 
 #[test]
-fn the_default_country_is_new_zealand_and_use_changes_it() {
+fn the_default_country_is_australia_and_use_changes_it() {
     let home = home();
     kmart(&home)
         .arg("use")
         .assert()
         .success()
-        .stdout(contains("New Zealand"));
+        .stdout(contains("Australia"));
 
     kmart(&home)
-        .args(["use", "au"])
+        .args(["use", "nz"])
         .assert()
         .success()
-        .stdout(contains("Australia"));
+        .stdout(contains("New Zealand"));
 
     // And it sticks, which is the whole point of the command.
     kmart(&home)
         .arg("use")
         .assert()
         .success()
-        .stdout(contains("Australia"));
+        .stdout(contains("New Zealand"));
 }
 
 #[test]
 fn the_country_flag_beats_the_saved_one_without_changing_it() {
     let home = home();
-    kmart(&home).args(["use", "au"]).assert().success();
+    kmart(&home).args(["use", "nz"]).assert().success();
     kmart(&home)
         .args(["config", "get", "country"])
         .assert()
         .success()
-        .stdout(contains("au"));
+        .stdout(contains("nz"));
 
     // A flag is for one command, so the file must be untouched afterwards.
+    // `auth login` is the documented exception, and it is not this.
     kmart(&home)
-        .args(["--country", "nz", "config", "get", "country"])
+        .args(["--country", "au", "config", "get", "country"])
         .assert()
         .success()
-        .stdout(contains("au"));
+        .stdout(contains("nz"));
 }
 
 #[test]
@@ -137,16 +138,19 @@ fn an_account_command_with_no_session_exits_three_and_says_to_sign_in() {
 fn an_account_command_reports_the_missing_sign_in_once_cookies_are_present() {
     let home = home();
     let cookies = home.path().join("cookies.txt");
+    // Australian, because that is the country a fresh install asks: cookies for
+    // the other one are not admission here, and the test would be measuring
+    // that instead.
     std::fs::write(
         &cookies,
-        ".kmart.co.nz\tTRUE\t/\tTRUE\t9999999999\t_abck\tadmission\n",
+        ".kmart.com.au\tTRUE\t/\tTRUE\t9999999999\t_abck\tadmission\n",
     )
     .unwrap();
     kmart(&home)
         .args(["auth", "import", cookies.to_str().unwrap()])
         .assert()
         .success()
-        .stdout(contains("nz"));
+        .stdout(contains("au"));
 
     kmart(&home)
         .arg("orders")
@@ -185,6 +189,52 @@ fn auth_status_reports_the_two_credentials_separately() {
         .success()
         .stdout(contains("Signed out"))
         .stdout(contains("No bot-check cookies"));
+}
+
+#[test]
+fn refresh_with_nothing_to_renew_exits_three_rather_than_succeeding_quietly() {
+    // The whole point of the command is running unattended, so the one thing
+    // it must never do is report success having renewed nothing.
+    let home = home();
+    kmart(&home)
+        .args(["auth", "refresh"])
+        .assert()
+        .failure()
+        .code(3)
+        .stderr(contains("auth login"));
+}
+
+#[test]
+fn refresh_needs_more_than_cookies() {
+    // Admission is not a sign-in, and there is no password to become one.
+    let home = home();
+    let cookies = home.path().join("cookies.txt");
+    std::fs::write(
+        &cookies,
+        ".kmart.com.au\tTRUE\t/\tTRUE\t9999999999\t_abck\tadmission\n",
+    )
+    .unwrap();
+    kmart(&home)
+        .args(["auth", "import", cookies.to_str().unwrap()])
+        .assert()
+        .success();
+
+    kmart(&home)
+        .args(["auth", "refresh"])
+        .assert()
+        .failure()
+        .code(3)
+        .stderr(contains("auth login"));
+}
+
+#[test]
+fn refresh_will_not_take_both_a_window_and_no_browser_at_all() {
+    let home = home();
+    kmart(&home)
+        .args(["auth", "refresh", "--headful", "--direct"])
+        .assert()
+        .failure()
+        .code(2);
 }
 
 #[test]

@@ -87,7 +87,8 @@ async fn examine(app: &App) -> Shop {
             .ok()
             .flatten()
             .and_then(|s| s.email),
-        expires_in: Some(t.expires_at.saturating_sub(net_kit::jwt::now_secs())),
+        expires_in: (!t.pending()).then(|| t.expires_at.saturating_sub(net_kit::jwt::now_secs())),
+        pending: t.pending(),
         renewable: t.refresh.is_some(),
     });
 
@@ -108,15 +109,10 @@ async fn examine(app: &App) -> Shop {
     let admitted = session.admitted(country);
     let gateway = match admitted {
         false => None,
-        true => Some(
-            match client
-                .postcodes(app.config.postcode.as_deref().unwrap_or("1010"))
-                .await
-            {
-                Ok(found) => Ok(format!("{} postcodes matched", found.len())),
-                Err(e) => Err(e.to_string()),
-            },
-        ),
+        true => Some(match client.postcodes(app.probe_postcode()).await {
+            Ok(found) => Ok(format!("{} postcodes matched", found.len())),
+            Err(e) => Err(e.to_string()),
+        }),
     };
 
     Shop {
@@ -165,7 +161,13 @@ struct Shop {
 #[derive(Serialize)]
 struct Login {
     account: Option<String>,
+    /// Absent while the grant has yet to be spent: there is no access token to
+    /// have an expiry.
+    #[serde(skip_serializing_if = "Option::is_none")]
     expires_in: Option<u64>,
+    /// Signed in, with the first token still to be fetched. Where a sign-in
+    /// leaves things, and not a fault.
+    pending: bool,
     renewable: bool,
 }
 
@@ -266,6 +268,9 @@ fn describe_login(out: &Out, login: Option<&Login>) -> String {
     };
     let who = login.account.as_deref().unwrap_or("signed in");
     match login.expires_in {
+        // Straight after a sign-in, and until the first command that needs a
+        // token. Nothing has gone wrong and nothing needs doing.
+        _ if login.pending => format!("{who}, token not fetched yet"),
         // Not a warning when it renews itself, which is the usual case here.
         Some(0) if login.renewable => format!("{who}, lapsed but renewable"),
         Some(0) => format!("{who}, {}", out.warn("expired")),

@@ -45,6 +45,11 @@ pub async fn run(app: &App, action: AuthAction) -> AppResult<()> {
         }
         AuthAction::Import { file } => import(app, &file),
         AuthAction::Token { token } => token_import(app, token).await,
+        AuthAction::Refresh {
+            headful,
+            direct,
+            force,
+        } => refresh(app, !headful, direct, force).await,
         AuthAction::Status => status(app),
         AuthAction::Logout => logout(app),
     }
@@ -130,12 +135,49 @@ async fn login(
         net_kit::password::save(&secrets, &password)?;
     }
 
+    remember_country(app, &mut out)?;
+
     let session = stored.session();
     emit(
-        &mut app.out(),
+        &mut out,
         &status_of(app, &session, stored.email.clone(), keep),
     )?;
     Ok(())
+}
+
+/// Keep asking the storefront that was just signed in to.
+///
+/// The second setting this program writes without being asked, after the
+/// visitor id, and for the same reason: the alternative is worse. A session is
+/// bound to the storefront that minted it -- one Auth0 application per country
+/// -- so signing in to kmart.com.au and then having every command quote New
+/// Zealand prices off a token that country's gateway will not take is not a
+/// state worth being able to reach by doing nothing.
+///
+/// This is why `--country` on a login is not the one-command flag it is
+/// everywhere else. Announced when it changes which shop answers, silent when
+/// it only writes down what was already happening.
+///
+/// Best effort: a config directory that cannot be written should not turn a
+/// successful sign-in into a failed command.
+fn remember_country(app: &App, out: &mut Out) -> std::io::Result<()> {
+    if app.config.country == Some(app.country) {
+        return Ok(());
+    }
+    let before = app.config.country.unwrap_or(crate::app::DEFAULT_COUNTRY);
+    let mut config = app.config.clone();
+    config.country = Some(app.country);
+    if app.save(&config).is_err() || before == app.country {
+        return Ok(());
+    }
+    note(
+        out,
+        &format!(
+            "Now using {} ({}), which is where this signed in.",
+            app.country.name(),
+            app.country
+        ),
+    )
 }
 
 /// Sign in with no browser, by replaying Auth0's login as direct requests.
@@ -190,6 +232,233 @@ async fn direct_login(app: &App, email: &str, password: &str) -> AppResult<()> {
     emit(
         &mut out,
         &status_of(app, &session, stored.email.clone(), false),
+    )?;
+    Ok(())
+}
+
+/// Renew whatever has lapsed, with nobody at the keyboard.
+///
+/// The two credentials run on different clocks and this renews both, cheapest
+/// first. The refresh token costs one request to an endpoint Akamai does not
+/// guard; the cookies cost a browser, because a browser is the only thing that
+/// earns them. So a run that only needed the token never opens one.
+///
+/// **The cookies are tested by spending a request, not by looking at them.**
+/// There is no clock in them -- `_abck` is present or it is not, and one that
+/// expired an hour ago is indistinguishable from a good one until the gateway
+/// answers. Reporting a renewal on the strength of a stale cookie is the exact
+/// failure this command exists to prevent, since nobody is reading the output.
+async fn refresh(app: &App, headless: bool, direct: bool, force: bool) -> AppResult<()> {
+    let secrets = app.secrets();
+    let mut stored = StoredSession::load(&secrets)?.unwrap_or_default();
+
+    // Resolved before anything is spent: it decides whether a refused token is
+    // recoverable at all, and a config file is cheaper to read than Auth0 is
+    // to ask.
+    let source =
+        net_kit::password::Source::resolve(app.config.auth.password_command.as_deref(), &secrets)?;
+    let reauthable = stored.email.is_some() && source.is_some();
+
+    // Nothing to renew and nothing to renew it with. An error rather than a
+    // remark, because nobody is reading: a scheduled run that cannot tell
+    // "renewed" from "did nothing" is the failure being avoided.
+    if !stored.session().signed_in() && !reauthable {
+        return Err(kmart_api::Error::NotSignedIn.into());
+    }
+
+    // The storefront that signed in, which is not always the one being asked
+    // about. They are separate Auth0 applications and a token minted by one is
+    // not renewable under the other, so `--country nz` over a session from
+    // kmart.com.au still has to renew as the Australian application.
+    let minted_by = stored.auth_country();
+    let http = net_kit::http::build(kmart_api::client_spec())
+        .map_err(|e| AppError::usage(format!("building the HTTP client: {e}")))?;
+    let endpoints = app.live_endpoints(&http, minted_by).await;
+
+    let trace: kmart_api::auth::Trace<'_> = &|step: &str, detail: &str| {
+        if app.env.debug {
+            eprintln!("kmart: [{step}] {detail}");
+        }
+    };
+
+    let mut out = app.out();
+    let mut renewed = false;
+    // Not spent while it is still good. Auth0 rotates the grant on use, so
+    // renewing a token that has not lapsed buys nothing and puts one more
+    // write between this session and the next command.
+    let mut token_ok = stored.tokens.as_ref().is_some_and(|t| !t.lapsed());
+    if !token_ok || force {
+        if let Some(grant) = stored.tokens.as_ref().and_then(|t| t.refresh.clone()) {
+            match kmart_api::auth::refresh(&endpoints, &grant, trace).await {
+                Ok(mut fresh) => {
+                    // Auth0 rotates only sometimes, and keeping the old grant
+                    // when it does not is the difference between a session
+                    // that renews forever and one that dies in fifteen minutes.
+                    if fresh.refresh.is_none() {
+                        fresh.refresh = Some(grant);
+                    }
+                    stored.tokens = Some(fresh);
+                    stored.save(&secrets)?;
+                    token_ok = true;
+                    renewed = true;
+                    note(&mut out, "Renewed from the refresh token.")?;
+                }
+                // Auth0 answered, and said no. A password is the only way past
+                // that, so this falls through to one rather than failing here.
+                Err(
+                    e @ (kmart_api::Error::LoginRefused { .. }
+                    | kmart_api::Error::Challenged { .. }),
+                ) if reauthable => {
+                    token_ok = false;
+                    if app.env.debug {
+                        eprintln!("kmart: the refresh token was refused: {e}");
+                    }
+                }
+                // Either nobody answered, or nobody can sign in again. A
+                // browser fixes neither.
+                Err(e) => return Err(e.into()),
+            }
+        }
+    }
+
+    // Skipped when the token is already known to be bad: the gateway would
+    // refuse whatever the cookies are, so the answer would say nothing about
+    // them.
+    if token_ok && !force && works(app).await? {
+        if !renewed {
+            note(&mut out, "Nothing needed renewing.")?;
+        }
+        return report(app, &mut out, &stored, &secrets);
+    }
+
+    let why = match token_ok {
+        true => "the gateway refused the bot-check cookies",
+        false => "the refresh token is gone or was refused",
+    };
+
+    // Said in full and given an auth exit code rather than a usage one: this
+    // is the state a wrapper has to be able to tell apart, because it is the
+    // only one that needs a person.
+    let Some(email) = stored.email.clone() else {
+        eprintln!("kmart: {why}, and the session names no account to sign in as");
+        eprintln!("kmart: run `kmart auth login`");
+        return Err(AppError::Reported(3));
+    };
+    let Some(source) = source else {
+        eprintln!("kmart: {why}, and there is no password to sign in again with");
+        eprintln!("kmart: run `kmart auth login`, or set `auth.password_command`");
+        return Err(AppError::Reported(3));
+    };
+    let password = source.password().await?;
+
+    if direct {
+        return direct_login(app, &email, &password).await;
+    }
+
+    let how = match headless {
+        true => " (headless)",
+        false => "",
+    };
+    note(
+        &mut out,
+        &format!("{why}; signing in through a browser{how}."),
+    )?;
+
+    // The storefront that signed in signs in again: moving the session to
+    // whatever `--country` happens to say would swap the Auth0 application out
+    // from under it. Nothing is lost by staying -- the script collects the
+    // other country's cookies before it finishes, so the country in use ends
+    // up admitted whichever one minted the token.
+    let country = minted_by.unwrap_or(app.country);
+    let signed_in = crate::browser::login(
+        app.env.browser_python.as_deref(),
+        &app.paths.state_dir,
+        country.origin(),
+        &email,
+        &password,
+        headless,
+        app.env.debug,
+    )
+    .await?;
+
+    stored.tokens = Some(kmart_api::Tokens::from_refresh(&signed_in.refresh_token));
+    stored.email = signed_in.email.clone().or(Some(email));
+    stored.auth_country = Some(country.code().to_string());
+    for (code, cookies) in &signed_in.cookies {
+        if !cookies.is_empty() {
+            stored.cookies.insert(code.clone(), cookies.clone());
+        }
+    }
+    stored.save(&secrets)?;
+
+    report(app, &mut out, &stored, &secrets)
+}
+
+/// Whether the gateway still accepts this session, by spending one request.
+///
+/// **The cookies are what this asks about**, and deliberately only them. The
+/// token half needs no request: its expiry is read from the JWT's own `exp`,
+/// which is the claim the gateway enforces, and Auth0 accepting the refresh a
+/// moment ago is the rest of the answer. Admission is the half with nothing to
+/// read -- `_abck` is present or it is not -- so it is the half worth a call.
+///
+/// The call is the one `doctor` makes for the same reason: postcode
+/// suggestions need no bearer token, so the answer turns on the cookies alone
+/// and cannot be muddied by the account half. An account query would be the
+/// wrong instrument twice over -- it asks two questions at once, and the
+/// gateway does not serve the same account schema in both countries.
+///
+/// A refusal is an answer rather than a failure -- it is what sends `refresh`
+/// to the browser -- but anything else is propagated, because opening a
+/// browser is the wrong response to a flaky connection.
+async fn works(app: &App) -> AppResult<bool> {
+    let client = app.client().await?;
+    match client.postcodes(app.probe_postcode()).await {
+        Ok(_) => Ok(true),
+        Err(
+            kmart_api::Error::Challenged { .. }
+            | kmart_api::Error::NoSession { .. }
+            | kmart_api::Error::NotSignedIn
+            | kmart_api::Error::SessionExpired
+            | kmart_api::Error::SessionUnrenewable
+            | kmart_api::Error::LoginRefused { .. },
+        ) => Ok(false),
+        Err(e) => Err(e.into()),
+    }
+}
+
+/// An aside for a person, skipped when the output is JSON.
+fn note(out: &mut Out, line: &str) -> std::io::Result<()> {
+    if out.is_json() {
+        return Ok(());
+    }
+    let dimmed = out.dim(line);
+    writeln!(out, "{dimmed}")
+}
+
+/// Whether there is a password *in the credential store*, which is what
+/// `password_stored` says. A configured `password_command` renews just as well
+/// but is not a copy this program holds, and reporting it as one would be a
+/// claim about where the password lives.
+fn password_stored(secrets: &net_kit::Secrets) -> bool {
+    net_kit::password::load(secrets).unwrap_or(None).is_some()
+}
+
+fn report(
+    app: &App,
+    out: &mut Out,
+    stored: &StoredSession,
+    secrets: &net_kit::Secrets,
+) -> AppResult<()> {
+    let session = stored.session();
+    emit(
+        out,
+        &status_of(
+            app,
+            &session,
+            stored.email.clone(),
+            password_stored(secrets),
+        ),
     )?;
     Ok(())
 }
@@ -346,7 +615,7 @@ fn status(app: &App) -> AppResult<()> {
         .map(StoredSession::session)
         .unwrap_or_default();
     let email = stored.as_ref().and_then(|s| s.email.clone());
-    let password_stored = net_kit::password::load(&secrets).unwrap_or(None).is_some();
+    let password_stored = password_stored(&secrets);
 
     emit(
         &mut app.out(),
@@ -364,9 +633,15 @@ fn status_of(
     Status {
         signed_in: session.signed_in(),
         account,
+        // Left out entirely while nothing has been spent on the grant. A zero
+        // there is not "it expired a moment ago", it is "no token has been
+        // fetched yet", and a script that read the first would warn about a
+        // sign-in that had just succeeded.
         expires_in: session
             .tokens()
+            .filter(|t| !t.pending())
             .map(|t| t.expires_at.saturating_sub(net_kit::jwt::now_secs())),
+        pending: session.tokens().is_some_and(kmart_api::Tokens::pending),
         renewable: session.tokens().is_some_and(|t| t.refresh.is_some()),
         admitted: Country::ALL
             .into_iter()
@@ -400,9 +675,12 @@ struct Status {
     #[serde(skip_serializing_if = "Option::is_none")]
     account: Option<String>,
     /// Seconds. The access token is a readable JWT, so this is a fact rather
-    /// than an estimate.
+    /// than an estimate. Absent when there is no access token to have one.
     #[serde(skip_serializing_if = "Option::is_none")]
     expires_in: Option<u64>,
+    /// Whether the grant has yet to be spent on an access token, which is
+    /// where a sign-in leaves it and is not a problem.
+    pending: bool,
     /// Whether it renews without a password.
     renewable: bool,
     /// The countries whose gateway will answer, which is a separate question
@@ -425,6 +703,12 @@ impl View for Status {
             true => {
                 let who = self.account.as_deref().unwrap_or("Signed in");
                 match self.expires_in {
+                    // What a sign-in that just worked looks like: the grant is
+                    // good and nothing has been spent on it. Saying "lapsed"
+                    // of that would report a success as a fault.
+                    _ if self.pending => {
+                        writeln!(out, "{who}. The next command will fetch a token.")?
+                    }
                     // A token that has run out is not a problem when it
                     // renews, so the two are said in one line rather than
                     // reported as a failure.
@@ -525,6 +809,7 @@ mod tests {
             signed_in,
             account: Some("shopper@example.test".into()),
             expires_in: Some(900),
+            pending: false,
             renewable: true,
             admitted: admitted.into_iter().map(str::to_string).collect(),
             country: "nz".into(),
@@ -555,6 +840,19 @@ mod tests {
     fn cookies_for_the_wrong_country_are_called_out() {
         let text = render(&status(true, vec!["au"]));
         assert!(text.contains("None for nz"), "{text}");
+    }
+
+    #[test]
+    fn a_sign_in_that_just_worked_is_not_reported_as_lapsed() {
+        // What `auth login` prints a second after it succeeds. The grant is
+        // good and nothing has been spent on it, which is not the same state
+        // as a token that ran out -- though both are `lapsed` underneath.
+        let mut s = status(true, vec!["nz"]);
+        s.pending = true;
+        s.expires_in = None;
+        let text = render(&s);
+        assert!(text.contains("will fetch a token"), "{text}");
+        assert!(!text.contains("lapsed"), "{text}");
     }
 
     #[test]

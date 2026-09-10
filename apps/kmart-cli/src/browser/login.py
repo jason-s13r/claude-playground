@@ -35,7 +35,7 @@ from camoufox.sync_api import Camoufox
 
 EMAIL = os.environ.get("KMART_EMAIL", "")
 PASSWORD = os.environ.get("KMART_PASSWORD", "")
-ORIGIN = os.environ.get("KMART_ORIGIN", "https://www.kmart.co.nz")
+ORIGIN = os.environ.get("KMART_ORIGIN", "https://www.kmart.com.au")
 # Headless by default; the caller sets KMART_HEADLESS="" to show a window. The
 # window is the stronger path when the bot check is being stubborn.
 HEADLESS = os.environ.get("KMART_HEADLESS", "") not in ("", "0", "false", "no")
@@ -103,18 +103,56 @@ def press(page, selector, what):
     around it, and clicking something that then moves is a timeout rather than
     a click. Measured -- one run in two failed here, and the same run succeeded
     unchanged on a second attempt.
+
+    A refusal carries what was in the way. Three failures look identical from
+    outside and want opposite answers: nothing matched (the markup moved),
+    matches that are all invisible (the wrong layout -- a narrow window puts
+    the header behind a menu), and a visible element whose click was refused
+    (something is on top of it -- a consent banner, or the Google sign-in
+    prompt that was seen over the header on one run). Reporting them as one
+    line of "could not click" throws away the only evidence there is.
     """
+    seen = visible = 0
+    last = ""
     for _ in range(3):
-        for handle in page.query_selector_all(selector):
+        handles = page.query_selector_all(selector)
+        seen = max(seen, len(handles))
+        shown = 0
+        for handle in handles:
             try:
                 if not handle.is_visible():
                     continue
+                shown += 1
                 handle.click(timeout=15000)
                 return
-            except Exception:
+            except Exception as e:
+                last = str(e).strip().splitlines()[0][:200]
                 continue
+        visible = max(visible, shown)
         settle(page, 2)
-    fail(f"could not click {what}")
+
+    # A synthetic click, which nothing can intercept because it never goes
+    # through the page's geometry -- so it is also the answer to an overlay
+    # sitting on top, and the reason there is no code here hunting for one.
+    # Reaching into the page to find what is in the way and take it out would
+    # be a rummage an ordinary session never does, and it buys nothing this
+    # does not. Last, and only ever for an element that is visibly there: it
+    # is thinner evidence for the sensor than a real click, and that is worth
+    # spending only when the alternative is giving up.
+    for handle in page.query_selector_all(selector):
+        try:
+            if not handle.is_visible():
+                continue
+            note(f"clicking {what} directly; the pointer was refused")
+            handle.evaluate("el => el.click()")
+            return
+        except Exception as e:
+            last = str(e).strip().splitlines()[0][:200]
+
+    size = page.viewport_size or {}
+    fail(f"could not click {what}: {seen} matched, {visible} of them visible, "
+         f"window {size.get('width', '?')}x{size.get('height', '?')}"
+         + (f", last refusal: {last}" if last else ""))
 
 
 def storage(page):

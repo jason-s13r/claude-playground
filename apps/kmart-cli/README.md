@@ -4,7 +4,7 @@
 
 ```bash
 kmart search "milk frother"
-kmart use au                       # switch country; prices, stock and catalogue all follow
+kmart use nz                       # switch country; prices, stock and catalogue all follow
 kmart product 43165537
 kmart stock 43165537
 kmart stores
@@ -15,9 +15,13 @@ Unofficial, and built by reading the site's own traffic. See
 
 ## Two countries
 
-Kmart runs one backend for both. `kmart use nz` and `kmart use au` switch which
-one every command asks, and `--country au` does it for a single command without
-saving. It is not a display setting: each country has its own catalogue at its
+Kmart runs one backend for both. Australia is what a fresh install asks;
+`kmart use nz` and `kmart use au` switch which one every command asks, and
+`--country nz` does it for a single command without saving. `kmart auth login`
+is the one exception to that — it writes down the country it signed in to,
+because a session belongs to the storefront that minted it.
+
+None of this is a display setting: each country has its own catalogue at its
 own prices in its own currency.
 
 Store ids are shared across the pair, so `kmart stores 8229` describes the same
@@ -93,6 +97,35 @@ there breaks nothing.
 The two credentials are independent, and `kmart auth status` says so: you can
 have a token without cookies (nothing will work) or cookies without a token
 (stock and stores will).
+
+### Keeping it signed in with nobody watching
+
+`kmart auth refresh` is `auth login` without the typing — for a cron job or a
+wrapper script:
+
+```bash
+kmart auth refresh          # exit 0 if the session is good, 3 if it needs you
+```
+
+It renews the cheap half first. A good refresh token costs one request to an
+endpoint Akamai does not guard, and most runs stop there. The cookies have no
+clock to read — a stale `_abck` looks exactly like a good one — so it tests
+them by spending a single gateway request, and only a refusal opens a browser.
+That browser run earns both credentials again, exactly as `auth login` does.
+
+The password it signs in with is the one already on hand: `auth.password_command`
+where you set one, otherwise the copy `auth login` kept. With neither, a refused
+token is the end of the road and it exits 3 rather than pretending otherwise —
+which is the distinction a script needs, and the reason it is an exit code and
+not a line of output.
+
+```bash
+kmart config set auth.password_command 'op read "op://Vault/Kmart/password"'
+```
+
+`--force` renews both halves whatever state they are in. Not the default: Auth0
+rotates the refresh token on every use, so a scheduled run that spends one it
+did not have to is a rotation for nothing.
 
 ## Stock is a postcode question
 

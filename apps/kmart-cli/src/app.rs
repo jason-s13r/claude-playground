@@ -21,6 +21,13 @@ use crate::error::{AppError, AppResult};
 /// would be a surprise the first time a logout took both down.
 pub const APP: &str = "kmart-cli";
 
+/// The storefront asked when nothing says otherwise.
+///
+/// Australia, as the larger of the two shops. Not much of a judgement -- one
+/// `kmart use nz` settles it for good, and `auth login` writes the country it
+/// signed in to, so an account only ever meets this once.
+pub const DEFAULT_COUNTRY: Country = Country::Au;
+
 pub struct App {
     pub config: Config,
     pub config_file: PathBuf,
@@ -65,9 +72,6 @@ impl App {
             ColorChoice::Auto => !env.no_color,
         };
 
-        // New Zealand by default. Not a judgement about which shop matters --
-        // it is the one this was written against, and `kmart use au` is one
-        // command away.
         let country = match cli.country {
             Some(country) => country,
             None => match env.country.as_deref() {
@@ -76,7 +80,7 @@ impl App {
                         "KMART_COUNTRY is {text:?}, which is not a country; use `au` or `nz`"
                     ))
                 })?,
-                None => config.country.unwrap_or(Country::Nz),
+                None => config.country.unwrap_or(DEFAULT_COUNTRY),
             },
         };
 
@@ -238,6 +242,23 @@ impl App {
         )
         .with_session_store(store)
         .with_reauth(reauth))
+    }
+
+    /// A postcode to spend a throwaway gateway call on.
+    ///
+    /// Not for quoting stock -- that has no sensible default and says so
+    /// below. This is for the calls whose *answer* is beside the point: what
+    /// is being asked is whether the gateway answers at all. The one in the
+    /// config where there is one, so the query looks like the rest of this
+    /// session's traffic, and a capital city where there is not.
+    pub fn probe_postcode(&self) -> &str {
+        self.config
+            .postcode
+            .as_deref()
+            .unwrap_or(match self.country {
+                Country::Nz => "1010",
+                Country::Au => "3000",
+            })
     }
 
     /// The postcode a stock question is asked about.
