@@ -105,6 +105,19 @@ impl Tokens {
         self.expires_at <= net_kit::jwt::now_secs() + EXPIRY_MARGIN_SECS
     }
 
+    /// Whether there has never been an access token here to run out.
+    ///
+    /// The state [`Tokens::from_refresh`] starts in, and the one every
+    /// browser login and every pasted token passes through: the grant is good
+    /// and nothing has been spent on it yet. [`Tokens::lapsed`] is true of it
+    /// too -- that is the point, it makes the next call fetch one -- but the
+    /// two mean opposite things to a person. Something that ran out is worth
+    /// mentioning; something not yet fetched is what a successful sign-in
+    /// looks like a second afterwards.
+    pub fn pending(&self) -> bool {
+        self.access.is_empty()
+    }
+
     /// Whose it is, off the token's own claims. Unverified -- this reads what
     /// Auth0 said rather than checking it.
     pub fn subject(&self) -> Option<String> {
@@ -348,6 +361,19 @@ mod tests {
             .iter()
             .map(|(k, v)| (k.to_string(), v.to_string()))
             .collect()
+    }
+
+    #[test]
+    fn a_grant_with_nothing_spent_on_it_is_pending_rather_than_expired() {
+        // Both are `lapsed`, which is what makes the next call fetch a token.
+        // Only one of them is worth telling anyone about.
+        let fresh = Tokens::from_refresh("grant");
+        assert!(fresh.lapsed());
+        assert!(fresh.pending());
+
+        let spent = Tokens::new(jwt(net_kit::jwt::now_secs() - 60, "auth0|abc"), None, None);
+        assert!(spent.lapsed());
+        assert!(!spent.pending(), "this one really did run out");
     }
 
     #[test]
