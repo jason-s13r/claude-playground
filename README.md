@@ -1,166 +1,157 @@
 # shopping-cli-tools
 
-A polyglot monorepo for one-off tools, experiments, clones and rewrites.
-Anything goes: C, C++, Rust, Go, Node/TypeScript, Python — CLIs, TUIs, web
-apps, whatever the current idea needs.
+Command line tools for shopping at New Zealand retailers — and the libraries
+they are made of.
 
-The only rule is that each project stays **self-contained**. A project owns its
-dependencies, its build files, its lockfiles, and its own `dispat.yaml` saying
-how to build and test it. Deleting its directory removes it completely.
+Five binaries, all unofficial, all reverse-engineered from what the retailers'
+own websites call from a browser:
 
-[dispat](https://dispat.dev) is the tool that ties them together. It discovers
-the projects, runs their scripts, works out which ones changed from the commit
-history, and releases them.
+| Binary | App | Covers |
+| --- | --- | --- |
+| `gsnz` | [`grocery-nz-cli`](apps/grocery-nz-cli) | New World, PAK'nSAVE and Woolworths NZ side by side — `gsnz compare "2l milk"` |
+| `fsnz` | [`foodstuffs-nz-cli`](apps/foodstuffs-nz-cli) | New World and PAK'nSAVE, one Foodstuffs client driving both |
+| `wwnz` | [`woolworths-nz-cli`](apps/woolworths-nz-cli) | Woolworths NZ |
+| `kmart` | [`kmart-cli`](apps/kmart-cli) | Kmart, Australia and New Zealand off one backend |
+| `twlnz` | [`the-warehouse-nz-cli`](apps/the-warehouse-nz-cli) | The Warehouse NZ |
 
-## What is here
+`gsnz` is the whole point and the other two supermarkets are its single-chain
+slices: the question worth answering is *is it cheaper at the other one?* The
+Warehouse and Kmart are general merchandise, not groceries, so they share none
+of the grocery domain and all of the plumbing.
 
-Two kinds of directory. [`apps/`](apps) holds the things that ship;
-[`packages/`](packages) holds the libraries they are built from.
+None of the retailers offer a public API. Everything here is built by reading
+the sites' own traffic, and it breaks when they change something.
 
-| App | Binary | What it is |
-| --- | ------ | ---------- |
-| [`grocery-nz-cli`](apps/grocery-nz-cli) | `gsnz` | New World, PAK'nSAVE and Woolworths NZ from one command line, with `compare` pricing a query at all three |
-| [`foodstuffs-nz-cli`](apps/foodstuffs-nz-cli) | `fsnz` | The Foodstuffs half on its own: New World and PAK'nSAVE |
-| [`woolworths-nz-cli`](apps/woolworths-nz-cli) | `wwnz` | Woolworths NZ on its own, against their GraphQL API |
-| [`the-warehouse-nz-cli`](apps/the-warehouse-nz-cli) | `twlnz` | The Warehouse: general merchandise, scraped off a Salesforce Commerce Cloud storefront |
-| [`kmart-cli`](apps/kmart-cli) | `kmart` | Kmart in both Australia and New Zealand, off one backend: `kmart use au` switches country |
+## Structure
 
-| Package | What it holds |
-| ------- | ------------- |
-| [`net-kit`](packages/net-kit) | The process boundary: HTTP that is not scored as a bot, cookies, credentials, and the paths those live under |
-| [`cli-kit`](packages/cli-kit) | Command line presentation: output routing, `--json`, tables, prompts, doctor reports — and no domain types |
-| [`gsnz-core`](packages/gsnz-core) | The grocery domain: one `Product`, `Cart`, `Order`, `Store`, and the `Retailer` trait a vendor adapter implements. No I/O |
-| [`gsnz-ui`](packages/gsnz-ui) | `cli-kit` views over `gsnz-core` types — listings, carts, orders, comparison tables |
-| [`fsnz-api`](packages/fsnz-api) | The Foodstuffs edge API and the Club Plus login, in its own vendor-shaped types |
-| [`wwnz-api`](packages/wwnz-api) | The Woolworths GraphQL API and its Auth0 login flow, likewise |
-| [`twlnz-api`](packages/twlnz-api) | The Warehouse storefront — mostly HTML rather than an API, and the one crate that parses markup |
-| [`kmart-api`](packages/kmart-api) | Kmart across four services: a third-party search index, a GraphQL gateway, Auth0, and the bot check in front of two of them |
-| [`build-kit`](packages/build-kit) | The provenance a binary stamps into itself at build time, and the self-update that replaces it |
+`apps/` ship; `packages/` are the libraries they are built from, and both
+release the same way. Code moves to `packages/` when a *second* app needs it,
+not before.
 
-`gsnz` is built on all seven; `fsnz` and `wwnz` are the two single-chain slices
-of it, each dropping the API crate it does not speak. Nothing under `apps/`
-carries its own HTTP client, credential store or domain types any more.
-
-`twlnz` and `kmart` are the odd ones out and deliberately so: they share the
-domain-free halves — `net-kit`, `cli-kit`, `build-kit` — and none of `gsnz-*`.
-Both sell general merchandise, so a grocery `Product` is the wrong shape for
-either, and each writes its own views instead. They are what tests `cli-kit`'s
-claim to know nothing about groceries.
-
-`kmart` is also the only one covering two countries. Kmart runs one backend for
-Australia and New Zealand — one GraphQL schema, one Auth0 tenant, one store-id
-namespace — so the country is a parameter rather than a second binary. What
-differs is the catalogue and the currency.
-
-Those tables are for people. dispat and CI discover the projects themselves, so
-adding one means adding a directory and nothing else.
-
-## Layout
-
-```
-apps/         one directory per app, each with its own dispat.yaml
-packages/     libraries shared between apps, under the same contract
-templates/    starting points for new projects, one per language
-scripts/      repo tooling (scaffolding, the release build matrix)
-docs/         conventions and notes
-dispat.yaml   the root config: where projects live, how they are tagged
+```console
+$ dispat status
 ```
 
-## Quick start
+dispat discovers projects by their directory, so there is no list to update:
+adding a directory under `apps/` or `packages/` is the entire registration.
+
+## The libraries
+
+The apps are thin front ends. The parts worth reading are the nine crates in
+[`packages/`](packages):
+
+| Crate | What it holds |
+| --- | --- |
+| [`net-kit`](packages/net-kit) | the process boundary: browser-fingerprinted HTTP, a persisted cookie jar, the OS credential store, config paths |
+| [`cli-kit`](packages/cli-kit) | presentation with no domain: tables, `--json`, prompts, `doctor`, completions |
+| [`gsnz-core`](packages/gsnz-core) | the grocery domain — one `Product`, `Cart`, `Order`, `Store`, and the `Retailer` trait |
+| [`gsnz-ui`](packages/gsnz-ui) | the grocery renderers, every one a `cli_kit::View` over a `gsnz-core` type |
+| [`fsnz-api`](packages/fsnz-api) | the Foodstuffs edge API and the Club Plus login, in Foodstuffs' own vocabulary |
+| [`wwnz-api`](packages/wwnz-api) | the Woolworths GraphQL API and its Auth0 flow |
+| [`kmart-api`](packages/kmart-api) | Kmart's catalogue, stock, cart and login, both countries |
+| [`twlnz-api`](packages/twlnz-api) | The Warehouse's Salesforce storefront — mostly HTML, and the one crate that parses it |
+| [`build-kit`](packages/build-kit) | the build stamp and the `update` command that swaps the binary for a newer release |
+
+Two rules hold the shape together:
+
+- **The API crates are vendor-shaped on purpose.** `fsnz-api` speaks Foodstuffs'
+  vocabulary and depends on no shared domain crate; converting to `gsnz-core`
+  is the app's job, the adapter lives in the app. That keeps a Foodstuffs
+  quirk from leaking into a type Woolworths also has to fit, and it is why
+  `twlnz-api` and `kmart-api` share none of `gsnz-core` at all: general
+  merchandise has nowhere to put a colour or size axis in a `SaleUnit`.
+- **The libraries read no environment.** `net-kit` and `cli-kit` take every
+  setting as a value — `clippy.toml` fails the build over `std::env::var` —
+  so an app reads its environment once, at the top, and passes the results
+  down. A variable name read inside a library is a variable name every
+  consumer is stuck with.
+
+## Why `wreq` and not `reqwest`
+
+These storefronts sit behind Cloudflare and Akamai, which fingerprint the TLS
+handshake and HTTP/2 settings rather than the headers. Every `reqwest` TLS
+backend is scored as a bot and answered with a bare 400 or a challenge page,
+with nothing in it that says why. `net-kit` builds on `wreq`, which presents a
+real browser's fingerprint, and the same requests are answered normally.
+
+The same idea explains the rest of the credential handling: cookies live in
+the OS credential store rather than a plaintext file, and Kmart's Akamai check
+— which genuinely cannot be passed by a command line tool — is met by
+importing browser cookies or driving a real browser for the one login step
+that refuses anything else.
+
+## Install
+
+Each app builds and installs on its own; nothing hoists to the repo root:
 
 ```bash
-dispat run check --since all             # everything, every project
-dispat run test  --since all -p my-tool  # one project
-dispat status                            # what a release would do right now
-dispat preview                           # the notes it would write
-scripts/new-project.sh rust my-tool      # scaffold an app
+cd apps/grocery-nz-cli
+cargo install --path .     # or apps/foodstuffs-nz-cli, or any of the five
 ```
 
-`--since all` is the flag you will type most. Without it, `dispat run` only
-covers packages the *release window* selects — the ones with commits since
-their last tag — which is what you want in a release and rarely what you want
-at a keyboard.
+Published builds live on
+[releases](https://github.com/jason-s13r/shopping-cli-tools/releases), tagged
+`<app>/vX.Y.Z` — one release per app, per library, never one for the repo. Each
+release carries `linux-x86_64` and `darwin-arm64` binaries and a `SHA256SUMS`
+covering them. Once installed, a binary replaces itself:
 
-Available templates: `c`, `go`, `node-ts`, `python`, `rust`. Nothing forces you
-to use one — a project only needs a `dispat.yaml`, so a language without a
-template is not blocked. New templates get added when a project actually needs
-one.
-
-## The project contract
-
-Every directory under `apps/` or `packages/` is a project, and its
-`dispat.yaml` says what can be done to it. By convention those scripts are:
-
-| Script          | Meaning                                                |
-| --------------- | ------------------------------------------------------ |
-| `build`         | Produce whatever the project builds                    |
-| `test`          | Run the tests                                          |
-| `lint`          | Static analysis                                        |
-| `fmt`           | Format sources in place                                |
-| `fmt-check`     | Verify formatting, change nothing                      |
-| `run`           | Run the thing                                          |
-| `check`         | `fmt-check` + `lint` + `build` + `test` — what CI runs  |
-| `release-build` | Build release artifacts and name them for upload       |
-
-A project may omit any script it has no use for; dispat skips a package that
-does not define the one being run. Only `check` really matters, since that is
-what CI calls.
-
-What those scripts *are* is the project's business. A Rust project calls
-cargo, a Node one calls npm, and a C project calls `make` because C genuinely
-needs the build rules. There is no repo-wide build tool to satisfy.
-
-## Releases
-
-Releases are driven by [conventional commits](docs/conventions.md#commit-messages),
-not by pushing a tag. Push to `main` and dispat reads the commits since each
-project's last tag, decides which projects changed and how far to bump them,
-and releases those:
-
-```
-feat(my-tool): add a --json flag     →  my-tool/v0.2.0
-fix(my-tool): stop eating the error  →  my-tool/v0.1.1
+```console
+$ gsnz update --check     # is there a newer one, and what changed in it?
+$ gsnz update             # download it and swap it in
 ```
 
-A push with nothing releasable in it does nothing. `dispat status` and
-`dispat preview` show the plan and the notes without touching anything.
+On any other platform `update` says what the release does have and leaves the
+binary alone; build from source instead.
 
-For a project that ships binaries, the release is the delivery: the tag, the
-GitHub release, its notes taken from the same commits, and the artifacts with a
-`SHA256SUMS` covering all of them. A project declares the runners it needs in
-its own `dispat.yaml`, since there is no cross-compiling:
+## Releases come from commits
+
+dispat reads the conventional commits since each project's last tag and
+releases only what changed. A `feat(<project>): ...` or `fix(<project>): ...`
+on `main` releases that project; the scope is the directory name.
 
 ```yaml
-custom:
-  releasePlatforms: [ubuntu-latest, macos-14]
+# dispat.yaml — the only sanctioned cross-reference
+dependencies:
+  foodstuffs-nz-cli: [gsnz-core, gsnz-ui, cli-kit, net-kit, fsnz-api, build-kit]
 ```
 
-Declaring nothing builds on `ubuntu-latest` alone.
+The root `dispat.yaml` declares the dependency graph so dispat can order the
+builds and propagate a library's bump into every app that depends on it —
+without it, releasing `net-kit` would leave an app pinned to a version that no
+longer exists. Nothing else crosses a project boundary: no root `package.json`,
+no cargo workspace, and deleting a project directory must fully remove it.
 
-Versions are not hand-maintained. dispat writes the new version into the
-project's manifest (`Cargo.toml`, `package.json`, `pyproject.toml`) as part of
-the release, so the number in the manifest, the number in the tag and the
-number baked into the binary cannot disagree.
+## Working here
 
-Libraries release on their own tags, so a bump can be carried onward to the
-apps in front of them — `feat(net-kit)^: ...` releases the direct consumers
-too, `^^` the transitive ones, and dispat rewrites the version in each
-consumer's manifest to what it just published. The edges it follows are the
-`dependencies` block in the root [`dispat.yaml`](dispat.yaml); see
-[`packages/README.md`](packages) for how a dependency is declared.
+```bash
+dispat run check --since all              # what CI runs, every project
+dispat run test  --since all -p cli-kit    # one project
+dispat status                             # what a release would do
+dispat preview                            # the notes it would write
+```
 
-## CI
+**`--since all` matters.** Without it, `dispat run` only covers packages the
+release window selects — those with commits since their last tag. At a keyboard
+you almost always want `--since all`.
 
-`.github/workflows/ci.yml` runs `dispat run check --since all`. Adding a
-directory under `apps/` or `packages/` is enough to put it in CI — there is no
-list to maintain.
+Each project owns its own dependencies, build files, lockfiles and
+`dispat.yaml` defining as many of `build`, `test`, `lint`, `fmt`, `fmt-check`,
+`run`, `check` and `release-build` as apply. That file is the only interface
+the rest of the repo uses. `check` is the CI contract — `fmt-check lint build
+test` minus whatever the project does not implement — and it is what
+[`.github/workflows/ci.yml`](.github/workflows/ci.yml) runs on every push.
 
-## Conventions
+A project shipping binaries implements `release-build` and declares its
+runners under `custom.releasePlatforms`; there is no cross-compiling, so each
+platform is built on its own runner.
 
-See [`docs/conventions.md`](docs/conventions.md) for how projects are expected
-to be laid out, and [`CLAUDE.md`](CLAUDE.md) for the version of that aimed at
-Claude Code.
+## Disclaimer
+
+Not affiliated with Foodstuffs New Zealand, New World, PAK'nSAVE, Woolworths
+New Zealand, The Warehouse, or Kmart. There are no public APIs. These tools
+call the same undocumented endpoints the retailers' own frontends call, and can
+break whenever they change something. Use at your own risk.
 
 ## License
 
-Public domain (Unlicense). See [`LICENSE`](LICENSE).
+[Unlicense](LICENSE) — public domain. Do anything you like with it.

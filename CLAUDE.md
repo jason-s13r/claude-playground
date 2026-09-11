@@ -1,8 +1,7 @@
 # shopping-cli-tools
 
-A polyglot playground monorepo. Projects here are experiments, one-off tools,
-and clones of existing tools adapted to work against something else. Any
-language is fair game.
+Command line tools for shopping at New Zealand retailers — and the libraries
+they are made of.
 
 [dispat](https://dispat.dev) is the monorepo tool: it discovers the projects,
 runs their scripts, and releases them from the commit history.
@@ -13,19 +12,9 @@ runs their scripts, and releases them from the commit history.
   own `dispat.yaml`
 - `packages/<name>/` — libraries shared between apps, same contract. Code moves
   here when a *second* app needs it, not before
-- `templates/<lang>/` — scaffolding for new projects
-- `scripts/` — scaffolding (`new-project.sh`), release matrix (`release-matrix.sh`)
 - `dispat.yaml` — root config: where projects live, how they are tagged
-- `docs/conventions.md` — the full conventions
 
 ## Working here
-
-Start a new project with the scaffolder rather than by hand:
-
-```bash
-scripts/new-project.sh <c|go|node-ts|python|rust> <kebab-case-name>
-scripts/new-project.sh --space packages <template> <kebab-case-name>
-```
 
 Then work inside `apps/<name>/` (or `packages/<name>/`):
 
@@ -44,8 +33,8 @@ you almost always want `--since all`.
 
 - **Keep projects self-contained.** A project owns its own dependencies, build
   files, lockfiles and `dispat.yaml`. Do not hoist anything to the repo root —
-  no root `package.json`, no cargo workspace, no shared `go.mod`, and no build
-  scripts in the root config. Deleting a project directory must fully remove it.
+  no root `package.json`, no cargo workspace, and no build scripts in the root
+  config. Deleting a project directory must fully remove it.
 - **Every project needs a `dispat.yaml`** defining as many of `build`, `test`,
   `lint`, `fmt`, `fmt-check`, `run`, `check` and `release-build` as apply. That
   file is the only interface the rest of the repo uses. Omitted scripts are
