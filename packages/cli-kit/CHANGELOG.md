@@ -1,5 +1,21 @@
 # Changelog
 
+## cli-kit/v0.3.0 (2026-09-11)
+
+### Features
+
+- add shared detail-report rendering
+  `doctor` and `auth status` are the same shape in every tool, but each
+  app had written its own `line`/`indented` helpers — five copies, each
+  drifted a little. Move that shape into cli-kit as `detail::{field,
+  indented, section, verdict}`: one label column, one indent, one verdict
+  vocabulary ("healthy" / "not healthy").
+
+  Also treat all-blank `table` headers as no headers, so the
+  label-and-value spelling `table(&["", ""])` no longer draws an empty
+  header band that reads as a rendering fault.
+
+
 ## cli-kit/v0.2.0 (2026-09-03)
 
 ### Features
