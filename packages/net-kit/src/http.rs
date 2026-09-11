@@ -130,11 +130,29 @@ pub async fn text(
     url: &str,
     response: Result<wreq::Response, wreq::Error>,
 ) -> Result<(wreq::header::HeaderMap, String), HttpError> {
+    let (_, headers, body) = landed_text(method, url, response).await?;
+    Ok((headers, body))
+}
+
+/// The same again, and **where the response actually came from**.
+///
+/// A followed redirect is the site answering a different question from the one
+/// asked: a keyword search that matches a category is served the category page,
+/// and an account page asked for by a guest is served the sign-in page. Neither
+/// is visible in the status or the body -- both are a 200 of ordinary markup --
+/// so a caller that has to tell them apart reads the landing URL, which is the
+/// only evidence there is.
+pub async fn landed_text(
+    method: &'static str,
+    url: &str,
+    response: Result<wreq::Response, wreq::Error>,
+) -> Result<(String, wreq::header::HeaderMap, String), HttpError> {
     let response = response.map_err(|source| HttpError::Transport {
         method,
         url: url.to_string(),
         source,
     })?;
+    let landed = response.uri().to_string();
     let status = response.status();
     let headers = response.headers().clone();
     let body = response
@@ -155,7 +173,7 @@ pub async fn text(
             body,
         });
     }
-    Ok((headers, body))
+    Ok((landed, headers, body))
 }
 
 #[cfg(test)]
