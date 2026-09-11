@@ -181,7 +181,7 @@ mod tests {
         commit: "a1b2c3d4e",
         commit_date: "2026-09-03",
         tag: "grocery-nz-cli/v1.2.3",
-        repo: "jason-s13r/claude-playground",
+        repo: "jason-s13r/shopping-cli-tools",
         builder: "GitHub Actions",
         rustc: "1.98.0",
         target: "aarch64-apple-darwin",

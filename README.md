@@ -1,4 +1,4 @@
-# claude-playground
+# shopping-cli-tools
 
 A polyglot monorepo for one-off tools, experiments, clones and rewrites.
 Anything goes: C, C++, Rust, Go, Node/TypeScript, Python — CLIs, TUIs, web

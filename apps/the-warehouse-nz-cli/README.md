@@ -44,7 +44,7 @@ cargo install --path .             # or install the `twlnz` binary
 ```
 
 Or take a published build from
-[releases](https://github.com/jason-s13r/claude-playground/releases), tagged
+[releases](https://github.com/jason-s13r/shopping-cli-tools/releases), tagged
 `the-warehouse-nz-cli/vX.Y.Z`. Once you have a binary it can replace itself:
 
 ```bash

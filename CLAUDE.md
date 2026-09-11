@@ -1,4 +1,4 @@
-# claude-playground
+# shopping-cli-tools
 
 A polyglot playground monorepo. Projects here are experiments, one-off tools,
 and clones of existing tools adapted to work against something else. Any
