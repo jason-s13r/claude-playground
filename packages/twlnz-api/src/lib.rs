@@ -50,7 +50,7 @@ pub use domain::{
 };
 pub use endpoints::{Endpoints, SITE};
 pub use error::{Error, Result};
-pub use http::{client_spec, EMULATION};
+pub use http::{client_spec, client_spec_for, profile, EMULATION};
 pub use listing::{Facet, Listing, Query, Sort, DEFAULT_SORT, FACETS, PAGE_SIZE, SORTS};
 pub use product::{Action, Pdp};
 pub use session::{Session, StoredSession};

@@ -118,17 +118,13 @@ impl Client {
         req = req.header(wreq::header::REFERER, format!("{}/", self.endpoints.origin));
 
         let sent = req.send().await;
-        let (headers, body) = net_kit::http::text("GET", &target, sent)
+        // `landed_text` rather than `text`: `wreq` follows the redirect, and
+        // where it ended up is the only evidence that a keyword search was
+        // answered with a category page or an account page with a sign-in wall.
+        let (landed, headers, body) = net_kit::http::landed_text("GET", &target, sent)
             .await
             .map_err(crate::error::from_http)?;
         self.session.lock().expect("session lock").absorb(&headers);
-        // `wreq` follows the redirect, so the landing URL is what has to be
-        // read back to see where a search ended up.
-        let landed = headers
-            .get("x-final-url")
-            .and_then(|v| v.to_str().ok())
-            .unwrap_or(&target)
-            .to_string();
         Ok((landed, body))
     }
 
@@ -275,6 +271,29 @@ impl Client {
             .save(&reauth.secrets)?;
         *self.session.lock().expect("session lock") = session.clone();
         Ok(session)
+    }
+
+    /// Whether the storefront still recognises this session as a person, by
+    /// spending one request.
+    ///
+    /// The account page redirects a guest to the sign-in page, so **where the
+    /// request landed is the whole answer** and no markup has to be parsed.
+    /// Measured signed out: `/account` lands on `/login`.
+    ///
+    /// One question, where the Kmart equivalent asks two. There is a single
+    /// credential here -- the cookies either speak for the account or they do
+    /// not -- and everything this can be wrong about has the same remedy, which
+    /// is to run the login form again.
+    ///
+    /// Deliberately not routed through [`Client::require_account`]: that signs
+    /// itself in again when it can, which would make the answer always yes and
+    /// spend a login to reach it. A Cloudflare refusal is propagated rather
+    /// than reported as a lapsed session, because signing in would be refused
+    /// the same way and "your session ran out" would be the wrong thing to have
+    /// told someone.
+    pub async fn verify(&self) -> Result<bool> {
+        let (landed, _) = self.get(&self.endpoints.account_page(), &[]).await?;
+        Ok(!landed.contains("/login"))
     }
 
     /// Make sure the session speaks for an account before an account-only call.

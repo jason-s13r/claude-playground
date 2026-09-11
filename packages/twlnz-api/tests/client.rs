@@ -90,6 +90,40 @@ async fn a_listing_window_parses_into_products() {
 }
 
 #[tokio::test]
+async fn a_keyword_that_redirects_into_a_category_is_reported_as_having_done_so() {
+    // The site answers "lego" with the LEGO category page rather than with
+    // search results. Nothing in the status or the markup says so -- it is a
+    // 200 of ordinary tiles either way -- so the landing URL is the only tell,
+    // and a caller that never sees it cannot know it asked one question and was
+    // answered another.
+    let server = MockServer::start().await;
+    Mock::given(method("GET"))
+        .and(path("/search/updategrid"))
+        .respond_with(ResponseTemplate::new(302).insert_header(
+            "location",
+            format!("{}/c/toys-baby/top-brands/lego", server.uri()),
+        ))
+        .mount(&server)
+        .await;
+    Mock::given(method("GET"))
+        .and(path("/c/toys-baby/top-brands/lego"))
+        .respond_with(html("listing-window.html"))
+        .mount(&server)
+        .await;
+
+    let listing = client(&server)
+        .page(&Query::Keyword("lego".into()), 0, 32, None, &[])
+        .await
+        .unwrap();
+
+    assert_eq!(
+        listing.category.as_deref(),
+        Some("toys-baby/top-brands/lego")
+    );
+    assert_eq!(listing.products.len(), 3, "the tiles still parsed");
+}
+
+#[tokio::test]
 async fn paging_stops_at_the_end_rather_than_asking_for_a_window_past_it() {
     // The grid header says 3,122 of 3,122, so there is nothing after this page
     // even though the caller asked for more than it holds.
@@ -769,4 +803,44 @@ async fn the_wishlist_refuses_a_guest_before_it_asks() {
     let err = client(&server).wishlist().await.unwrap_err();
     assert!(err.to_string().contains("not signed in"), "{err}");
     assert!(server.received_requests().await.unwrap().is_empty());
+}
+
+#[tokio::test]
+async fn a_session_the_storefront_has_stopped_recognising_is_reported_as_such() {
+    // The tell is where the request landed, not what the page said: a guest
+    // asking for the account page is redirected to the sign-in page, and that
+    // survives every rewording of the markup on it.
+    let server = MockServer::start().await;
+    Mock::given(method("GET"))
+        .and(path("/account"))
+        .respond_with(
+            ResponseTemplate::new(302).insert_header("location", format!("{}/login", server.uri())),
+        )
+        .mount(&server)
+        .await;
+    Mock::given(method("GET"))
+        .and(path("/login"))
+        .respond_with(body(
+            "<form><input name=\"dwfrm_login_email\"></form>".into(),
+            "text/html",
+        ))
+        .mount(&server)
+        .await;
+
+    assert!(!signed_in(&server).verify().await.unwrap());
+}
+
+#[tokio::test]
+async fn a_session_that_is_still_good_needs_no_sign_in() {
+    let server = MockServer::start().await;
+    Mock::given(method("GET"))
+        .and(path("/account"))
+        .respond_with(body("<h1>My account</h1>".into(), "text/html"))
+        .mount(&server)
+        .await;
+
+    // Only the one request: a probe that renewed on its own would spend a
+    // password to answer a question about whether it needed to.
+    assert!(signed_in(&server).verify().await.unwrap());
+    assert_eq!(server.received_requests().await.unwrap().len(), 1);
 }
