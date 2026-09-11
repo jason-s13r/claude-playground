@@ -17,14 +17,14 @@ own `vary` confirms it:
 vary: Accept-Encoding,Store,Content-Currency,Authorization,X-Magento-Cache-Id
 ```
 
-Either public host answers for either fascia. That is why this is one crate with
-a `Banner` parameter rather than two crates.
+Either public host answers for either fascia, which is why this is one crate
+with a `Banner` parameter rather than two crates.
 
-It is **not** the Foodstuffs arrangement, despite the resemblance. New World and
-PAK'nSAVE share one Club Plus login across two banners; these two share a backend
-but have separate Gigya sites with separate API keys, so a Briscoes sign-in is
-not a Rebel Sport one and credentials are filed apart. Nor is there anything to
-compare between them — the SKU namespaces are disjoint (`1xxxxxx` and `8xxxxxx`)
+It is not the Foodstuffs arrangement: New World and PAK'nSAVE share one Club
+Plus login across two banners, while these two share a backend but have
+separate Gigya sites with separate API keys, so a Briscoes sign-in is not a
+Rebel Sport one and credentials are filed apart. There is nothing to compare
+between them either — the SKU namespaces are disjoint (`1xxxxxx` and `8xxxxxx`)
 and so are the catalogues.
 
 | | Briscoes | Rebel Sport |
@@ -52,18 +52,17 @@ Rebel Sport command answers with homeware and no error at all.
 
 ## Signing in
 
-The whole difficulty sits in one call. Gigya's `accounts.login` refuses any
-request without a reCAPTCHA token, and refuses it *before* checking the
-password:
+Gigya's `accounts.login` refuses any request without a reCAPTCHA token, and
+refuses it *before* checking the password:
 
 ```
 errorCode 400006, "Invalid CaptchaType / Invalid CaptchaToken"
 ```
 
-There is no headless username-and-password path. But everything after that is
-unguarded — `accounts.getAccountInfo` carries no risk assessment, and no GraphQL
-operation on either site sends the `X-ReCaptcha` header its bundle can produce.
-So:
+There is no headless username-and-password path. Everything after that is
+unguarded — `accounts.getAccountInfo` carries no risk assessment, and no
+GraphQL operation on either site sends the `X-ReCaptcha` header its bundle can
+produce:
 
 ```
 once, with a browser   password + captchaToken → accounts.login → login_token
@@ -74,8 +73,8 @@ every time after       login_token → accounts.getAccountInfo → UIDSignature
 `auth::login` therefore *takes* a captcha token rather than minting one: a
 browser is the app's business. The stored credential is the Gigya `login_token`,
 never a password — and because that token is also the value of the site's own
-`glt_<apiKey>` cookie, pasting one is a reasonable alternative to driving a
-browser at all.
+`glt_<apiKey>` cookie, pasting one is an alternative to driving a browser at
+all.
 
 ## What is in it
 
@@ -101,21 +100,20 @@ the wrong one answers `NOT_FOUND_STORE` with `success: true`.
 
 **A configurable product has no barcode; its variants do.** The stock service
 identifies a product by barcode, so a Rebel Sport shoe has to be asked about by
-variant. `ProductDetail::stockable` is what resolves that.
+variant. `ProductDetail::stockable` resolves that.
 
 A third worth knowing: the stock service answers **per basket, not per line**.
 Send two line items and the worse of them decides the single verdict, so
-`Client::stock` and `Client::basket_stock` are separate calls rather than one
-that gets sliced up afterwards.
+`Client::stock` and `Client::basket_stock` are separate calls.
 
 ## Everything arrives loose
 
-Not hypothetically. In one answer from one product query, `isdropship` is the
-integer `0` where a boolean belongs, `sapcategory` is `"141"` on one product and
-`141` on the next, and `saleavailability` is the integer `20127` while the
-`_label` beside it is `null` — and the stock service demands a *string* there.
-Klevu returns every price quoted. A store's opening hours arrive as a JSON
-document nested inside a JSON string.
+In one answer from one product query, `isdropship` is the integer `0` where a
+boolean belongs, `sapcategory` is `"141"` on one product and `141` on the next,
+and `saleavailability` is the integer `20127` while the `_label` beside it is
+`null` — and the stock service demands a *string* there. Klevu returns every
+price quoted. A store's opening hours arrive as a JSON document nested inside a
+JSON string.
 
-So every field is `Option` or defaults: a field either vendor renames should cost
-a column, not a command.
+So every field is `Option` or defaults: a field either vendor renames should
+cost a column, not a command.

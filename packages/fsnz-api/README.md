@@ -1,11 +1,9 @@
 # fsnz-api
 
 The Foodstuffs NZ edge API: New World and PAK'nSAVE, plus the Club Plus login
-in front of them.
-
-Both banners are one Foodstuffs platform wearing two names, so one client drives
-both. They differ in which hostnames they answer on and which code their tokens
-are scoped to, and that is what [`Banner`](src/banner.rs) carries.
+in front of them. Both banners are one platform, so one client drives both;
+they differ in which hostnames they answer on and which code their tokens are
+scoped to, and that is what [`Banner`](src/banner.rs) carries.
 
 > Reverse-engineered from what the storefronts' own frontends call. There is no
 > public API and no documentation; these endpoints can change without notice.
@@ -14,11 +12,10 @@ are scoped to, and that is what [`Banner`](src/banner.rs) carries.
 
 This crate speaks Foodstuffs' vocabulary and depends on no shared domain crate.
 Converting to [`gsnz-core`](../gsnz-core) is the caller's job — the adapter
-lives in the app — which is what keeps this usable on its own and keeps a
-Foodstuffs quirk from leaking into a type Woolworths also has to fit.
+lives in the app.
 
-Every field arrives optional, deliberately: a field Foodstuffs renames should
-degrade to a missing column, not a failed command.
+Every field arrives optional: a field Foodstuffs renames should degrade to a
+missing column, not a failed command.
 
 ## What is in it
 
@@ -58,10 +55,10 @@ minted through Club Plus.
 They are cached separately because they authorise different endpoints —
 `/v1/edge/store` answers a guest token with the store list and an account token
 with a flat 400. Tokens are also scoped to one banner: a New World token
-presented with a PAK'nSAVE store does not fail, it answers the cart endpoints
-with an empty cart belonging to nobody.
+presented with a PAK'nSAVE store answers the cart endpoints with an empty cart
+belonging to nobody.
 
-## The Club Plus login, and the step that must go to Club Plus
+## The Club Plus login
 
 No browser is involved. Three calls:
 
@@ -76,13 +73,13 @@ No browser is involved. Three calls:
 
 **Step 3 has to go to Club Plus.** The banner API answers the same path with a
 200 and a plausible `secure_token`, but the code it issues ignores the `banner`
-field and exchanges back into a national (`NAT`) token. Nothing fails; the cart
-endpoints just quietly answer with an empty cart belonging to nobody. Only the
+field and exchanges back into a national (`NAT`) token — nothing fails, the
+cart endpoints just answer with an empty cart belonging to nobody. Only the
 Club Plus code exchanges into `MNW`/`PNS`.
 
 The session renews itself from a rotating refresh token, so the replacement is
-written to the credential store *before* the session is used — losing it is what
-ends a session, and a refresh token spent elsewhere invalidates the stored one.
+written to the credential store *before* the session is used: a refresh token
+spent elsewhere invalidates the stored one.
 
 ## Development
 
@@ -92,10 +89,9 @@ dispat run check --since all -p fsnz-api
 
 Unit tests beside the code for the wire shapes and the token logic;
 [`tests/`](tests) drives the client and the login chain against a `wiremock`
-stand-in. Nothing in the suite touches the network — the one thing that cannot
-be covered that way is a real Club Plus login, which is verified by hand.
+stand-in. Nothing touches the network — a real Club Plus login is the one thing
+that cannot be covered that way, and is verified by hand.
 
 Used by [`grocery-nz-cli`](../../apps/grocery-nz-cli) and
 [`foodstuffs-nz-cli`](../../apps/foodstuffs-nz-cli). Not published to
-crates.io; consumers declare a path dependency, as
-[`packages/README.md`](../README.md) describes.
+crates.io; consumers declare a path dependency.

@@ -1,33 +1,15 @@
 # cli-kit
 
 Presentation for a command line tool, knowing nothing about what is being
-presented.
+presented: output routing, tables, prompts, shell completions and health
+reports. There is no domain type in here and there must never be one.
 
-Output routing, tables, prompts, shell completions and health reports. There is
-no domain type in here and there must never be one: a table is a table whether
-it holds groceries or anything else.
+## `View` and `emit`
 
-## The problem it solves
-
-The CLIs this was extracted from decided between human output and `--json` with
-an early-return `if` in every command function:
-
-```rust
-if json {
-    println!("{}", serde_json::to_string(&products)?);
-    return Ok(());
-}
-// ... forty lines of table building
-```
-
-Two consequences. The two paths drift, because nothing makes the JSON and the
-table describe the same thing. And neither is testable without running the
-binary and reading its stdout.
-
-Here a thing that can be shown implements [`View`](src/out.rs), which has a
-`text` method and gets `json` for free from `Serialize`. One `emit` chooses
-between them, and an [`Out`](src/out.rs) can be pointed at a buffer — so a
-renderer is an ordinary unit test.
+A thing that can be shown implements [`View`](src/out.rs), which has a `text`
+method and gets `json` for free from `Serialize`. One `emit` chooses between
+them, so the two outputs cannot drift; an [`Out`](src/out.rs) can be pointed at
+a buffer, so a renderer is an ordinary unit test.
 
 ```rust
 use cli_kit::{emit, Format, Out, View};
@@ -51,9 +33,8 @@ The same value with `Format::Json` serialises the struct instead. Override
 `json` only where the wire shape should differ from the type.
 
 `Out::stdout(format, no_color)` takes the caller's reading of `NO_COLOR` and
-`--color`, because this crate does not read the environment either. Colour is
-off for a pipe and off for JSON, where escape codes would make the document
-unparseable.
+`--color`; this crate does not read the environment either. Colour is off for a
+pipe and off for JSON.
 
 ## What is in it
 
@@ -68,12 +49,11 @@ unparseable.
 ## `doctor` is a report, not a script
 
 A `Report` is a list of `Check`s, each ok, warn, fail or skip, each with a
-detail and an optional hint. Nothing aborts the run: a failure early on is
-exactly when the later lines are most worth seeing, and a report that stops at
+detail and an optional hint. Nothing aborts the run — a report that stops at
 the first problem makes someone fix their setup one round trip at a time.
 `healthy()` decides the exit code afterwards.
 
-`comfy_table` and `serde_json` are re-exported for the same reason `net-kit`
+`comfy_table` and `serde_json` are re-exported, for the same reason `net-kit`
 re-exports `wreq`: a consumer building rows compiles against the same
 `comfy-table` the `table` helper returns.
 
@@ -83,6 +63,5 @@ re-exports `wreq`: a consumer building rows compiles against the same
 dispat run check --since all -p cli-kit
 ```
 
-Used by [`gsnz-ui`](../gsnz-ui) and all three apps. Not published to crates.io;
-consumers declare a path dependency, as [`packages/README.md`](../README.md)
-describes.
+Used by [`gsnz-ui`](../gsnz-ui) and every app. Not published to crates.io;
+consumers declare a path dependency.

@@ -6,23 +6,12 @@
 $ gsnz compare "2l milk"
 ```
 
-Unofficial. Everything here is reverse-engineered from what the three websites'
-own frontends call, so treat a missing column as a field that was renamed rather
-than as a product that does not exist.
+Unofficial, and reverse-engineered from what the three websites' own frontends
+call. A missing column is usually a renamed field, not a missing product.
 
-## Why a third CLI
-
-[`fsnz`](../foodstuffs-nz-cli) speaks to Foodstuffs and
-[`wwnz`](../woolworths-nz-cli) to Woolworths, and neither can answer the obvious
-question: *is it cheaper at the other one?* `gsnz` puts all three side by side,
-and targets one with `-b`.
-
-It is built on the seven libraries in [`packages/`](../../packages), so the
-shared half — HTTP that is not scored as a bot, credentials, the self-update,
-the renderers — has one implementation rather than several drifting copies.
-[`fsnz`](../foodstuffs-nz-cli) and [`wwnz`](../woolworths-nz-cli) have since
-been rebuilt on those same libraries, and are the single-chain slices of this
-architecture.
+[`fsnz`](../foodstuffs-nz-cli) and [`wwnz`](../woolworths-nz-cli) are the
+single-chain slices of the same architecture, built on the same libraries in
+[`packages/`](../../packages).
 
 ## Install
 
@@ -44,10 +33,8 @@ gsnz -b ww cart add 282768 2
 gsnz -b ww orders list
 ```
 
-`gsnz doctor` prints what is set up and then checks it: one call per shop, so
-it reports whether the thing works rather than only whether it is configured.
-It exits non-zero when a shop cannot be reached. Being signed out is not a
-fault -- most of this tool works signed out.
+`gsnz doctor` prints what is set up and then checks it, one call per shop. It
+exits non-zero when a shop cannot be reached; being signed out is not a fault.
 
 ## Commands
 
@@ -78,25 +65,20 @@ else.
 
 ## Reading a comparison
 
-New World and PAK'nSAVE share one Foodstuffs catalogue, so their rows are joined
-on the product code and are exact. Woolworths has its own codes, so it is
-attached by brand, name and canonicalised size instead — `2L`, `2 litre` and
-`2000ml` all fold to the same thing.
+New World and PAK'nSAVE share one Foodstuffs catalogue, so their rows join on
+the product code exactly. Woolworths has its own codes, so it is matched by
+brand, name and canonicalised size — `2L`, `2 litre` and `2000ml` fold
+together.
 
-**Those rows are marked with `~`, and the marker matters.** A table that
-silently equates two different two-litre milks is a wrong-price bug, which is
-the worst kind this tool can have. `--strict` drops them; `--json` carries
+Those rows are marked with `~`. `--strict` drops them; `--json` carries
 `"match": "normalised"` on each.
 
-`gsnz --version` prints the whole provenance -- commit, source, toolchain, how
-this file got installed -- and the version of each of the seven libraries it
-was built against. They release on their own tags, so "gsnz 0.1.0" alone does
-not say which `fsnz-api` is compiled in, and that is the part that breaks when
+`gsnz --version` prints the whole provenance — commit, source, toolchain, how
+the file got installed — and the version of each library it was built against.
+Those release on their own tags, and `fsnz-api`/`wwnz-api` are what break when
 a supermarket changes its API. `gsnz -V` stays one line.
 
 ## Exit codes
-
-A wrapper should not have to read stderr to know what happened.
 
 | | |
 |---|---|
@@ -109,26 +91,24 @@ A wrapper should not have to read stderr to know what happened.
 
 ## Sessions
 
-Three shops, two logins. One Club Plus account covers both Foodstuffs banners;
+Three shops, two logins: one Club Plus account covers both Foodstuffs banners,
 Woolworths is separate.
 
 ```bash
-gsnz auth login        # both accounts, two prompts -- the whole setup
+gsnz auth login        # both accounts, two prompts
 ```
 
-Every `auth` command works in those units rather than per shop, and names what
-it covered: signing in as `-b nw` signs in PAK'nSAVE, and signing out of either
-signs out of both. That is why there is no `-b fs`; with no `-b` at all, `auth
-login` already asks once per account.
+Every `auth` command works in those units rather than per shop. Signing in as
+`-b nw` signs in PAK'nSAVE too, and signing out of either signs out of both.
 
 - **Foodstuffs** renews itself from a rotating refresh token, so a login lasts
-  well past its half-hour access token. `auth import` seeds one from a browser's
-  `cookies.txt` — bring `refresh_token` as well as `fs-user-token`, or the
-  imported session lapses within the hour with no way to renew.
-- **Woolworths** cannot be renewed at all: the session cookie is encrypted and
-  only the site can mint one. `auth refresh` therefore walks the whole login
-  flow again, which needs the password — kept at login unless
-  `--no-store-password`, or supplied by `password_command`.
+  well past its half-hour access token. `auth import` seeds one from a
+  browser's `cookies.txt` — bring `refresh_token` as well as `fs-user-token`,
+  or the imported session lapses within the hour with no way to renew.
+- **Woolworths** cannot be renewed: the session cookie is encrypted and only
+  the site can mint one. `auth refresh` walks the whole login flow again, which
+  needs the password — kept at login unless `--no-store-password`, or supplied
+  by `password_command`.
 
 Credentials go to the platform credential store, or to a 0600 file where there
 is none. `gsnz` has its own namespace and does not read `fsnz` or `wwnz`'s.
@@ -160,9 +140,7 @@ store_id = "..."
 ```
 
 Precedence is flag, then environment, then this file, then the default. An
-unknown key is an error rather than a setting that silently does nothing.
-
-Nothing here has to be edited by hand:
+unknown key is an error.
 
 ```bash
 gsnz use ww                              # the default shop
@@ -171,23 +149,21 @@ gsnz config set compare.retailers nw,ww
 gsnz config unset auth.password_command
 ```
 
-A value is parsed before it is written, so a typo is refused at the point of
-making it rather than by the next command that reads it, and only settings that
-differ from their default are kept in the file. `store set` stays its own
-command because it is not a plain write: it resolves a name against the live
-store list, and on Woolworths it binds the cart server-side.
+A value is parsed before it is written, and only settings that differ from
+their default are kept in the file. `store set` is its own command because it
+resolves a name against the live store list, and on Woolworths binds the cart
+server-side.
 
 ### Environment
 
-`GSNZ_CONFIG_DIR`, `GSNZ_STATE_DIR`, `GSNZ_RETAILER`, `GSNZ_SECRET_BACKEND`, `GSNZ_UPDATE_API`, `GSNZ_DEBUG_AUTH`,
+`GSNZ_CONFIG_DIR`, `GSNZ_STATE_DIR`, `GSNZ_RETAILER`, `GSNZ_SECRET_BACKEND`,
+`GSNZ_UPDATE_API`, `GSNZ_DEBUG_AUTH`,
 `GSNZ_{NEWWORLD,PAKNSAVE}_{ORIGIN,API,STORE_ID,TOKEN}`,
 `GSNZ_WOOLWORTHS_{ORIGIN,AUTH_ORIGIN,STORE_ID}`, `GSNZ_CLUBPLUS_{ORIGIN,API}`,
 plus `NO_COLOR`, `GITHUB_TOKEN` and `GH_TOKEN`.
 
-The origin overrides are escape hatches, mainly so the test suite can point the
-binary at a mock server. `src/env.rs` is the only place in the whole tree that
-reads any of them: the libraries take values, and a `clippy.toml` in each
-enforces it.
+The origin overrides mainly exist so the test suite can point the binary at a
+mock server. `src/env.rs` is the only place in the tree that reads any of them.
 
 ## Development
 
@@ -196,7 +172,6 @@ dispat run check --since all              # what CI runs
 dispat run test  --since all -p grocery-nz-cli
 ```
 
-No test touches the network. The two login chains are the exception that cannot
-be covered that way: `auth login` against real Club Plus and real Auth0 was
-verified by hand at v0.1.0, and the tests here do not stand in for repeating
-that whenever either flow changes.
+No test touches the network. The two login chains are the exception: `auth
+login` against real Club Plus and real Auth0 was verified by hand at v0.1.0,
+and the tests here do not stand in for repeating that when either flow changes.

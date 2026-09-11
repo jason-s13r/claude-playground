@@ -1,7 +1,7 @@
 # the-warehouse-nz-cli
 
-Search and shop [The Warehouse](https://www.thewarehouse.co.nz) New Zealand from
-the terminal. Ships the binary `twlnz`.
+`twlnz` — search and shop [The Warehouse](https://www.thewarehouse.co.nz) New
+Zealand from the terminal.
 
 > **Not affiliated with The Warehouse.** There is no public API. This calls the
 > same undocumented endpoints their website calls from the browser, and can
@@ -9,7 +9,7 @@ the terminal. Ships the binary `twlnz`.
 
 ## How it is built
 
-`twlnz` is a thin front end. The part worth reading is in `packages/`:
+`twlnz` is a thin front end over the crates in `packages/`:
 
 | Crate | What it holds |
 | --- | --- |
@@ -18,23 +18,14 @@ the terminal. Ships the binary `twlnz`.
 | [`net-kit`](../../packages/net-kit) | the browser-fingerprinted HTTP client, cookies and the credential store |
 | [`build-kit`](../../packages/build-kit) | the build stamp and `twlnz update` |
 
-What is left in `src/` is the part that is genuinely this program: reading the
-environment once, resolving flags against config, rendering, and turning a
-failure into an exit code.
+What is left in `src/` is reading the environment once, resolving flags against
+config, rendering, and turning a failure into an exit code.
 
-### Standalone from the grocery tools
-
-Unlike [`wwnz`](../woolworths-nz-cli) and [`fsnz`](../foodstuffs-nz-cli), this
-does **not** build on `gsnz-core` and `gsnz-ui`, and there is no Warehouse
-adapter in [`gsnz`](../grocery-nz-cli). The Warehouse is general merchandise
-that happens to sell food, so the grocery domain is the wrong vocabulary:
-`gsnz_core::Product` has a `SaleUnit` and nowhere to put a colour or size axis,
-and this catalogue is full of variation masters.
-
-`cli-kit` is domain-free by construction — *"a table is a table whether it holds
-groceries or anything else"* — so the shared half comes along and the groceries
-do not. The cost is the handful of `View` impls in [`src/views/`](src/views),
-which is cheap and buys types that fit the retailer.
+It does **not** build on `gsnz-core` and `gsnz-ui`, and there is no Warehouse
+adapter in [`gsnz`](../grocery-nz-cli): `gsnz_core::Product` has a `SaleUnit`
+and nowhere to put a colour or size axis, and this catalogue is full of
+variation masters. `cli-kit` carries no domain, so the shared half comes along
+anyway; the cost is the `View` impls in [`src/views/`](src/views).
 
 ## Install
 
@@ -45,7 +36,7 @@ cargo install --path .             # or install the `twlnz` binary
 
 Or take a published build from
 [releases](https://github.com/jason-s13r/shopping-cli-tools/releases), tagged
-`the-warehouse-nz-cli/vX.Y.Z`. Once you have a binary it can replace itself:
+`the-warehouse-nz-cli/vX.Y.Z`. Once installed the binary replaces itself:
 
 ```bash
 twlnz update --check     # is there a newer one, and what changed in it?
@@ -66,7 +57,7 @@ twlnz product RM110166766-10M --select size=XL
 twlnz stock R3035996 --region canterbury
 
 twlnz stores whangarei                  # searched nationwide
-twlnz stores --region canterbury         # or one region, listed in full
+twlnz stores --region canterbury        # or one region, listed in full
 twlnz store set 116                     # found anywhere, no region needed
 
 twlnz island set south                  # north/south: what a listing contains
@@ -83,14 +74,11 @@ twlnz wishlist set R3059518 2           # how many are wanted; 0 stops saving it
 twlnz wishlist move-to-cart R3059518
 ```
 
-Every command takes `--json`, and it is the same data the table is built from
-rather than a second rendering.
+Every command takes `--json`, built from the same data as the table.
 
 ### `island` and `region` are different things
 
-The site calls both of them "region". This does not, because they answer
-different questions and conflating them means silently moving one while setting
-the other. Both are `show` / `list` / `set` / `clear`.
+The site calls both "region". Both are `show` / `list` / `set` / `clear`.
 
 | | `twlnz island` | `twlnz region` |
 | --- | --- | --- |
@@ -100,103 +88,80 @@ the other. Both are `show` / `list` / `set` / `clear`.
 | Override for one run | `--island` | `--region` |
 
 The island is not cosmetic: The Warehouse ranges differently north and south, so
-a product genuinely absent from one island's results is on the shelf on the
-other.
+a product absent from one island's results can be on the shelf on the other.
 
 ### Finding a store
 
 `twlnz stores <name>` searches **nationwide**. The finder is per region and
 there is no call that lists them all, so the whole directory — about 84 shops —
-is fetched once, all sixteen regions at a time, and cached for a week. After the
-first run it is instant and works offline; `--refresh` re-fetches it, and
-`twlnz doctor` says how old it is.
+is fetched once, all sixteen regions at a time, and cached for a week. After
+that it is instant and works offline; `--refresh` re-fetches it, and `twlnz
+doctor` says how old it is. The sixteen lookups go out four at a time, which is
+roughly what a browser opens to one host.
 
-The sixteen lookups go out four at a time rather than all at once — the requests
-do not depend on each other, but a sixteen-wide burst is the shape that gets a
-client throttled regardless of how little it asks for overall. Four is roughly
-what a browser opens to one host, and this runs about once a week.
-
-With no name to search for it lists one region instead, because two hundred rows
-is not a listing anyone reads.
+With no name to search for it lists one region instead.
 
 `store set` uses the same directory, so an id copied out of any listing works
 without also saying which region it came from.
 
-### Staying signed in with nobody watching
+### Unattended sign-in
 
-`twlnz auth refresh` is `auth login` without the typing — for a cron job or a
-wrapper script:
+`twlnz auth refresh` is `auth login` without the typing:
 
 ```bash
 twlnz auth refresh          # exit 0 if the session is good, 3 if it needs you
 ```
 
-There is only one credential here and nothing to renew it from: the storefront
-authorises by cookie and the cookies come from a form POST, so a session that
-has to be replaced is replaced by running the form again. The work is in not
-running it. The shopper token is a readable JWT, so an expired one is spotted
-for free; a token that still looks good costs a single request to the account
-page, because the storefront can drop a session at its end and the token would
-never know. That is not a hypothetical — it is what `auth status` reporting a
-healthy hour and every account command failing looks like from the inside.
+There is one credential and nothing to renew it from — the storefront
+authorises by cookie and the cookies come from a form POST — so a session that
+has to be replaced is replaced by running the form again. The shopper token is
+a readable JWT, so an expired one is spotted for free; a token that still looks
+good costs a single request to the account page, because the storefront can
+drop a session at its end without the token knowing.
 
-The password it signs in with is the one already on hand: `auth.password_command`
-where you set one, otherwise the copy `auth login` kept. With neither, it exits 3
-rather than pretending otherwise — which is the distinction a script needs, and
-the reason it is an exit code and not a line of output.
+The password it signs in with is `auth.password_command` where you set one,
+otherwise the copy `auth login` kept. With neither, it exits 3.
 
 ```bash
 twlnz config set auth.password_command 'op read "op://Vault/Warehouse/password"'
 ```
 
-`--force` signs in again whatever state the session is in, for one that is
-misbehaving in a way the account page does not report.
+`--force` signs in again whatever state the session is in.
 
 ### A cart write costs one extra read
 
 The site answers a write with a partial basket — the lines, and no subtotal or
-count — so `cart add` and `cart remove` re-read the minicart before printing.
-That is one small GET, it is what the site's own page does after a write, and it
-is the difference between a table that matches `cart list` and one that quietly
-means something else.
+count — so `cart add` and `cart remove` re-read the minicart before printing,
+which is what the site's own page does.
 
 ### `wishlist` shows the list without being asked
 
-`twlnz wishlist` prints what is saved. There is no `wishlist list` to type,
-because reading is what a wishlist is mostly for — `list` is accepted anyway, so
-the habit is never punished.
-
-The rest are `add`, `remove`, `set` and `move-to-cart`, all by product id.
-Internally the site addresses a saved row by a `uuid` that a person never sees,
-so every one of these reads the list first to turn the id into the row.
+`twlnz wishlist` prints what is saved; `wishlist list` is accepted too. The rest
+are `add`, `remove`, `set` and `move-to-cart`, all by product id — the site
+addresses a saved row by a `uuid` a person never sees, so each of these reads
+the list first to turn the id into the row.
 
 `move-to-cart` is **two changes**: the product goes into the cart, then off the
-list, because that is what the site's own button is. They are done in that order
-on purpose — a failure in between leaves it in the cart and still saved, rather
-than in neither. It also defaults to the quantity saved against the row, since
-that is the number someone put there.
-
-A saved row carries its own add-to-cart token, so `move-to-cart` does not fetch
-the product page the way `cart add` has to.
+list. In that order, so a failure in between leaves it in the cart and still
+saved rather than in neither. It defaults to the quantity saved against the
+row.
 
 Saving is not buying: the quantity is a note to self, nothing is reserved, and
-the site quotes no total for it — so the table has one price column where `cart`
-has two.
+the site quotes no total — so the table has one price column where `cart` has
+two.
 
 ### The store is a local preference
 
 `store set` records the store here and pulls its region along, so `stock` and
-`stores` then default to where it actually is rather than to Auckland. It does
-not bind the store server-side: `Cart-SelectStore` needs a basket to bind a
-collection point to and answers an empty one with a 500. That belongs to
-checking out, which this tool does not do.
+`stores` default to where it actually is rather than to Auckland. It does not
+bind the store server-side: `Cart-SelectStore` needs a basket and answers an
+empty one with a 500. That belongs to checking out, which this tool does not
+do.
 
 ### Stock has two axes
 
-An item can be orderable online, orderable only by walking into a shop, both, or
-neither. `twlnz search` prints `in store` for the second, never `sold out` —
-collapsing that to a boolean would print exactly the wrong thing for a shelf
-full of stock.
+An item can be orderable online, orderable only by walking into a shop, both,
+or neither. `twlnz search` prints `in store` for the second, never `sold out`.
 
 ```
 $ twlnz product RM110166766-10M --select size=XL
@@ -221,9 +186,8 @@ Color (Blue Dark)
 
 ## Configuration
 
-`twlnz config list` shows every setting, what it is, and what it does.
-Precedence is **flag, then environment, then config file, then the default** —
-applied in one place so no command has to remember it.
+`twlnz config list` shows every setting and what it does. Precedence is flag,
+then environment, then config file, then the default.
 
 | Variable | What it moves |
 | --- | --- |
@@ -237,17 +201,16 @@ applied in one place so no command has to remember it.
 ### When every request 403s at once
 
 Cloudflare sits in front of this storefront and scores the TLS handshake, the
-HTTP/2 settings and the headers together. The profile the client presents as is
-therefore load-bearing, and **which one is accepted changes without notice**: as
-of 2026-09-11 every Safari profile is served and every Firefox, Chrome and Edge
-one — newest included — is answered with a 403 "Just a moment…" challenge on the
-home page itself. `Firefox151` was the default until then and worked a week
-earlier.
+HTTP/2 settings and the headers together, and **which emulation profile is
+accepted changes without notice**. As of 2026-09-11 every Safari profile is
+served and every Firefox, Chrome and Edge one — newest included — is answered
+with a 403 "Just a moment…" challenge on the home page itself. `Firefox151` was
+the default until then and worked a week earlier.
 
-A refused profile does not degrade, it stops everything, so the symptom is a
-`twlnz doctor` where the listing probe fails and nothing works signed in or out.
-`doctor` prints the profile it used next to the origin, and `TWLNZ_EMULATION`
-changes it without waiting for a release:
+A refused profile stops everything, so the symptom is a `twlnz doctor` where
+the listing probe fails and nothing works signed in or out. `doctor` prints the
+profile it used next to the origin, and `TWLNZ_EMULATION` changes it without
+waiting for a release:
 
 ```bash
 TWLNZ_EMULATION=safari18_5 twlnz doctor
@@ -257,8 +220,6 @@ Bumping to a newer version of the same browser is not the fix — the split is b
 family, not by version.
 
 ## Exit codes
-
-So a script can tell failures apart without reading the message.
 
 | Code | Means |
 | --- | --- |
