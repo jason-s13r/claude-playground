@@ -1,5 +1,28 @@
 # Changelog
 
+## the-warehouse-nz-cli/v0.2.0 (2026-09-11)
+
+### Features
+
+- add auth refresh and TWLNZ_EMULATION override
+  `auth refresh` re-signs-in unattended, for cron jobs and wrappers: it
+  spends nothing while the session token is good, one probe request when
+  the token is fine but the storefront may not be, and the login form with
+  the stored or configured password when either check fails -- exiting 3
+  when no credentials are on hand, so a script can tell "done" from "needs
+  a person".
+
+  `TWLNZ_EMULATION` picks the browser profile for a run without waiting
+  for a release, and `doctor` reports the profile in use, because a profile
+  Cloudflare has turned against 403s every request at once.
+
+### Dependencies
+
+- build-kit: 0.2.0 -> 0.3.0
+- net-kit: 0.1.0 -> 0.1.1
+- twlnz-api: 0.1.1 -> 0.2.0
+
+
 ## the-warehouse-nz-cli/v0.1.0 (2026-09-04)
 
 ### Features

@@ -1,5 +1,43 @@
 # Changelog
 
+## kmart-cli/v0.2.0 (2026-09-11)
+
+### Features
+
+- add auth refresh, for signing in with nobody watching
+  A session is two credentials that fail differently: an Auth0 token, and
+  Akamai's `_abck`, which lasts about a day. Renewing the token and
+  reporting success left the shorter half untouched -- the exact failure
+  the command exists to prevent. `_abck` carries no readable clock, a
+  stale one being byte-identical to a good one, so the only honest test is
+  to spend a gateway request; that probe is now the pivot. Cheapest first:
+  a token with time on it is left alone unless `--force`, since every use
+  of a refresh token rotates it and a cron tick should not.
+
+  Renewal runs under the Auth0 application that minted the session rather
+  than whichever country is selected now -- the two are separate
+  applications -- and the browser fallback signs in against that origin so
+  `auth_country` survives. Nothing to renew exits 3 rather than succeeding
+  quietly, and says which half is missing.
+
+  The default country is Australia, and `auth login` writes the country it
+  signed in as to the config, so an unattended renewal repeats the same
+  way. It is the one command where `--country` is not per-command.
+
+  `press` in the browser script now reports which of three failures it hit
+  -- nothing matched, matches all invisible, a visible element whose click
+  was refused -- where `except Exception: continue` had been discarding
+  Playwright's own explanation. A synthetic click is the last resort,
+  which is also the answer to an overlay, one having been seen over the
+  header on a run.
+
+### Dependencies
+
+- build-kit: 0.2.0 -> 0.3.0
+- net-kit: 0.1.0 -> 0.1.1
+- kmart-api: 0.1.0 -> 0.2.0
+
+
 ## kmart-cli/v0.1.0 (2026-09-05)
 
 ### Features

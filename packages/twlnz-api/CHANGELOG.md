@@ -1,5 +1,24 @@
 # Changelog
 
+## twlnz-api/v0.2.0 (2026-09-11)
+
+### Features
+
+- add session verify and a browser-profile escape hatch
+  `Client::verify` asks the account page once and reads where the request
+  landed -- a redirect to the sign-in page is the whole answer -- with the
+  landing URL now taken from net-kit's `landed_text` rather than a response
+  header the site does not send.
+
+  Cloudflare now refuses the whole Firefox family, so the default profile
+  is Safari26_4; `profile()` and `client_spec_for()` let callers pick
+  another without a release.
+
+### Dependencies
+
+- net-kit: 0.1.0 -> 0.1.1
+
+
 ## twlnz-api/v0.1.1 (2026-09-04)
 
 ### Fixes

@@ -1,5 +1,12 @@
 # Changelog
 
+## net-kit/v0.1.1 (2026-09-11)
+
+### Fixes
+
+- return the landed URL alongside response text
+
+
 ## net-kit/v0.1.0 (2026-09-03)
 
 ### Features

@@ -1,5 +1,13 @@
 # Changelog
 
+## grocery-nz-cli/v0.3.1 (2026-09-11)
+
+### Dependencies
+
+- build-kit: 0.2.0 -> 0.3.0
+- net-kit: 0.1.0 -> 0.1.1
+
+
 ## grocery-nz-cli/v0.3.0 (2026-09-04)
 
 ### Features

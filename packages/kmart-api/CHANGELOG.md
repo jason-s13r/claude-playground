@@ -1,5 +1,21 @@
 # Changelog
 
+## kmart-api/v0.2.0 (2026-09-11)
+
+### Features
+
+- tell a token not yet fetched from one that ran out
+  `Tokens::pending` is the state `from_refresh` starts in, and the one
+  every browser login and every pasted token passes through. `lapsed` is
+  true of it as well -- that is what makes the next call fetch an access
+  token -- but the two mean opposite things to a person, and reporting a
+  sign-in that worked a second ago as expired is wrong.
+
+### Dependencies
+
+- net-kit: 0.1.0 -> 0.1.1
+
+
 ## kmart-api/v0.1.0 (2026-09-05)
 
 ### Features

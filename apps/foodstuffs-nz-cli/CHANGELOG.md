@@ -1,5 +1,13 @@
 # Changelog
 
+## foodstuffs-nz-cli/v0.6.1 (2026-09-11)
+
+### Dependencies
+
+- build-kit: 0.2.0 -> 0.3.0
+- net-kit: 0.1.0 -> 0.1.1
+
+
 ## foodstuffs-nz-cli/v0.6.0 (2026-09-04)
 
 ### Features
