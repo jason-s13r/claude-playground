@@ -15,17 +15,15 @@ permissions:
   contents: read
 
 jobs:
-  # dispat discovers the projects itself, so there is no list to keep and no
-  # matrix to build. `--since all` widens the selection past the release
-  # window to every package, because CI checks the whole repo rather than only
-  # what a release would touch. A package that defines no `check` script is
-  # skipped, and one failing does not stop the others.
   check:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v5
         with:
           fetch-depth: 0 # dispat plans from tags and commit history
+          # The real head, not the PR merge commit: dispat reads the scopes off
+          # these commits, and a merge commit has none.
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
 
       - uses: dtolnay/rust-toolchain@1.98.0
 
@@ -40,5 +38,39 @@ jobs:
             printf '%-8s %s\n' "$c" "$(command -v "$c" >/dev/null 2>&1 && "$c" --version 2>&1 | head -1 || echo 'not installed')"
           done
 
+      # What `--since` compares against. A push or PR checks only what its own
+      # commits address; a manual run checks everything.
+      - name: Pick the revision to check since
+        id: since
+        env:
+          BASE_REF: ${{ github.base_ref }}
+          BEFORE: ${{ github.event.before }}
+        run: |
+          set -euo pipefail
+          case "${{ github.event_name }}" in
+            pull_request)
+              git fetch --no-tags origin "$BASE_REF"
+              since=$(git merge-base FETCH_HEAD HEAD)
+              ;;
+            push)
+              # A force-push leaves `before` unreachable; the previous commit
+              # is the honest fallback.
+              if git cat-file -e "${BEFORE}^{commit}" 2>/dev/null; then
+                since="$BEFORE"
+              else
+                since="HEAD~1"
+              fi
+              ;;
+            *)
+              since=all
+              ;;
+          esac
+          echo "rev=$since" >>"$GITHUB_OUTPUT"
+          echo "checking since $since" >>"$GITHUB_STEP_SUMMARY"
+
+      # `--consumers` widens the selection to every project that depends on a
+      # selected one, so a change to net-kit still rebuilds the CLIs that carry
+      # it. A project that defines no `check` script is skipped, and one
+      # failing does not stop the others.
       - name: dispat run check
-        run: dispat run check --since all
+        run: dispat run check --since "${{ steps.since.outputs.rev }}" --consumers
