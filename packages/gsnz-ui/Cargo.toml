@@ -7,7 +7,7 @@ license = "MIT"
 publish = false
 
 [dependencies]
-cli-kit = { path = "../cli-kit", version = "^0.2.0" }
+cli-kit = { path = "../cli-kit", version = "^0.3.0" }
 gsnz-core = { path = "../gsnz-core", version = "^0.2.0" }
 serde = { version = "1", features = ["derive"] }
 
