@@ -28,3 +28,4 @@ dependencies:
   the-warehouse-nz-cli: [cli-kit, net-kit, twlnz-api, build-kit]
   kmart-cli: [cli-kit, net-kit, kmart-api, build-kit]
   bgnz-api: [net-kit]
+  briscoe-group-nz-cli: [cli-kit, net-kit, bgnz-api, build-kit]
