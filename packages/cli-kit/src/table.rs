@@ -4,14 +4,42 @@ use comfy_table::{presets, ContentArrangement, Table};
 
 /// The house table: light rules, and columns that size to the terminal rather
 /// than to the widest cell.
+///
+/// Headers that are all blank are treated as no headers at all. A label-and-value
+/// table is written `table(&["", ""])` -- it is two columns, and saying so is
+/// clearer than an empty slice -- but setting blank headers draws a header band
+/// with nothing in it, which reads as a rendering fault rather than as a choice.
 pub fn table(headers: &[&str]) -> Table {
     let mut t = Table::new();
     t.load_preset(presets::UTF8_FULL_CONDENSED)
         .set_content_arrangement(ContentArrangement::Dynamic);
-    if !headers.is_empty() {
+    if headers.iter().any(|h| !h.trim().is_empty()) {
         t.set_header(headers.iter().map(|h| h.to_string()));
     }
     t
+}
+
+#[cfg(test)]
+mod header_tests {
+    use super::*;
+
+    #[test]
+    fn blank_headers_draw_no_header_band() {
+        // `table(&["", ""])` is how a label-and-value table is written, and a
+        // band with nothing in it reads as a rendering fault.
+        let mut headless = table(&["", ""]);
+        headless.add_row(vec!["SKU", "1103832"]);
+        let text = headless.to_string();
+        assert_eq!(
+            text.lines().count(),
+            3,
+            "top rule, row, bottom rule:\n{text}"
+        );
+
+        let mut headed = table(&["Label", ""]);
+        headed.add_row(vec!["SKU", "1103832"]);
+        assert!(headed.to_string().contains("Label"));
+    }
 }
 
 /// `""` or `"s"`. Saves every caller an inline `if`.

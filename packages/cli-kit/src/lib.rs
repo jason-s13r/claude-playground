@@ -20,11 +20,13 @@
 pub const VERSION: &str = env!("CARGO_PKG_VERSION");
 
 pub mod completions;
+pub mod detail;
 pub mod doctor;
 pub mod io;
 pub mod out;
 pub mod table;
 
+pub use detail::{field, indented, section, verdict, LABEL};
 pub use doctor::{Check, Report, Status};
 pub use io::{confirm, human_duration, prompt, prompt_or_stdin, prompt_password};
 pub use out::{emit, Format, Out, View};
