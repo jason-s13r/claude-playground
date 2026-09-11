@@ -1,15 +1,9 @@
 tagFormat: "{name}/v{version}"
-
 github:
   allPackages: true
-
 commit:
   enabled: true
   push: true
-
-# Two kinds of package, both discovered by directory. `apps` ship; `packages`
-# are libraries the apps use. Both version the same way, so releasing a library
-# rewrites the range in every app that depends on it.
 spaces:
   apps:
     path: apps
@@ -21,14 +15,6 @@ spaces:
     autoVersion:
       enabled: true
       range: caret
-
-# The first cross-project dependencies in the repo. Each consumer also declares
-# a path dependency carrying a version in its own Cargo.toml; this block is what
-# orders the builds and propagates a library's bump onward.
-#
-# The library-to-library edges are the ones that are easy to forget and
-# expensive to omit: without them, releasing net-kit rewrites only the app's
-# range and leaves the api crates pinned to a version that no longer exists.
 dependencies:
   build-kit: [net-kit]
   gsnz-ui: [gsnz-core, cli-kit]
@@ -39,8 +25,6 @@ dependencies:
   foodstuffs-nz-cli: [gsnz-core, gsnz-ui, cli-kit, net-kit, fsnz-api, build-kit]
   woolworths-nz-cli: [gsnz-core, gsnz-ui, cli-kit, net-kit, wwnz-api, build-kit]
   grocery-nz-cli: [gsnz-core, gsnz-ui, cli-kit, net-kit, fsnz-api, wwnz-api, build-kit]
-  # The Warehouse is general merchandise, not groceries, so it shares the
-  # domain-free halves and none of `gsnz-*`. See apps/the-warehouse-nz-cli.
   the-warehouse-nz-cli: [cli-kit, net-kit, twlnz-api, build-kit]
-  # Kmart is the same shape, and covers two countries off one backend.
   kmart-cli: [cli-kit, net-kit, kmart-api, build-kit]
+  bgnz-api: [net-kit]
