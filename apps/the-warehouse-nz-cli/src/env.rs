@@ -29,6 +29,13 @@ pub struct Overrides {
     /// integration suite can point the binary at a mock server, and so a broken
     /// default can be worked around without a release.
     pub origin: Option<String>,
+    /// The browser the client presents as, by `wreq-util` profile name.
+    ///
+    /// The escape hatch for the one setting on this storefront that stops
+    /// working on its own: Cloudflare scores the fingerprint, which profile it
+    /// accepts has changed once already, and a refused one 403s every request
+    /// rather than degrading. Without this, that costs a release.
+    pub emulation: Option<String>,
 }
 
 impl Overrides {
@@ -58,6 +65,7 @@ impl Overrides {
             no_color: std::env::var_os("NO_COLOR").is_some(),
             shell: var("SHELL"),
             origin: var("TWLNZ_ORIGIN"),
+            emulation: var("TWLNZ_EMULATION"),
         }
     }
 }

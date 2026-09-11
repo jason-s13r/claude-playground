@@ -285,6 +285,26 @@ pub enum AuthAction {
         #[arg(long)]
         no_store_password: bool,
     },
+    /// Sign in again with nobody watching, for a cron job or a wrapper.
+    ///
+    /// Signs in as the email the session was obtained with, using the password
+    /// already on hand: `auth.password_command` where one is set, otherwise the
+    /// copy `auth login` kept. With neither, it exits 3 rather than reporting a
+    /// success nobody is reading.
+    ///
+    /// A session that still works is left alone. The shopper token carries its
+    /// own expiry, so a lapsed one costs no request to spot, and one that looks
+    /// good is put to the storefront once -- a session can be dropped at the
+    /// other end without its token knowing.
+    Refresh {
+        /// Sign in again whatever state the session is in.
+        ///
+        /// The default stops as soon as the session is proven good, which is
+        /// what a scheduled run wants. This is for one that is misbehaving in
+        /// some way the account page does not report.
+        #[arg(long)]
+        force: bool,
+    },
     /// Who is signed in, and until when.
     Status,
     /// Forget the session and any stored password.

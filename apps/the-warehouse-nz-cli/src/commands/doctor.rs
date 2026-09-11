@@ -75,6 +75,7 @@ async fn examine(app: &App) -> Shop {
         Err(e) => {
             return Shop {
                 origin: app.endpoints().origin,
+                emulation: format!("{:?}", app.emulation),
                 island: app.island.map(|i| i.to_string()),
                 region,
                 store,
@@ -120,6 +121,7 @@ async fn examine(app: &App) -> Shop {
 
     Shop {
         origin: app.endpoints().origin,
+        emulation: format!("{:?}", app.emulation),
         island: app.island.map(|i| i.to_string()),
         region,
         store,
@@ -145,6 +147,12 @@ struct Doctor {
 #[derive(Serialize)]
 struct Shop {
     origin: String,
+    /// The browser every request presents as. Reported because it is the one
+    /// setting here that stops working on its own: Cloudflare scores the
+    /// fingerprint, and a profile it has turned against 403s every line below
+    /// this one at once. Knowing which one was tried is the first question a
+    /// bug report about that has to answer.
+    emulation: String,
     /// What a listing contains.
     island: Option<String>,
     /// Which shops get asked. A different thing from the island, and named
@@ -185,6 +193,7 @@ impl View for Doctor {
         writeln!(out)?;
         writeln!(out, "{}", out.heading("The Warehouse"))?;
         indented(out, "origin", &self.shop.origin)?;
+        indented(out, "presents as", &self.shop.emulation)?;
         indented(
             out,
             "island",

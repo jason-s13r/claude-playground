@@ -73,6 +73,7 @@ twlnz island set south                  # north/south: what a listing contains
 twlnz region set canterbury             # NZ-CAN: which shops get asked
 
 twlnz auth login
+twlnz auth refresh                      # sign in again, unattended
 twlnz cart add R3059518 2
 twlnz cart list
 
@@ -120,6 +121,36 @@ is not a listing anyone reads.
 
 `store set` uses the same directory, so an id copied out of any listing works
 without also saying which region it came from.
+
+### Staying signed in with nobody watching
+
+`twlnz auth refresh` is `auth login` without the typing — for a cron job or a
+wrapper script:
+
+```bash
+twlnz auth refresh          # exit 0 if the session is good, 3 if it needs you
+```
+
+There is only one credential here and nothing to renew it from: the storefront
+authorises by cookie and the cookies come from a form POST, so a session that
+has to be replaced is replaced by running the form again. The work is in not
+running it. The shopper token is a readable JWT, so an expired one is spotted
+for free; a token that still looks good costs a single request to the account
+page, because the storefront can drop a session at its end and the token would
+never know. That is not a hypothetical — it is what `auth status` reporting a
+healthy hour and every account command failing looks like from the inside.
+
+The password it signs in with is the one already on hand: `auth.password_command`
+where you set one, otherwise the copy `auth login` kept. With neither, it exits 3
+rather than pretending otherwise — which is the distinction a script needs, and
+the reason it is an exit code and not a line of output.
+
+```bash
+twlnz config set auth.password_command 'op read "op://Vault/Warehouse/password"'
+```
+
+`--force` signs in again whatever state the session is in, for one that is
+misbehaving in a way the account page does not report.
 
 ### A cart write costs one extra read
 
@@ -199,8 +230,31 @@ applied in one place so no command has to remember it.
 | `TWLNZ_CONFIG_DIR` / `TWLNZ_STATE_DIR` | where config and state live |
 | `TWLNZ_SECRET_BACKEND` | `keyring` or `file` |
 | `TWLNZ_ORIGIN` | the storefront, for pointing at a mock server |
+| `TWLNZ_EMULATION` | the browser to present as, by `wreq-util` name |
 | `TWLNZ_DEBUG` | narrate requests on stderr — cookie names only, no query strings |
 | `NO_COLOR` | honoured whatever the config says |
+
+### When every request 403s at once
+
+Cloudflare sits in front of this storefront and scores the TLS handshake, the
+HTTP/2 settings and the headers together. The profile the client presents as is
+therefore load-bearing, and **which one is accepted changes without notice**: as
+of 2026-09-11 every Safari profile is served and every Firefox, Chrome and Edge
+one — newest included — is answered with a 403 "Just a moment…" challenge on the
+home page itself. `Firefox151` was the default until then and worked a week
+earlier.
+
+A refused profile does not degrade, it stops everything, so the symptom is a
+`twlnz doctor` where the listing probe fails and nothing works signed in or out.
+`doctor` prints the profile it used next to the origin, and `TWLNZ_EMULATION`
+changes it without waiting for a release:
+
+```bash
+TWLNZ_EMULATION=safari18_5 twlnz doctor
+```
+
+Bumping to a newer version of the same browser is not the fix — the split is by
+family, not by version.
 
 ## Exit codes
 

@@ -7,6 +7,7 @@
 use std::path::PathBuf;
 
 use cli_kit::{Format, Out};
+use net_kit::wreq_util::Profile;
 use net_kit::{Backend, Paths, Secrets};
 use twlnz_api::{Client, Endpoints, Island, StoredSession};
 
@@ -30,6 +31,10 @@ pub struct App {
     /// The island this run uses: the flag if one was given, otherwise the
     /// config. Resolved here so no command re-derives it.
     pub island: Option<Island>,
+    /// The browser every request presents as. Named here rather than looked up
+    /// per client so an unusable `TWLNZ_EMULATION` is refused once, before any
+    /// command has done anything.
+    pub emulation: Profile,
 }
 
 impl App {
@@ -62,6 +67,16 @@ impl App {
             None => config.island,
         };
 
+        let emulation = match &env.emulation {
+            Some(name) => twlnz_api::profile(name).ok_or_else(|| {
+                AppError::usage(format!(
+                    "{name:?} is not a browser profile; TWLNZ_EMULATION takes a wreq-util \
+                     name such as `safari26_4` or `firefox151`"
+                ))
+            })?,
+            None => twlnz_api::EMULATION,
+        };
+
         Ok(App {
             config,
             config_file,
@@ -70,6 +85,7 @@ impl App {
             format,
             color,
             island,
+            emulation,
         })
     }
 
@@ -80,6 +96,16 @@ impl App {
             backend(self.env.secret_backend.as_deref()),
             &self.paths.state_dir,
         )
+    }
+
+    /// The HTTP client, presenting as this run's browser profile.
+    ///
+    /// Every request in the program goes through one of these, so the profile
+    /// is applied here rather than at each call site -- there is no useful
+    /// state in which one command is a Safari and the next is not.
+    pub fn http(&self) -> AppResult<net_kit::wreq::Client> {
+        net_kit::http::build(twlnz_api::client_spec_for(self.emulation))
+            .map_err(|e| AppError::usage(format!("building the HTTP client: {e}")))
     }
 
     pub fn out(&self) -> Out {
@@ -100,8 +126,7 @@ impl App {
     /// map, no command needs two, and a lazy cell here would only exist to hide
     /// a cost that is not there.
     pub fn client(&self) -> AppResult<Client> {
-        let http = net_kit::http::build(twlnz_api::client_spec())
-            .map_err(|e| AppError::usage(format!("building the HTTP client: {e}")))?;
+        let http = self.http()?;
         let secrets = self.secrets();
         let stored = StoredSession::load(&secrets)?;
         let session = stored

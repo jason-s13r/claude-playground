@@ -7,6 +7,7 @@
 //! responsible for: flags, config, and the exit code a script sees.
 
 use assert_cmd::Command;
+use predicates::prelude::*;
 use predicates::str::contains;
 
 /// A run with its own config and state, and no colour.
@@ -310,4 +311,56 @@ fn doctor_reports_a_failure_rather_than_pretending_to_be_healthy() {
         .assert()
         .code(1)
         .stdout(contains("not healthy"));
+}
+
+#[test]
+fn a_refresh_with_nothing_on_file_asks_for_a_person_rather_than_reporting_success() {
+    // The whole point of the command is to be run by a cron job, so the one
+    // thing it must never do is exit 0 having done nothing. 3 is the code that
+    // says a person is needed.
+    let home = home();
+    twlnz(&home)
+        .args(["auth", "refresh"])
+        .assert()
+        .code(3)
+        .stderr(contains("not signed in"));
+}
+
+#[test]
+fn refresh_names_what_it_would_need_rather_than_just_refusing() {
+    // Two different holes -- no account and no password -- and the advice for
+    // them differs, so the message says which one it hit.
+    let home = home();
+    twlnz(&home)
+        .args(["auth", "refresh", "--help"])
+        .assert()
+        .success()
+        .stdout(contains("password_command"))
+        .stdout(contains("--force"));
+}
+
+#[test]
+fn an_unusable_browser_profile_is_refused_before_anything_is_asked() {
+    // A typo silently falling back to the default would be the worst answer
+    // available: the default is exactly what the override exists to escape.
+    let home = home();
+    twlnz(&home)
+        .env("TWLNZ_EMULATION", "safari26_99")
+        .args(["auth", "status"])
+        .assert()
+        .code(2)
+        .stderr(contains("not a browser profile"));
+}
+
+#[test]
+fn doctor_says_which_browser_the_run_presented_as() {
+    // The first question to ask of a report where every line failed at once,
+    // because that is what a profile the site has turned against looks like.
+    let home = home();
+    twlnz(&home)
+        .env("TWLNZ_EMULATION", "firefox151")
+        .arg("doctor")
+        .assert()
+        .code(1)
+        .stdout(contains("presents as").and(contains("Firefox151")));
 }
